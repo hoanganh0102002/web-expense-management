@@ -1,0 +1,146 @@
+Quản lý Chi tiêu Cá nhân
+Trang 1
+WEB APP
+Quản lý Chi tiêu Cá nhân
+Quản lý Chi tiêu Cá nhân
+Trang 2
+PHẦN 1 — CÁC LỰA CHỌN CÔNG NGHỆ
+Công nghệ có thể lựa chọn cho việc triển khai mô hình microservice như sau:
+1.1 Frontend
+Công nghệ Độ khó
+React + Vite Trung bình
+Next.js Trung bình
+Vue 3 + Vite Dễ
+1.2 Backend
+Công nghệ Độ khó
+Node.js + Express Dễ
+NestJS Khó
+Python FastAPI Trung bình
+1.3 Database
+Công nghệ Độ khó
+PostgreSQL Trung bình
+MySQL / MariaDB Dễ
+MongoDB Dễ
+1.4 Triển khai (Deployment)
+Công nghệ Độ khó
+VPS (DigitalOcean) Khó
+Firebase (Google) Dễ
+Quản lý Chi tiêu Cá nhân
+PHẦN 2 — DANH SÁCH CHỨC NĂNG CHI TIẾT
+Ứng dụng gồm 10 module chức năng với tổng cộng hơn 70 tính năng con.
+Module 1 — Xác thực & Quản lý tài khoản
+• Đăng ký bằng email + mật khẩu, có gửi email xác minh
+• Đăng nhập OAuth (Google, GitHub)
+• Đăng xuất, thu hồi phiên đăng nhập trên tất cả thiết bị
+• Quên mật khẩu — gửi link reset qua email
+• Đổi mật khẩu khi đã đăng nhập
+• Cập nhật thông tin cá nhân: tên, avatar, đơn vị tiền tệ mặc định, múi giờ
+• Xóa tài khoản và toàn bộ dữ liệu liên quan
+Module 2 — Quản lý Giao dịch
+• Thêm giao dịch thủ công: tiêu đề, số tiền, danh mục, ngày, ghi chú, đính kèm ảnh hóa đơn
+• Phân loại theo loại: thu nhập / chi tiêu / chuyển khoản nội bộ
+• Chỉnh sửa và xóa giao dịch (xác nhận trước khi xóa)
+• Tìm kiếm theo từ khóa (tiêu đề, ghi chú)
+• Lọc theo: khoảng thời gian, danh mục, loại, khoảng số tiền
+• Sắp xếp theo: ngày, số tiền, danh mục
+• Phân trang hoặc infinite scroll danh sách
+• Giao dịch định kỳ (recurring): hàng ngày / tuần / tháng — tự động tạo theo lịch
+Module 3 — Quản lý Danh mục
+• Danh mục mặc định: Ăn uống, Di chuyển, Mua sắm, Giải trí, Y tế, Giáo dục, Tiền thuê…
+• Tạo danh mục tùy chỉnh với tên, màu sắc, icon
+• Chỉnh sửa và xóa danh mục tùy chỉnh
+• Danh mục con (sub-category): ví dụ Ăn uống > Cà phê
+• Gộp / tách danh mục khi cần tái tổ chức
+Module 4 — Quản lý Ví & Tài khoản Tiền
+• Tạo nhiều ví: tiền mặt, ngân hàng, ví điện tử (MoMo, VnPay…)
+• Đặt số dư ban đầu cho từng ví
+• Chuyển tiền giữa các ví (transfer), tự động tạo 2 giao dịch đối ứng
+• Xem số dư hiện tại từng ví
+• Lịch sử giao dịch theo từng ví riêng biệt
+• Ẩn / hiện ví trên dashboard
+Trang 3
+Quản lý Chi tiêu Cá nhân
+Module 5 — Ngân sách (Budget)
+• Đặt ngân sách theo danh mục cho từng tháng
+• Ngân sách tổng (overall budget) cho toàn bộ chi tiêu trong tháng
+• Thanh progress bar trực quan: đã dùng bao nhiêu % ngân sách
+• Cảnh báo khi đạt 80% ngân sách (push notification + email)
+• Cảnh báo khi vượt 100% ngân sách
+• Sao chép ngân sách tháng trước sang tháng mới
+• Lịch sử ngân sách các tháng trước
+Module 6 — Dashboard & Thống kê
+• Tổng quan tháng hiện tại: tổng thu, tổng chi, số dư ròng
+• Biểu đồ cột: so sánh thu nhập vs chi tiêu theo tháng (6 tháng gần nhất)
+• Biểu đồ tròn / donut: phân bổ chi tiêu theo danh mục
+• Biểu đồ đường: xu hướng chi tiêu theo ngày trong tháng
+• Top 5 danh mục chi tiêu nhiều nhất tháng
+• So sánh tháng này vs tháng trước (tăng / giảm bao nhiêu %)
+• Bộ lọc thời gian: tuần này, tháng này, quý này, năm này, tùy chỉnh
+Module 7 — Báo cáo & Xuất dữ liệu
+• Xuất báo cáo PDF: bảng tổng hợp thu chi theo tháng, kèm biểu đồ
+• Xuất file CSV / Excel: toàn bộ giao dịch trong khoảng thời gian chọn
+• Tùy chọn bộ lọc trước khi xuất: theo danh mục, theo ví, theo loại giao dịch
+• Lịch sử các lần xuất báo cáo
+Module 8 — Thông báo & Nhắc nhở
+• Email nhắc nhở thêm chi tiêu cuối ngày (tùy chọn bật/tắt)
+• Thông báo in-app khi giao dịch định kỳ được tạo tự động
+• Cảnh báo vượt ngân sách (email + in-app)
+• Tóm tắt chi tiêu hàng tuần gửi qua email
+• Cài đặt tần suất và loại thông báo muốn nhận
+Module 9 (Tuỳ chọn) — Cài đặt & Tùy chỉnh
+• Chọn đơn vị tiền tệ hiển thị (VNĐ, USD, EUR…)
+• Chọn ngày bắt đầu tháng tài chính (mặc định ngày 1, có thể đổi thành ngày lương)
+• Chế độ tối / sáng (dark mode / light mode)
+• Ngôn ngữ giao diện (Tiếng Việt / English)
+• Quản lý phiên đăng nhập đang hoạt động
+• Nhập dữ liệu từ file CSV (import) để chuyển từ app khác sang
+Trang 4
+Quản lý Chi tiêu Cá nhân
+Trang 5
+Quản lý Chi tiêu Cá nhân
+Trang 6
+PHẦN 3 — MỘT SỐ THÁCH THỨC
+Dưới đây là các thách thức kỹ thuật chính cần giải quyết trong quá trình triển khai.
+Thách thức Mức độ Mô tả thách thức
+Độ chính xác tính toán 
+tiền tệ
+Cao Trong lập trình, việc cộng các số sẽ có sự sai lệch, ví dụ: 0.1 + 0.2 # 
+0.3, khi cộng dồn hàng trăm giao dịch sẽ dẫn đến sai lệch lớn.
+Real-time budget alert Trung 
+bình
+Khi tổng giao dịch vượt ngưỡng 80% hoặc 100%, cần phải có thông 
+báo email cảnh báo, việc tính tổng số tiền giao dịch cần thực hiện 
+theo thời gian thực và theo cơ chế bất đồng bộ (event driven hay 
+message queue), vì nếu theo cơ chế đồng bộ sẽ dẫn đến chậm luồng 
+giao dịch.
+Hiệu năng dashboard 
+thống kê
+Trung 
+bình
+Mỗi lần vào tab thống kê có khả năng việc hiển thị các biểu đồ sẽ
+làm chậm app vì có rất nhiều dạng biểu đồ và cơ chế tính tổng theo 
+tổng giao dịch và có chức năng cộng dồn gây nên chậm trễ. Vậy nên 
+cần cache lại kết quả thống kê và chỉ dùng lại khi có giao dịch mới, 
+điều này sẽ giảm thời gian chờ.
+Xử lý giao dịch định kỳ Trung 
+bình
+Tính năng xử lý giao dịch định kỳ cho phép tự động tạo giao dịch 
+theo chu kỳ ngày / tuần / tháng. Thách thức là hệ thống phải có một 
+tiến trình nền (cron job / scheduler) chạy định kỳ để kiểm tra và tạo 
+giao dịch đúng thời điểm — kể cả khi không có người dùng nào 
+đang online. Cần xử lý các edge case như: người dùng thay đổi hoặc 
+hủy lịch định kỳ giữa chừng, tháng có số ngày khác nhau (ví dụ lịch 
+ngày 31 vào tháng 2), hoặc hệ thống bị downtime khiến một chu kỳ
+bị bỏ lỡ. Sau khi tự động tạo, hệ thống còn cần gửi thông báo in-app 
+cho người dùng biết.
+Đồng bộ nhiều ví / tài 
+khoản
+Trung 
+bình
+Người dùng có nhu cầu tạo nhiều ví, ví dụ như momo hay vnpay, 
+mỗi ví đều có số dư riêng và transaction riêng, thách thức là khi thực 
+hiện lệnh chuyển tiền giữa các ví phải có thao tác trừ ví này và cộng 
+ví kia, đảm bảo 2 ví phải cùng thành công hay thất bại. Nếu chỉ một 
+trong 2 diễn ra, việc tổng hợp số dư sẽ bị lỗi, ngoài ra phải có cơ chế
+đồng bộ việc hiển thị số dư, tránh trường hợp không đồng bộ khi 
+hiển thị giao diện.
