@@ -6,25 +6,27 @@ import { useAppContext } from '../context/AppContext';
 
 export default function Transactions() {
   const { isLoggedIn, transactions, addTransaction } = useAppContext();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newTx, setNewTx] = useState({ title: '', amount: '', type: 'Chi tiêu', category: 'Ăn uống' });
   const [activeTab, setActiveTab] = useState('all');
+
+  const handleAdd = () => setIsModalOpen(true);
   
-  const handleAdd = () => {
-    const title = prompt('Nhập tên giao dịch:');
-    if (!title) return;
-    const amountStr = prompt('Nhập số tiền (VD: -50000 hoặc 100000):');
-    if (!amountStr) return;
-    const amount = parseInt(amountStr);
-    
+  const submitAdd = () => {
+    if (!newTx.title || !newTx.amount) return;
+    const amt = parseInt(newTx.amount);
     addTransaction({
-      desc: title,
+      desc: newTx.title,
       id: `#TXN00${transactions.length + 1}`,
-      type: amount > 0 ? 'Thu nhập' : 'Chi tiêu',
-      cat: 'Khác',
+      type: newTx.type,
+      cat: newTx.category,
       date: new Date().toLocaleDateString('vi-VN'),
-      amount: amount,
-      color: amount > 0 ? '#16DBCC' : '#FE5C73',
+      amount: amt,
+      color: newTx.type === 'Thu nhập' ? '#16DBCC' : '#FE5C73',
       icon: '💸'
     });
+    setNewTx({ title: '', amount: '', type: 'Chi tiêu', category: 'Ăn uống' });
+    setIsModalOpen(false);
   };
 
   const filtered = activeTab==='all'?transactions:activeTab==='income'?transactions.filter(t=>t.type==='Thu nhập'):transactions.filter(t=>t.type==='Chi tiêu');
@@ -37,7 +39,7 @@ export default function Transactions() {
           <h1 className="page-title" style={{color:'#343C6A'}}>Giao dịch</h1>
           <div className="nav-actions">
             <div className="search-bar" style={{background:'#F8F9FB'}}><svg width="20" height="20" viewBox="0 0 24 24" fill="#718EBF"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg><input type="text" placeholder="Tìm giao dịch..." /></div>
-            <button style={{background:'#1814F3',color:'#fff',padding:'10px 20px',borderRadius:'12px',fontWeight:'600',border:'none',cursor:'pointer'}} onClick={handleAdd}>+ Thêm giao dịch</button>
+            <button style={{background:'#1814F3',color:'#fff',padding:'10px 20px',borderRadius:'24px',fontWeight:'600',border:'none',cursor:'pointer',fontSize:'15px',display:'flex',alignItems:'center',gap:'8px'}} onClick={handleAdd}>+ Thêm giao dịch</button>
             {isLoggedIn ? <img src="https://i.pravatar.cc/150?img=5" alt="Avatar" className="avatar"/> : <Link href="/login" style={{textDecoration:'none',color:'#fff',background:'#343C6A',padding:'8px 15px',borderRadius:'20px',fontWeight:'bold'}}>Đăng nhập</Link>}
           </div>
         </nav>
@@ -75,6 +77,45 @@ export default function Transactions() {
           </div>
         </div>
       </main>
+
+      {/* MODAL THÊM GIAO DỊCH */}
+      {isModalOpen && (
+        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000}}>
+          <div style={{background:'#fff',borderRadius:'24px',padding:'30px',width:'450px',maxWidth:'90%',boxShadow:'0 10px 40px rgba(0,0,0,0.1)'}}>
+             <h2 style={{color:'#343C6A',marginBottom:'20px',fontSize:'20px',fontWeight:'700'}}>Thêm giao dịch mới</h2>
+             
+             <div style={{marginBottom:'15px'}}>
+               <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>Tên giao dịch</label>
+               <input type="text" value={newTx.title} onChange={e=>setNewTx({...newTx,title:e.target.value})} placeholder="VD: Tiền ăn trưa, Mua sắm..." style={{width:'100%',padding:'14px',border:'1px solid #E6EFF5',borderRadius:'12px',background:'#F8F9FB',color:'#343C6A',fontSize:'15px'}} />
+             </div>
+             
+             <div style={{marginBottom:'15px',display:'flex',gap:'15px'}}>
+               <div style={{flex:1}}>
+                 <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>Loại</label>
+                 <select value={newTx.type} onChange={e=>setNewTx({...newTx,type:e.target.value})} style={{width:'100%',padding:'14px',border:'1px solid #E6EFF5',borderRadius:'12px',background:'#F8F9FB',color:'#343C6A',fontSize:'15px',appearance:'none'}}>
+                   <option>Chi tiêu</option><option>Thu nhập</option>
+                 </select>
+               </div>
+               <div style={{flex:1}}>
+                 <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>Số tiền</label>
+                 <input type="number" value={newTx.amount} onChange={e=>setNewTx({...newTx,amount:e.target.value})} placeholder="VD: 50000" style={{width:'100%',padding:'14px',border:'1px solid #E6EFF5',borderRadius:'12px',background:'#F8F9FB',color:'#343C6A',fontSize:'15px'}} />
+               </div>
+             </div>
+
+             <div style={{marginBottom:'25px'}}>
+               <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>Danh mục</label>
+                 <select value={newTx.category} onChange={e=>setNewTx({...newTx,category:e.target.value})} style={{width:'100%',padding:'14px',border:'1px solid #E6EFF5',borderRadius:'12px',background:'#F8F9FB',color:'#343C6A',fontSize:'15px',appearance:'none'}}>
+                   <option>Ăn uống</option><option>Mua sắm</option><option>Di chuyển</option><option>Khác</option>
+                 </select>
+             </div>
+             
+             <div style={{display:'flex',gap:'12px',justifyContent:'flex-end'}}>
+               <button style={{padding:'12px 24px',background:'#F8F9FB',color:'#718EBF',borderRadius:'12px',border:'1px solid #E6EFF5',cursor:'pointer',fontWeight:'600',fontSize:'15px'}} onClick={()=>setIsModalOpen(false)}>Hủy</button>
+               <button style={{padding:'12px 24px',background:'#1814F3',color:'#fff',borderRadius:'12px',border:'none',cursor:'pointer',fontWeight:'600',fontSize:'15px'}} onClick={submitAdd}>Lưu giao dịch</button>
+             </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

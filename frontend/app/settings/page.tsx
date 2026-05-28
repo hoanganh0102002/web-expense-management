@@ -14,6 +14,7 @@ export default function Settings() {
         <nav className="navbar" style={{background:'#fff',borderBottom:'1px solid #E6EFF5'}}>
           <h1 className="page-title" style={{color:'#343C6A'}}>Cài đặt & Tùy chỉnh</h1>
           <div className="nav-actions">
+            <button style={{background:'#1814F3',color:'#fff',padding:'10px 20px',borderRadius:'24px',fontWeight:'600',border:'none',cursor:'pointer',fontSize:'15px',display:'flex',alignItems:'center',gap:'8px'}}>+ Lưu cài đặt</button>
             {isLoggedIn ? <img src="https://i.pravatar.cc/150?img=5" alt="Avatar" className="avatar"/> : <Link href="/login" style={{textDecoration:'none',color:'#fff',background:'#343C6A',padding:'8px 15px',borderRadius:'20px',fontWeight:'bold'}}>Đăng nhập</Link>}
           </div>
         </nav>

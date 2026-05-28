@@ -6,6 +6,11 @@ import { useAppContext } from '../context/AppContext';
 
 export default function Notifications() {
   const { isLoggedIn } = useAppContext();
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [newNotif, setNewNotif] = useState({ title: '', desc: '' });
+  
+  const submitNotif = () => setIsModalOpen(false);
+
   const notifs = [
     {title:'Cảnh báo ngân sách',desc:'Mua sắm đã đạt 90% ngân sách',time:'2 phút trước',type:'warning',icon:'⚠️',read:false},
     {title:'Giao dịch định kỳ',desc:'Tiền thuê nhà đã tự động ghi nhận',time:'1 giờ trước',type:'info',icon:'🔄',read:false},
@@ -22,6 +27,7 @@ export default function Notifications() {
         <nav className="navbar" style={{background:'#fff',borderBottom:'1px solid #E6EFF5'}}>
           <h1 className="page-title" style={{color:'#343C6A'}}>Thông báo</h1>
           <div className="nav-actions">
+            <button style={{background:'#1814F3',color:'#fff',padding:'10px 20px',borderRadius:'24px',fontWeight:'600',border:'none',cursor:'pointer',fontSize:'15px',display:'flex',alignItems:'center',gap:'8px',whiteSpace:'nowrap'}} onClick={()=>setIsModalOpen(true)}>+ Tạo thông báo</button>
             {isLoggedIn ? <img src="https://i.pravatar.cc/150?img=5" alt="Avatar" className="avatar"/> : <Link href="/login" style={{textDecoration:'none',color:'#fff',background:'#343C6A',padding:'8px 15px',borderRadius:'20px',fontWeight:'bold'}}>Đăng nhập</Link>}
           </div>
         </nav>
@@ -41,6 +47,30 @@ export default function Notifications() {
           {!isLoggedIn && <p style={{color:'#718EBF',textAlign:'center',padding:'40px',background:'#fff',borderRadius:'16px',border:'1px solid #E6EFF5'}}>Vui lòng đăng nhập để xem thông báo</p>}
         </div>
       </main>
+
+      {/* MODAL TẠO THÔNG BÁO */}
+      {isModalOpen && (
+        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000}}>
+          <div style={{background:'#fff',borderRadius:'24px',padding:'30px',width:'450px',maxWidth:'90%',boxShadow:'0 10px 40px rgba(0,0,0,0.1)'}}>
+             <h2 style={{color:'#343C6A',marginBottom:'20px',fontSize:'20px',fontWeight:'700'}}>Gửi thông báo hệ thống</h2>
+             
+             <div style={{marginBottom:'15px'}}>
+               <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>Tiêu đề</label>
+               <input type="text" value={newNotif.title} onChange={e=>setNewNotif({...newNotif,title:e.target.value})} placeholder="VD: Khuyến mãi mới!" style={{width:'100%',padding:'14px',border:'1px solid #E6EFF5',borderRadius:'12px',background:'#F8F9FB',color:'#343C6A',fontSize:'15px'}} />
+             </div>
+
+             <div style={{marginBottom:'25px'}}>
+               <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>Nội dung</label>
+               <textarea value={newNotif.desc} onChange={e=>setNewNotif({...newNotif,desc:e.target.value})} placeholder="Nhập nội dung thông báo..." style={{width:'100%',padding:'14px',border:'1px solid #E6EFF5',borderRadius:'12px',background:'#F8F9FB',color:'#343C6A',fontSize:'15px',minHeight:'100px',fontFamily:'inherit'}}></textarea>
+             </div>
+             
+             <div style={{display:'flex',gap:'12px',justifyContent:'flex-end'}}>
+               <button style={{padding:'12px 24px',background:'#F8F9FB',color:'#718EBF',borderRadius:'12px',border:'1px solid #E6EFF5',cursor:'pointer',fontWeight:'600',fontSize:'15px'}} onClick={()=>setIsModalOpen(false)}>Hủy</button>
+               <button style={{padding:'12px 24px',background:'#1814F3',color:'#fff',borderRadius:'12px',border:'none',cursor:'pointer',fontWeight:'600',fontSize:'15px'}} onClick={submitNotif}>Gửi thông báo</button>
+             </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

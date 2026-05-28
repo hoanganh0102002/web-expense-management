@@ -5,6 +5,7 @@ import Sidebar from '../components/Sidebar';
 
 export default function CreditCards() {
   const [isLoggedIn] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   return (
     <div className="dashboard-container" style={{ background: '#F8F9FB' }}>
       <Sidebar activeItem="credit-cards" />
@@ -13,6 +14,7 @@ export default function CreditCards() {
           <h1 className="page-title" style={{ color: '#343C6A' }}>Credit Cards</h1>
           <div className="nav-actions">
             <div className="search-bar" style={{ background: '#F8F9FB' }}><svg width="20" height="20" viewBox="0 0 24 24" fill="#718EBF"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg><input type="text" placeholder="Search..." /></div>
+            <button style={{background:'#1814F3',color:'#fff',padding:'10px 20px',borderRadius:'24px',fontWeight:'600',border:'none',cursor:'pointer',fontSize:'15px',display:'flex',alignItems:'center',gap:'8px'}} onClick={()=>setIsModalOpen(true)}>+ Thêm thẻ tín dụng</button>
             {isLoggedIn ? <img src="https://i.pravatar.cc/150?img=11" alt="Avatar" className="avatar" /> : <Link href="/login" style={{ textDecoration:'none',color:'#fff',background:'#343C6A',padding:'8px 15px',borderRadius:'20px',fontWeight:'bold' }}>Đăng nhập</Link>}
           </div>
         </nav>
@@ -50,6 +52,41 @@ export default function CreditCards() {
           </div>
         </div>
       </main>
+
+      {/* MODAL THÊM THẺ */}
+      {isModalOpen && (
+        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000}}>
+          <div style={{background:'#fff',borderRadius:'24px',padding:'30px',width:'450px',maxWidth:'90%',boxShadow:'0 10px 40px rgba(0,0,0,0.1)'}}>
+             <h2 style={{color:'#343C6A',marginBottom:'20px',fontSize:'20px',fontWeight:'700'}}>Thêm thẻ tín dụng</h2>
+             
+             <div style={{marginBottom:'15px'}}>
+               <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>Tên chủ thẻ</label>
+               <input type="text" placeholder="VD: NGUYEN VAN A" style={{width:'100%',padding:'14px',border:'1px solid #E6EFF5',borderRadius:'12px',background:'#F8F9FB',color:'#343C6A',fontSize:'15px'}} />
+             </div>
+
+             <div style={{marginBottom:'15px'}}>
+               <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>Số thẻ</label>
+               <input type="text" placeholder="VD: 3778 **** **** 1234" style={{width:'100%',padding:'14px',border:'1px solid #E6EFF5',borderRadius:'12px',background:'#F8F9FB',color:'#343C6A',fontSize:'15px'}} />
+             </div>
+             
+             <div style={{marginBottom:'25px',display:'flex',gap:'15px'}}>
+               <div style={{flex:1}}>
+                 <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>Hết hạn</label>
+                 <input type="text" placeholder="MM/YY" style={{width:'100%',padding:'14px',border:'1px solid #E6EFF5',borderRadius:'12px',background:'#F8F9FB',color:'#343C6A',fontSize:'15px'}} />
+               </div>
+               <div style={{flex:1}}>
+                 <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>CVV</label>
+                 <input type="password" placeholder="***" style={{width:'100%',padding:'14px',border:'1px solid #E6EFF5',borderRadius:'12px',background:'#F8F9FB',color:'#343C6A',fontSize:'15px'}} />
+               </div>
+             </div>
+             
+             <div style={{display:'flex',gap:'12px',justifyContent:'flex-end'}}>
+               <button style={{padding:'12px 24px',background:'#F8F9FB',color:'#718EBF',borderRadius:'12px',border:'1px solid #E6EFF5',cursor:'pointer',fontWeight:'600',fontSize:'15px'}} onClick={()=>setIsModalOpen(false)}>Hủy</button>
+               <button style={{padding:'12px 24px',background:'#1814F3',color:'#fff',borderRadius:'12px',border:'none',cursor:'pointer',fontWeight:'600',fontSize:'15px'}} onClick={()=>setIsModalOpen(false)}>Thêm thẻ</button>
+             </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
