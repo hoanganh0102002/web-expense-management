@@ -5,7 +5,7 @@ import Sidebar from './components/Sidebar';
 import { useAppContext } from './context/AppContext';
 
 export default function Dashboard() {
-  const { isLoggedIn, wallets, transactions, isLoadingWallets } = useAppContext();
+  const { isLoggedIn, wallets, transactions, isLoadingWallets, userData } = useAppContext();
 
   // Tính toán số liệu từ dữ liệu thật
   const totalBalance = wallets.reduce((sum, w) => sum + parseFloat(w.available_balance || 0), 0);
@@ -15,6 +15,8 @@ export default function Dashboard() {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
   };
+
+  const displayName = userData?.profile?.full_name || userData?.full_name || userData?.name || 'Người dùng mới';
 
   return (
     <div className="dashboard-container">
@@ -35,7 +37,14 @@ export default function Dashboard() {
                 <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/>
               </svg>
             </button>
-            {isLoggedIn ? <img src="https://api.dicebear.com/7.x/miniavs/svg?seed=SpendWise&backgroundColor=b6e3f4" alt="Avatar" className="avatar"/> : <Link href="/login" style={{textDecoration:'none',color:'#fff',background:'#343C6A',padding:'8px 15px',borderRadius:'20px',fontWeight:'bold'}}>Đăng nhập</Link>}
+            {isLoggedIn ? (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontWeight: '600', color: '#343C6A' }}>{displayName}</span>
+                <img src={userData?.profile?.avatar_url || "https://api.dicebear.com/7.x/miniavs/svg?seed=SpendWise&backgroundColor=b6e3f4"} alt="Avatar" className="avatar"/>
+              </div>
+            ) : (
+              <Link href="/login" style={{textDecoration:'none',color:'#fff',background:'#343C6A',padding:'8px 15px',borderRadius:'20px',fontWeight:'bold'}}>Đăng nhập</Link>
+            )}
           </div>
         </nav>
         <div className="content-area">

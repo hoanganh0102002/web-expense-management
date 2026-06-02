@@ -25,7 +25,15 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
 
   const data = await response.json();
   if (!response.ok) {
-    throw new Error(data.message || 'Có lỗi xảy ra từ hệ thống API');
+    if (response.status === 401) {
+      // Đừng phát tín hiệu nếu chính endpoint /logout bị 401
+      if (typeof window !== 'undefined' && !endpoint.includes('/logout')) {
+        window.dispatchEvent(new CustomEvent('auth-unauthorized'));
+      }
+    }
+    const error: any = new Error(data.message || 'Có lỗi xảy ra từ hệ thống API');
+    error.status = response.status;
+    throw error;
   }
   return data;
 };
@@ -38,6 +46,39 @@ export const authApi = {
     const redirect_uri = typeof window !== 'undefined' ? `${window.location.origin}/login` : '';
     return apiFetch('/auth/social', { method: 'POST', body: JSON.stringify({ provider, token, redirect_uri }) });
   },
+  logout: () => apiFetch('/logout', { method: 'POST' }),
+  logoutAll: (userId?: string) => apiFetch('/logout-all', { 
+    method: 'POST',
+    headers: userId ? { 'X-User-Id': userId } : {}
+  }),
+  forgotPassword: (email: string) => apiFetch('/auth/forgot-password', { 
+    method: 'POST', 
+    body: JSON.stringify({ email }) 
+  }),
+  changePassword: (data: any) => apiFetch('/user/change-password', { 
+    method: 'POST', 
+    body: JSON.stringify(data) 
+  }),
+  updateProfile: (data: any) => apiFetch('/user/profile', { 
+    method: 'POST', 
+    body: JSON.stringify(data) 
+  }),
+  updateAvatar: (formData: FormData) => {
+    const token = localStorage.getItem('access_token');
+    return fetch('https://exp-mgmt-dev.onrender.com/api/user/avatar', {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'Accept': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      }
+    }).then(async res => {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Cập nhật ảnh đại diện thất bại');
+      return data;
+    });
+  },
+  deleteAccount: () => apiFetch('/user', { method: 'DELETE' }),
 };
 
 // --- WALLET APIs ---
