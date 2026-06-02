@@ -1,48 +1,102 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { walletApi } from '../lib/api';
 
 type AppContextType = {
   isLoggedIn: boolean;
-  login: () => void;
+  userData: any | null;
+  login: (data?: any) => void;
   logout: () => void;
   transactions: any[];
   addTransaction: (tx: any) => void;
+  
+  // Quản lý Ví
+  wallets: any[];
+  isLoadingWallets: boolean;
+  fetchWallets: () => Promise<void>;
+  createWallet: (data: any) => Promise<void>;
+  updateWallet: (id: string, data: any) => Promise<void>;
+  deleteWallet: (id: string) => Promise<void>;
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [userData, setUserData] = useState<any | null>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [wallets, setWallets] = useState<any[]>([]);
+  const [isLoadingWallets, setIsLoadingWallets] = useState(false);
 
   useEffect(() => {
-    // Run only on client
     const savedLogin = localStorage.getItem('isLoggedIn');
     if (savedLogin === 'true') {
       setIsLoggedIn(true);
+      fetchWallets();
+    }
+    const savedUser = localStorage.getItem('user_data');
+    if (savedUser) {
+      setUserData(JSON.parse(savedUser));
     }
     const savedTxns = localStorage.getItem('transactions');
     if (savedTxns) {
       setTransactions(JSON.parse(savedTxns));
-    } else {
-      // Default transactions
-      const defTxns = [
-        {desc:'Grab Di chuyển',id:'#TXN001',type:'Chi tiêu',cat:'Di chuyển',date:'23/05, 08:30',amount:-45000,color:'#FE5C73',icon:'🚗'},
-        {desc:'Lương tháng 5',id:'#TXN002',type:'Thu nhập',cat:'Lương',date:'22/05, 09:00',amount:12500000,color:'#16DBCC',icon:'💰'},
-        {desc:'Shopee Mua sắm',id:'#TXN003',type:'Chi tiêu',cat:'Mua sắm',date:'20/05, 14:22',amount:-350000,color:'#FE5C73',icon:'🛍️'},
-      ];
-      setTransactions(defTxns);
     }
   }, []);
 
-  const login = () => {
+  const fetchWallets = async () => {
+    if (!localStorage.getItem('access_token')) return;
+    setIsLoadingWallets(true);
+    try {
+      const response = await walletApi.getAll();
+      setWallets(response.data || []);
+    } catch (error) {
+      console.error("Lấy danh sách ví thất bại:", error);
+    } finally {
+      setIsLoadingWallets(false);
+    }
+  };
+
+  const createWallet = async (data: any) => {
+    await walletApi.create(data);
+    await fetchWallets();
+  };
+
+  const updateWallet = async (id: string, data: any) => {
+    await walletApi.update(id, data);
+    await fetchWallets();
+  };
+
+  const deleteWallet = async (id: string) => {
+    await walletApi.delete(id);
+    await fetchWallets();
+  };
+
+  const login = (data?: any) => {
     setIsLoggedIn(true);
     localStorage.setItem('isLoggedIn', 'true');
+    // Khi đăng nhập tài khoản mới, xóa dữ liệu giao dịch cũ trong localStorage
+    // để đảm bảo tài khoản mới bắt đầu với dữ liệu trống (nếu chưa đồng bộ backend)
+    setTransactions([]);
+    localStorage.removeItem('transactions');
+    
+    if (data?.access_token) {
+      localStorage.setItem('access_token', data.access_token);
+      localStorage.setItem('user_data', JSON.stringify(data.data));
+      setUserData(data.data);
+    }
+    fetchWallets();
   };
 
   const logout = () => {
     setIsLoggedIn(false);
     localStorage.setItem('isLoggedIn', 'false');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('user_data');
+    setUserData(null);
+    setWallets([]);
+    setTransactions([]);
+    localStorage.removeItem('transactions');
   };
 
   const addTransaction = (tx: any) => {
@@ -52,7 +106,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AppContext.Provider value={{ isLoggedIn, login, logout, transactions, addTransaction }}>
+    <AppContext.Provider value={{ 
+      isLoggedIn, userData, login, logout, transactions, addTransaction,
+      wallets, isLoadingWallets, fetchWallets, createWallet, updateWallet, deleteWallet 
+    }}>
       {children}
     </AppContext.Provider>
   );

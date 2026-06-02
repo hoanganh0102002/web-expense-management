@@ -34,13 +34,13 @@ export default function Transactions() {
   return (
     <div className="dashboard-container">
       <Sidebar activeItem="transactions" />
-      <main className="main-content" style={{background:'#F8F9FB'}}>
+      <main className="main-content" style={{background:'#FFFFFF'}}>
         <nav className="navbar" style={{background:'#fff',borderBottom:'1px solid #E6EFF5'}}>
           <h1 className="page-title" style={{color:'#343C6A'}}>Giao dịch</h1>
           <div className="nav-actions">
             <div className="search-bar" style={{background:'#F8F9FB'}}><svg width="20" height="20" viewBox="0 0 24 24" fill="#718EBF"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg><input type="text" placeholder="Tìm giao dịch..." /></div>
             <button style={{background:'#1814F3',color:'#fff',padding:'10px 20px',borderRadius:'24px',fontWeight:'600',border:'none',cursor:'pointer',fontSize:'15px',display:'flex',alignItems:'center',gap:'8px'}} onClick={handleAdd}>+ Thêm giao dịch</button>
-            {isLoggedIn ? <img src="https://i.pravatar.cc/150?img=5" alt="Avatar" className="avatar"/> : <Link href="/login" style={{textDecoration:'none',color:'#fff',background:'#343C6A',padding:'8px 15px',borderRadius:'20px',fontWeight:'bold'}}>Đăng nhập</Link>}
+            {isLoggedIn ? <img src="https://api.dicebear.com/7.x/miniavs/svg?seed=SpendWise&backgroundColor=b6e3f4" alt="Avatar" className="avatar"/> : <Link href="/login" style={{textDecoration:'none',color:'#fff',background:'#343C6A',padding:'8px 15px',borderRadius:'20px',fontWeight:'bold'}}>Đăng nhập</Link>}
           </div>
         </nav>
         <div className="content-area">

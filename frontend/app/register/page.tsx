@@ -1,10 +1,22 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { authApi } from '../lib/api';
 import '../login/login.css'; // Reusing the awesome auth styles!
 
 export default function Register() {
   const [isDark, setIsDark] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
+
+  const router = useRouter();
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('auth-theme');
@@ -17,10 +29,41 @@ export default function Register() {
     localStorage.setItem('auth-theme', nextTheme ? 'dark' : 'light');
   };
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.id]: e.target.value
+    });
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      // Map id to expected backend field name if necessary
+      const backendData = {
+        full_name: formData.name,
+        email: formData.email,
+        password: formData.password,
+        password_confirmation: formData.password
+      };
+      await authApi.register(backendData);
+      setSuccess(true);
+      setTimeout(() => {
+        router.push('/login');
+      }, 2000);
+    } catch (err: any) {
+      setError(err.message || "Đăng ký thất bại!");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className={`login-wrapper ${isDark ? 'dark-theme' : ''}`}>
       <button type="button" className="theme-toggle-btn" onClick={toggleTheme}>
-         {isDark ? '☀️' : '🌙'}
+        {isDark ? '☀️' : '🌙'}
       </button>
       {/* Dynamic Background */}
       <div className="login-bg-shapes">
@@ -28,7 +71,7 @@ export default function Register() {
         <div className="shape shape-2"></div>
         <div className="shape shape-3"></div>
       </div>
-      
+
       <div className="login-container">
         {/* Left Side: Branding & Illustration */}
         <div className="login-left">
@@ -37,16 +80,16 @@ export default function Register() {
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M4 4h4v16H4zM10 8h4v12h-4zM16 12h4v8h-4z" />
               </svg>
-              BankDash.
+              SpendWise.
             </div>
-            <h2>Start your journey with us</h2>
-            <p>Unlock premium financial tools, seamless tracking, and intelligent insights to manage your wealth efficiently.</p>
-            
-            <div className="glass-card-illustration" style={{ transform: 'rotate(5deg) translateY(20px)'}}>
+            <h2>Bắt đầu hành trình của bạn</h2>
+            <p>Mở khóa các công cụ tài chính cao cấp, theo dõi liền mạch và thông tin thông minh để quản lý tài sản của bạn một cách hiệu quả.</p>
+
+            <div className="glass-card-illustration" style={{ transform: 'rotate(5deg) translateY(20px)' }}>
               <div className="glass-card-chip"></div>
               <div className="glass-card-info">
-                   <span>NEW **** 9988</span>
-                   <div className="glass-logo"></div>
+                <span>MỚI **** 9988</span>
+                <div className="glass-logo"></div>
               </div>
             </div>
           </div>
@@ -55,36 +98,39 @@ export default function Register() {
         {/* Right Side: Form */}
         <div className="login-right">
           <div className="login-form-box">
-            <h1 className="auth-title">Create Account</h1>
-            <p className="auth-subtitle">Join BankDash today. It only takes a minute!</p>
+            <h1 className="auth-title">Tạo tài khoản</h1>
+            <p className="auth-subtitle">Tham gia SpendWise ngay hôm nay. Chỉ mất một phút!</p>
 
-            <form>
+            {error && <div className="error-message" style={{ background: '#FEE2E2', color: '#B91C1C', padding: '10px', borderRadius: '8px', marginBottom: '15px', fontSize: '14px', textAlign: 'center' }}>{error}</div>}
+            {success && <div className="success-message" style={{ background: '#D1FAE5', color: '#065F46', padding: '10px', borderRadius: '8px', marginBottom: '15px', fontSize: '14px', textAlign: 'center' }}>Đăng ký thành công! Đang chuyển hướng...</div>}
+
+            <form onSubmit={handleRegister}>
               <div className="floating-input-group">
-                <input type="text" id="fullname" placeholder=" " required />
-                <label htmlFor="fullname">Full Name</label>
+                <input type="text" id="name" value={formData.name} onChange={handleChange} placeholder=" " required />
+                <label htmlFor="name">Họ và tên</label>
               </div>
               <div className="floating-input-group">
-                <input type="email" id="email" placeholder=" " required />
-                <label htmlFor="email">Email Address</label>
+                <input type="email" id="email" value={formData.email} onChange={handleChange} placeholder=" " required />
+                <label htmlFor="email">Địa chỉ Email</label>
               </div>
               <div className="floating-input-group">
-                <input type="password" id="password" placeholder=" " required />
-                <label htmlFor="password">Password</label>
+                <input type="password" id="password" value={formData.password} onChange={handleChange} placeholder=" " required />
+                <label htmlFor="password">Mật khẩu</label>
               </div>
 
               <div className="auth-options" style={{ marginBottom: '20px' }}>
-                 <label className="checkbox-container">
-                    <input type="checkbox" required /> I agree to the <Link href="#" className="forgot-pwd" style={{ marginLeft: '4px' }}>Terms & Conditions</Link>
-                 </label>
+                <label className="checkbox-container">
+                  <input type="checkbox" required /> Tôi đồng ý với các <Link href="#" className="forgot-pwd" style={{ marginLeft: '4px' }}>Điều khoản & Điều kiện</Link>
+                </label>
               </div>
 
-              <button type="submit" className="login-btn-glow">
-                <span>Sign Up</span>
+              <button type="submit" className="login-btn-glow" disabled={loading}>
+                <span>{loading ? 'Đang xử lý...' : 'Đăng ký'}</span>
               </button>
             </form>
 
             <div className="auth-social">
-              <div className="auth-divider"><span>Or sign up with</span></div>
+              <div className="auth-divider"><span>Hoặc đăng ký bằng</span></div>
               <div className="social-btn-group" style={{ display: 'flex', gap: '15px' }}>
                 <button className="social-btn" style={{ flex: 1 }}>
                   <svg viewBox="0 0 24 24" width="20" height="20">
@@ -97,15 +143,15 @@ export default function Register() {
                 </button>
                 <button className="social-btn" style={{ flex: 1 }}>
                   <svg viewBox="0 0 24 24" width="20" height="20">
-                    <path fill="#24292F" d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
+                    <path fill="#24292F" d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
                   </svg>
                   GitHub
                 </button>
               </div>
             </div>
-            
+
             <p className="create-account-text">
-               Already have an account? <Link href="/login">Sign In</Link>
+              Bạn đã có tài khoản? <Link href="/login">Đăng nhập</Link>
             </p>
           </div>
         </div>

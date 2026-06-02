@@ -37,10 +37,10 @@ export default function ForgotPassword() {
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M4 4h4v16H4zM10 8h4v12h-4zM16 12h4v8h-4z" />
               </svg>
-              BankDash.
+              SpendWise.
             </div>
-            <h2>Secure your account</h2>
-            <p>We value your privacy and security. Get back access to your account quickly and safely.</p>
+            <h2>Bảo mật tài khoản</h2>
+            <p>Chúng tôi coi trọng sự riêng tư và bảo mật của bạn. Lấy lại quyền truy cập vào tài khoản của bạn một cách nhanh chóng và an toàn.</p>
             
             <div className="glass-card-illustration" style={{ transform: 'rotate(-5deg) translateY(10px)', height: '140px', justifyContent: 'center', alignItems: 'center' }}>
               <svg width="60" height="60" viewBox="0 0 24 24" fill="rgba(255,255,255,0.8)">
@@ -54,24 +54,24 @@ export default function ForgotPassword() {
         {/* Right Side: Form */}
         <div className="login-right">
           <div className="login-form-box">
-            <h1 className="auth-title">Reset Password</h1>
-            <p className="auth-subtitle">Enter your email and we'll send you a link to reset your password.</p>
+            <h1 className="auth-title">Đặt lại mật khẩu</h1>
+            <p className="auth-subtitle">Nhập email của bạn và chúng tôi sẽ gửi liên kết để đặt lại mật khẩu.</p>
 
             <form>
               <div className="floating-input-group">
                 <input type="email" id="email" placeholder=" " required />
-                <label htmlFor="email">Email Address</label>
+                <label htmlFor="email">Địa chỉ Email</label>
               </div>
 
               <button type="submit" className="login-btn-glow" style={{ marginTop: '20px' }}>
-                <span>Send Reset Link</span>
+                <span>Gửi liên kết đặt lại</span>
               </button>
             </form>
 
             <div className="auth-divider"></div>
             
             <p className="create-account-text" style={{ marginTop: '0' }}>
-               Remember your password? <Link href="/login">Back to Sign In</Link>
+               Bạn đã nhớ mật khẩu? <Link href="/login">Quay lại Đăng nhập</Link>
             </p>
           </div>
         </div>

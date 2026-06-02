@@ -5,26 +5,31 @@ import Sidebar from '../components/Sidebar';
 import { useAppContext } from '../context/AppContext';
 
 export default function Categories() {
-  const { isLoggedIn } = useAppContext();
+  const { isLoggedIn, transactions } = useAppContext();
+  
+  const getCount = (catName: string) => {
+    return transactions.filter(t => t.category === catName || t.type === catName).length;
+  };
+
   const defaultCats = [
-    {name:'Ăn uống',icon:'🍜',color:'#FF6384',sub:['Cà phê','Nhà hàng','Đồ ăn vặt'],count:isLoggedIn?24:0},
-    {name:'Di chuyển',icon:'🚗',color:'#36A2EB',sub:['Grab','Xăng','Bảo trì xe'],count:isLoggedIn?12:0},
-    {name:'Mua sắm',icon:'🛍️',color:'#FFCE56',sub:['Quần áo','Điện tử','Gia dụng'],count:isLoggedIn?8:0},
-    {name:'Giải trí',icon:'🎮',color:'#4BC0C0',sub:['Phim','Game','Du lịch'],count:isLoggedIn?6:0},
-    {name:'Y tế',icon:'🏥',color:'#9966FF',sub:['Thuốc','Khám bệnh','Bảo hiểm'],count:isLoggedIn?3:0},
-    {name:'Giáo dục',icon:'📚',color:'#FF9F40',sub:['Khóa học','Sách','Học phí'],count:isLoggedIn?5:0},
-    {name:'Hóa đơn',icon:'📋',color:'#E83E8C',sub:['Điện','Nước','Internet'],count:isLoggedIn?7:0},
-    {name:'Tiền thuê',icon:'🏠',color:'#6F42C1',sub:['Nhà ở','Kho bãi'],count:isLoggedIn?1:0},
+    {name:'Ăn uống',icon:'🍜',color:'#FF6384',sub:['Cà phê','Nhà hàng','Đồ ăn vặt'],count:getCount('Ăn uống')},
+    {name:'Di chuyển',icon:'🚗',color:'#36A2EB',sub:['Grab','Xăng','Bảo trì xe'],count:getCount('Di chuyển')},
+    {name:'Mua sắm',icon:'🛍️',color:'#FFCE56',sub:['Quần áo','Điện tử','Gia dụng'],count:getCount('Mua sắm')},
+    {name:'Giải trí',icon:'🎮',color:'#4BC0C0',sub:['Phim','Game','Du lịch'],count:getCount('Giải trí')},
+    {name:'Y tế',icon:'🏥',color:'#9966FF',sub:['Thuốc','Khám bệnh','Bảo hiểm'],count:getCount('Y tế')},
+    {name:'Giáo dục',icon:'📚',color:'#FF9F40',sub:['Khóa học','Sách','Học phí'],count:getCount('Giáo dục')},
+    {name:'Hóa đơn',icon:'📋',color:'#E83E8C',sub:['Điện','Nước','Internet'],count:getCount('Hóa đơn')},
+    {name:'Tiền thuê',icon:'🏠',color:'#6F42C1',sub:['Nhà ở','Kho bãi'],count:getCount('Tiền thuê')},
   ];
   return (
     <div className="dashboard-container">
       <Sidebar activeItem="categories" />
-      <main className="main-content" style={{background:'#F8F9FB'}}>
+      <main className="main-content" style={{background:'#FFFFFF'}}>
         <nav className="navbar" style={{background:'#fff',borderBottom:'1px solid #E6EFF5'}}>
           <h1 className="page-title" style={{color:'#343C6A'}}>Quản lý Danh mục</h1>
           <div className="nav-actions">
             <button style={{background:'#1814F3',color:'#fff',padding:'10px 20px',borderRadius:'12px',fontWeight:'600',border:'none',cursor:'pointer'}}>+ Tạo danh mục mới</button>
-            {isLoggedIn ? <img src="https://i.pravatar.cc/150?img=5" alt="Avatar" className="avatar"/> : <Link href="/login" style={{textDecoration:'none',color:'#fff',background:'#343C6A',padding:'8px 15px',borderRadius:'20px',fontWeight:'bold'}}>Đăng nhập</Link>}
+            {isLoggedIn ? <img src="https://api.dicebear.com/7.x/miniavs/svg?seed=SpendWise&backgroundColor=b6e3f4" alt="Avatar" className="avatar"/> : <Link href="/login" style={{textDecoration:'none',color:'#fff',background:'#343C6A',padding:'8px 15px',borderRadius:'20px',fontWeight:'bold'}}>Đăng nhập</Link>}
           </div>
         </nav>
         <div className="content-area">

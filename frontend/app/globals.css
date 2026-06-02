@@ -6,7 +6,7 @@
   --primary-light: #CC69D3;
   --primary-gradient: linear-gradient(135deg, var(--primary-dark) 0%, var(--primary-light) 100%);
   --sidebar-gradient: linear-gradient(180deg, #16265C 0%, #CB63CD 100%);
-  --bg-color: #F8F9FB;
+  --bg-color: #FFFFFF;
   --sidebar-bg: var(--sidebar-gradient);
   --sidebar-text: #FFFFFF;
   --sidebar-text-muted: rgba(255, 255, 255, 0.7);

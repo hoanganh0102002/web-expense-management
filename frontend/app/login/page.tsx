@@ -1,19 +1,41 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAppContext } from '../context/AppContext';
+import { authApi } from '../lib/api';
 import './login.css';
 
-export default function Login() {
+// --- CẤU HÌNH GITHUB ---
+const GITHUB_CLIENT_ID = "Ov23lisCCCkHQx90IibX"; // <--- Mã App của bạn
+const GITHUB_REDIRECT_URI = typeof window !== 'undefined' ? `${window.location.origin}/login` : '';
+
+function LoginForm() {
   const [isDark, setIsDark] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
   const router = useRouter();
-  const { login } = useAppContext();
+  const searchParams = useSearchParams();
+  const { login, isLoggedIn } = useAppContext();
 
   useEffect(() => {
     const savedTheme = localStorage.getItem('auth-theme');
     if (savedTheme === 'dark') setIsDark(true);
-  }, []);
+
+    const code = searchParams.get('code');
+    if (code) {
+      handleGitHubCallback(code);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      router.push('/');
+    }
+  }, [isLoggedIn, router]);
 
   const toggleTheme = () => {
     const nextTheme = !isDark;
@@ -21,17 +43,58 @@ export default function Login() {
     localStorage.setItem('auth-theme', nextTheme ? 'dark' : 'light');
   };
 
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      const response = await authApi.login({ email, password });
+      if (response.access_token) {
+        login(response);
+      }
+    } catch (err: any) {
+      setError(err.message || "Đăng nhập thất bại!");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGitHubLogin = () => {
+    const githubUrl = `https://github.com/login/oauth/authorize?client_id=${GITHUB_CLIENT_ID}&scope=user:email`;
+    window.location.href = githubUrl;
+  };
+
+  const handleGitHubCallback = async (code: string) => {
+    setLoading(true);
+    setError('');
+    console.log("Đang xử lý GitHub code:", code); // <--- Thêm log
+    try {
+      const response = await authApi.socialLogin('github', code);
+      console.log("Backend response:", response); // <--- Thêm log
+      if (response.access_token) {
+        login(response);
+        // Xóa code trên URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }
+    } catch (err: any) {
+      console.error("Lỗi xác thực GitHub chi tiết:", err); // <--- Thêm log
+      setError("Lỗi xác thực GitHub: " + (err.message || "Không xác định"));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className={`login-wrapper ${isDark ? 'dark-theme' : ''}`}>
       <button type="button" className="theme-toggle-btn" onClick={toggleTheme}>
-         {isDark ? '☀️' : '🌙'}
+        {isDark ? '☀️' : '🌙'}
       </button>
       <div className="login-bg-shapes">
         <div className="shape shape-1"></div>
         <div className="shape shape-2"></div>
         <div className="shape shape-3"></div>
       </div>
-      
+
       <div className="login-container">
         <div className="login-left">
           <div className="login-branding">
@@ -39,52 +102,51 @@ export default function Login() {
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M4 4h4v16H4zM10 8h4v12h-4zM16 12h4v8h-4z" />
               </svg>
-              BankDash.
+              SpendWise.
             </div>
-            <h2>Empowering your financial future</h2>
-            <p>Join the next generation of banking. Experience modern, fast, and secure financial management today.</p>
-            
-            <div className="glass-card-illustration">
-              <div className="glass-card-chip"></div>
-              <div className="glass-card-info">
-                   <span>**** **** **** 1234</span>
-                   <div className="glass-logo"></div>
-              </div>
-            </div>
+            <h2>Đăng nhập hệ thống</h2>
+            <p>Sử dụng tài khoản GitHub để truy cập nhanh và quản lý ví ngay lập tức.</p>
           </div>
         </div>
 
         <div className="login-right">
           <div className="login-form-box">
-            <h1 className="auth-title">Welcome Back</h1>
-            <p className="auth-subtitle">Log in to your BankDash account.</p>
+            <h1 className="auth-title">Chào mừng trở lại</h1>
+            <p className="auth-subtitle">Sử dụng tài khoản của bạn</p>
 
-            <form>
+            {error && <div className="error-message" style={{ background: '#FEE2E2', color: '#B91C1C', padding: '10px', borderRadius: '8px', marginBottom: '15px', fontSize: '14px', textAlign: 'center' }}>{error}</div>}
+            {loading && <div style={{ color: '#1814F3', marginBottom: '10px', textAlign: 'center' }}>Đang xử lý, vui lòng chờ...</div>}
+
+            <form onSubmit={handleLogin}>
               <div className="floating-input-group">
-                <input type="email" id="email" placeholder=" " required />
-                <label htmlFor="email">Email Address</label>
+                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder=" " required />
+                <label>Địa chỉ Email</label>
               </div>
               <div className="floating-input-group">
-                <input type="password" id="password" placeholder=" " required />
-                <label htmlFor="password">Password</label>
-              </div>
-              
-              <div className="auth-options">
-                 <label className="checkbox-container">
-                    <input type="checkbox" /> Remember me
-                 </label>
-                 <Link href="/forgot-password" className="forgot-pwd">Forgot Password?</Link>
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder=" " required />
+                <label>Mật khẩu</label>
               </div>
 
-              <button type="button" className="login-btn-glow" onClick={() => { login(); router.push('/'); }}>
-                <span>Sign In</span>
+              <div className="auth-options" style={{ marginTop: '-10px', marginBottom: '25px', justifyContent: 'flex-end', display: 'flex' }}>
+                <Link href="/forgot-password" title="Quên mật khẩu?" className="forgot-pwd">
+                  Quên mật khẩu?
+                </Link>
+              </div>
+
+              <button type="submit" className="login-btn-glow" disabled={loading}>
+                <span>Đăng nhập</span>
               </button>
             </form>
 
             <div className="auth-social">
-              <div className="auth-divider"><span>Or continue with</span></div>
+              <div className="auth-divider"><span>Hoặc tiếp tục bằng</span></div>
               <div className="social-btn-group" style={{ display: 'flex', gap: '15px' }}>
-                <button className="social-btn" style={{ flex: 1 }}>
+                <button
+                  type="button"
+                  className="social-btn"
+                  disabled={loading}
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}
+                >
                   <svg viewBox="0 0 24 24" width="20" height="20">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                     <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
@@ -93,21 +155,34 @@ export default function Login() {
                   </svg>
                   Google
                 </button>
-                <button className="social-btn" style={{ flex: 1 }}>
-                  <svg viewBox="0 0 24 24" width="20" height="20">
-                    <path fill="#24292F" d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12"/>
+                <button
+                  onClick={handleGitHubLogin}
+                  type="button"
+                  className="social-btn"
+                  disabled={loading}
+                  style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', background: '#24292F', color: '#fff' }}
+                >
+                  <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                    <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
                   </svg>
                   GitHub
                 </button>
               </div>
             </div>
-            
             <p className="create-account-text">
-               Don't have an account? <Link href="/register">Sign Up</Link>
+              Chưa có tài khoản? <Link href="/register">Tạo tài khoản</Link>
             </p>
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Login() {
+  return (
+    <Suspense fallback={<div>Đang tải trang đăng nhập...</div>}>
+      <LoginForm />
+    </Suspense>
   );
 }

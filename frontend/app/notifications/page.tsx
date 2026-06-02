@@ -5,11 +5,13 @@ import Sidebar from '../components/Sidebar';
 import { useAppContext } from '../context/AppContext';
 
 export default function Notifications() {
-  const { isLoggedIn } = useAppContext();
+  const { isLoggedIn, transactions } = useAppContext();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newNotif, setNewNotif] = useState({ title: '', desc: '' });
   
   const submitNotif = () => setIsModalOpen(false);
+  
+  const hasData = isLoggedIn && transactions.length > 0;
 
   const notifs = [
     {title:'Cảnh báo ngân sách',desc:'Mua sắm đã đạt 90% ngân sách',time:'2 phút trước',type:'warning',icon:'⚠️',read:false},
@@ -23,21 +25,21 @@ export default function Notifications() {
   return (
     <div className="dashboard-container">
       <Sidebar activeItem="notifications" />
-      <main className="main-content" style={{background:'#F8F9FB'}}>
+      <main className="main-content" style={{background:'#FFFFFF'}}>
         <nav className="navbar" style={{background:'#fff',borderBottom:'1px solid #E6EFF5'}}>
           <h1 className="page-title" style={{color:'#343C6A'}}>Thông báo</h1>
           <div className="nav-actions">
             <button style={{background:'#1814F3',color:'#fff',padding:'10px 20px',borderRadius:'24px',fontWeight:'600',border:'none',cursor:'pointer',fontSize:'15px',display:'flex',alignItems:'center',gap:'8px',whiteSpace:'nowrap'}} onClick={()=>setIsModalOpen(true)}>+ Tạo thông báo</button>
-            {isLoggedIn ? <img src="https://i.pravatar.cc/150?img=5" alt="Avatar" className="avatar"/> : <Link href="/login" style={{textDecoration:'none',color:'#fff',background:'#343C6A',padding:'8px 15px',borderRadius:'20px',fontWeight:'bold'}}>Đăng nhập</Link>}
+            {isLoggedIn ? <img src="https://api.dicebear.com/7.x/miniavs/svg?seed=SpendWise&backgroundColor=b6e3f4" alt="Avatar" className="avatar"/> : <Link href="/login" style={{textDecoration:'none',color:'#fff',background:'#343C6A',padding:'8px 15px',borderRadius:'20px',fontWeight:'bold'}}>Đăng nhập</Link>}
           </div>
         </nav>
         <div className="content-area">
           <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'16px',marginBottom:'24px'}}>
-            <div style={{background:'linear-gradient(135deg,#FE5C73,#FF8A65)',borderRadius:'16px',padding:'20px',color:'#fff'}}><div style={{fontSize:'28px',fontWeight:'800'}}>{isLoggedIn?3:0}</div><div>Chưa đọc</div></div>
-            <div style={{background:'linear-gradient(135deg,#FF9800,#FFB74D)',borderRadius:'16px',padding:'20px',color:'#fff'}}><div style={{fontSize:'28px',fontWeight:'800'}}>{isLoggedIn?1:0}</div><div>Cảnh báo</div></div>
-            <div style={{background:'linear-gradient(135deg,#1814F3,#6366F1)',borderRadius:'16px',padding:'20px',color:'#fff'}}><div style={{fontSize:'28px',fontWeight:'800'}}>{isLoggedIn?1:0}</div><div>GD tự động</div></div>
+            <div style={{background:'linear-gradient(135deg,#FE5C73,#FF8A65)',borderRadius:'16px',padding:'20px',color:'#fff'}}><div style={{fontSize:'28px',fontWeight:'800'}}>{hasData?3:0}</div><div>Chưa đọc</div></div>
+            <div style={{background:'linear-gradient(135deg,#FF9800,#FFB74D)',borderRadius:'16px',padding:'20px',color:'#fff'}}><div style={{fontSize:'28px',fontWeight:'800'}}>{hasData?1:0}</div><div>Cảnh báo</div></div>
+            <div style={{background:'linear-gradient(135deg,#1814F3,#6366F1)',borderRadius:'16px',padding:'20px',color:'#fff'}}><div style={{fontSize:'28px',fontWeight:'800'}}>{hasData?1:0}</div><div>GD tự động</div></div>
           </div>
-          {(isLoggedIn?notifs:[]).map((n,i)=>(
+          {(hasData?notifs:[]).map((n,i)=>(
             <div key={i} style={{background:'#fff',borderRadius:'16px',padding:'20px',border:`1px solid ${n.read?'#E6EFF5':tc[n.type].b}`,borderLeft:`4px solid ${tc[n.type].b}`,display:'flex',alignItems:'center',gap:'16px',opacity:n.read?0.7:1,marginBottom:'12px'}}>
               <div style={{width:'45px',height:'45px',borderRadius:'12px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'22px',background:tc[n.type].bg}}>{n.icon}</div>
               <div style={{flex:1}}><div style={{fontWeight:'700',color:'#343C6A'}}>{n.title}</div><div style={{fontSize:'14px',color:'#718EBF'}}>{n.desc}</div></div>

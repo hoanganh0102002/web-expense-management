@@ -27,24 +27,28 @@ export default function Sidebar({ activeItem }: { activeItem: string }) {
   return (
     <aside className="sidebar" style={{ display: 'flex', flexDirection: 'column', height: '100vh', position: 'sticky', top: 0 }}>
       <div className="brand" style={{ display: 'flex', alignItems: 'center' }}>
-        <span className="brand-icon" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', marginRight: '10px' }}>
-          <svg viewBox="0 0 100 100" fill="none" style={{ width: '100%', height: '100%', filter: 'drop-shadow(0px 2px 4px rgba(0,0,0,0.15))' }}>
+        <span className="brand-icon" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '42px', height: '42px', marginRight: '10px' }}>
+          <svg viewBox="0 0 100 100" fill="none" style={{ width: '100%', height: '100%', filter: 'drop-shadow(0px 4px 8px rgba(0,0,0,0.15))' }}>
             <defs>
-              <linearGradient id="emGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#8A2BE2" />
-                <stop offset="50%" stopColor="#5E148C" />
-                <stop offset="100%" stopColor="#1A0033" />
+              <linearGradient id="purpleGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#9C27B0" />
+                <stop offset="100%" stopColor="#4A0E78" />
+              </linearGradient>
+              <linearGradient id="darkGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#555555" />
+                <stop offset="40%" stopColor="#111111" />
+                <stop offset="100%" stopColor="#000000" />
               </linearGradient>
               <clipPath id="circleClip">
-                <circle cx="50" cy="50" r="45" />
+                <circle cx="50" cy="50" r="43" />
               </clipPath>
             </defs>
-            <rect width="100" height="100" rx="22" fill="white" />
+            <rect width="100" height="100" rx="30" fill="white" />
             <g clipPath="url(#circleClip)">
-              {/* Chữ E chuẩn xác */}
-              <path d="M 46,26 L 20,26 L 20,40 L 36,40 L 36,60 L 20,60 L 20,74 L 46,74 L 46,100 L 0,100 L 0,0 L 46,0 Z" fill="url(#emGrad)" />
-              {/* Chữ M chuẩn xác - Khắc phục lỗi cắt W ở đáy */}
-              <path d="M 54,100 L 54,0 L 63,0 L 74.5,45 L 86,0 L 100,0 L 100,100 L 86,100 L 74.5,55 L 63,100 Z" fill="url(#emGrad)" />
+              {/* Chữ E */}
+              <path d="M 0 0 L 47 0 L 47 28 L 19 28 L 19 43 L 35 43 L 35 57 L 19 57 L 19 72 L 47 72 L 47 100 L 0 100 Z" fill="url(#purpleGrad)" />
+              {/* Chữ M */}
+              <path d="M 53 100 L 53 0 L 65 0 L 73 42 L 81 0 L 100 0 L 100 100 L 81 100 L 73 58 L 65 100 Z" fill="url(#darkGrad)" />
             </g>
           </svg>
         </span>

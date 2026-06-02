@@ -7,7 +7,9 @@
   justify-content: center;
   background: #F8F9FB;
 
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 40px 0;
   font-family: 'Inter', sans-serif;
 }
 
@@ -65,13 +67,15 @@
   display: flex;
   width: 100%;
   max-width: 1100px;
-  height: 650px;
+  min-height: 700px;
+  height: auto;
+  margin: 40px 20px;
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 1);
   box-shadow: 0 25px 50px rgba(0, 0, 0, 0.1);
   z-index: 1;
-  overflow: hidden;
+  overflow: visible;
   opacity: 0;
   transform: translateY(30px);
   animation: slideUpFade 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -86,10 +90,10 @@
 
 .login-left {
   flex: 1;
-  padding: 60px;
+  padding: 80px 60px;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   position: relative;
   border-right: 1px solid rgba(0,0,0,0.05);
   background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, rgba(255,255,255,0) 100%);
@@ -102,7 +106,7 @@
   font-size: 24px;
   font-weight: 800;
   color: #16265C;
-  margin-bottom: 40px;
+  margin-bottom: 25px;
 }
 
 .login-branding .logo svg {
@@ -127,7 +131,7 @@
 }
 
 .glass-card-illustration {
-  margin-top: 50px;
+  margin-top: 30px;
   width: 300px;
   height: 180px;
   background: linear-gradient(135deg, rgba(255,255,255,0.8) 0%, rgba(255,255,255,0.4) 100%);
@@ -194,11 +198,13 @@
 
 .login-right {
   flex: 1;
-  padding: 50px 60px;
+  padding: 60px;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   background: #ffffff;
+  min-height: min-content;
 }
 
 .login-form-box {
@@ -216,7 +222,7 @@
 .auth-subtitle {
   color: #718EBF;
   font-size: 15px;
-  margin-bottom: 40px;
+  margin-bottom: 25px;
 }
 
 .floating-input-group {
@@ -344,7 +350,7 @@
 
 .auth-divider {
   text-align: center;
-  margin: 30px 0;
+  margin: 20px 0;
   position: relative;
 }
 .auth-divider::before {
@@ -388,7 +394,7 @@
 
 .create-account-text {
   text-align: center;
-  margin-top: 30px;
+  margin-top: 20px;
   color: #718EBF;
   font-size: 14px;
 }
