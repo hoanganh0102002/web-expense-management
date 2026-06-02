@@ -1,12 +1,13 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { walletApi } from '../lib/api';
+import { walletApi, authApi } from '../lib/api';
 
 type AppContextType = {
   isLoggedIn: boolean;
   userData: any | null;
   login: (data?: any) => void;
-  logout: () => void;
+  logout: () => Promise<void>;
+  logoutAll: () => Promise<void>;
   transactions: any[];
   addTransaction: (tx: any) => void;
   
@@ -42,6 +43,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (savedTxns) {
       setTransactions(JSON.parse(savedTxns));
     }
+
+    // Global listener for 401 errors
+    const handleUnauthorized = () => {
+      logout();
+    };
+    window.addEventListener('auth-unauthorized', handleUnauthorized);
+    
+    return () => {
+      window.removeEventListener('auth-unauthorized', handleUnauthorized);
+    };
   }, []);
 
   const fetchWallets = async () => {
@@ -50,8 +61,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await walletApi.getAll();
       setWallets(response.data || []);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Lấy danh sách ví thất bại:", error);
+      // Logic 401 đã được xử lý bởi global listener trong api.ts
     } finally {
       setIsLoadingWallets(false);
     }
@@ -88,7 +100,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     fetchWallets();
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await authApi.logout();
+    } catch (e) {
+      console.error('Logout error:', e);
+    }
     setIsLoggedIn(false);
     localStorage.setItem('isLoggedIn', 'false');
     localStorage.removeItem('access_token');
@@ -99,6 +116,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('transactions');
   };
 
+  const logoutAll = async () => {
+    try {
+      const uId = userData?.user_id || userData?.id;
+      await authApi.logoutAll(uId);
+      alert('Đã đăng xuất và thu hồi phiên trên tất cả thiết bị!');
+      await logout();
+    } catch (e: any) {
+      alert('Lỗi: ' + e.message);
+    }
+  };
+
   const addTransaction = (tx: any) => {
     const newTxns = [tx, ...transactions];
     setTransactions(newTxns);
@@ -107,7 +135,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AppContext.Provider value={{ 
-      isLoggedIn, userData, login, logout, transactions, addTransaction,
+      isLoggedIn, userData, login, logout, logoutAll, transactions, addTransaction,
       wallets, isLoadingWallets, fetchWallets, createWallet, updateWallet, deleteWallet 
     }}>
       {children}

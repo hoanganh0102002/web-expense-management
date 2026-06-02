@@ -1,81 +1,156 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
-import '../login/login.css'; // Reusing the awesome auth styles!
+import { authApi } from '../lib/api';
 
 export default function ForgotPassword() {
-  const [isDark, setIsDark] = useState(false);
+  const [email, setEmail] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('auth-theme');
-    if (savedTheme === 'dark') setIsDark(true);
-  }, []);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setMessage(null);
 
-  const toggleTheme = () => {
-    const nextTheme = !isDark;
-    setIsDark(nextTheme);
-    localStorage.setItem('auth-theme', nextTheme ? 'dark' : 'light');
+    try {
+      const response = await authApi.forgotPassword(email);
+      setMessage({ type: 'success', text: response.message || 'Đã gửi link đặt lại mật khẩu!' });
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message || 'Có lỗi xảy ra, vui lòng thử lại sau.' });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className={`login-wrapper ${isDark ? 'dark-theme' : ''}`}>
-      <button type="button" className="theme-toggle-btn" onClick={toggleTheme}>
-         {isDark ? '☀️' : '🌙'}
-      </button>
-      {/* Dynamic Background */}
-      <div className="login-bg-shapes">
-        <div className="shape shape-1"></div>
-        <div className="shape shape-2"></div>
-        <div className="shape shape-3"></div>
-      </div>
-      
-      <div className="login-container">
-        {/* Left Side: Branding & Illustration */}
-        <div className="login-left">
-          <div className="login-branding">
-            <div className="logo">
-              <svg viewBox="0 0 24 24" fill="currentColor">
-                <path d="M4 4h4v16H4zM10 8h4v12h-4zM16 12h4v8h-4z" />
-              </svg>
-              SpendWise.
+    <div className="auth-container">
+      <div className="auth-card">
+        <div className="auth-header">
+          <Link href="/" className="logo-link">
+            <div className="auth-logo">
+              <span className="logo-icon">
+                <svg viewBox="0 0 100 100" fill="none">
+                  <rect width="100" height="100" rx="30" fill="white" />
+                  <circle cx="50" cy="50" r="43" fill="#1814F3" opacity="0.1" />
+                  <path d="M25 75 L45 75 L45 25 L25 25 Z" fill="#9C27B0" />
+                  <path d="M55 75 L55 25 L65 25 L73 60 L81 25 L95 25 L95 75 Z" fill="#343C6A" />
+                </svg>
+              </span>
+              <span className="logo-text">SpendWise</span>
             </div>
-            <h2>Bảo mật tài khoản</h2>
-            <p>Chúng tôi coi trọng sự riêng tư và bảo mật của bạn. Lấy lại quyền truy cập vào tài khoản của bạn một cách nhanh chóng và an toàn.</p>
-            
-            <div className="glass-card-illustration" style={{ transform: 'rotate(-5deg) translateY(10px)', height: '140px', justifyContent: 'center', alignItems: 'center' }}>
-              <svg width="60" height="60" viewBox="0 0 24 24" fill="rgba(255,255,255,0.8)">
-                <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-0.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/>
-                <path d="M12 11.5c1.38 0 2.5-1.12 2.5-2.5s-1.12-2.5-2.5-2.5-2.5 1.12-2.5 2.5 1.12 2.5 2.5 2.5zm0-3c.28 0 .5.22.5.5s-.22.5-.5.5-.5-.22-.5-.5.22-.5.5-.5z"/>
-              </svg>
-            </div>
-          </div>
+          </Link>
+          <h1>Quên mật khẩu?</h1>
+          <p>Đừng lo, hãy nhập email của bạn để chúng tôi gửi link đặt lại mật khẩu.</p>
         </div>
 
-        {/* Right Side: Form */}
-        <div className="login-right">
-          <div className="login-form-box">
-            <h1 className="auth-title">Đặt lại mật khẩu</h1>
-            <p className="auth-subtitle">Nhập email của bạn và chúng tôi sẽ gửi liên kết để đặt lại mật khẩu.</p>
+        <form className="auth-form" onSubmit={handleSubmit}>
+          {message && (
+            <div className={`auth-alert ${message.type === 'success' ? 'alert-success' : 'alert-error'}`} style={{ 
+              padding: '12px', 
+              borderRadius: '8px', 
+              marginBottom: '20px',
+              backgroundColor: message.type === 'success' ? '#DEF7EC' : '#FDE8E8',
+              color: message.type === 'success' ? '#03543F' : '#9B1C1C',
+              fontSize: '14px',
+              textAlign: 'center',
+              fontWeight: '500'
+            }}>
+              {message.text}
+            </div>
+          )}
 
-            <form>
-              <div className="floating-input-group">
-                <input type="email" id="email" placeholder=" " required />
-                <label htmlFor="email">Địa chỉ Email</label>
-              </div>
-
-              <button type="submit" className="login-btn-glow" style={{ marginTop: '20px' }}>
-                <span>Gửi liên kết đặt lại</span>
-              </button>
-            </form>
-
-            <div className="auth-divider"></div>
-            
-            <p className="create-account-text" style={{ marginTop: '0' }}>
-               Bạn đã nhớ mật khẩu? <Link href="/login">Quay lại Đăng nhập</Link>
-            </p>
+          <div className="form-group">
+            <label>Địa chỉ Email</label>
+            <div className="input-with-icon">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+              <input 
+                type="email" 
+                placeholder="ResetPassword@gmail.com" 
+                required 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={isLoading}
+              />
+            </div>
           </div>
+
+          <button type="submit" className="auth-submit" disabled={isLoading}>
+            {isLoading ? 'Đang xử lý...' : 'Gửi yêu cầu reset'}
+          </button>
+        </form>
+
+        <div className="auth-footer">
+           Quay lại <Link href="/login">Đăng nhập</Link>
         </div>
       </div>
+
+      <style jsx>{`
+        .auth-container {
+          min-height: 100vh;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background-color: #F5F7FA;
+          padding: 20px;
+          font-family: 'Inter', sans-serif;
+        }
+        .auth-card {
+          background: white;
+          padding: 48px;
+          border-radius: 30px;
+          width: 100%;
+          max-width: 480px;
+          box-shadow: 0 10px 40px rgba(0,0,0,0.05);
+        }
+        .auth-header {
+          text-align: center;
+          margin-bottom: 36px;
+        }
+        .auth-logo {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          margin-bottom: 24px;
+        }
+        .logo-icon { width: 36px; height: 36px; }
+        .logo-text { font-size: 24px; font-weight: 800; color: #343C6A; }
+        h1 { font-size: 28px; font-weight: 800; color: #343C6A; margin-bottom: 12px; }
+        p { color: #718EBF; font-size: 15px; line-height: 1.5; }
+        .form-group { margin-bottom: 24px; }
+        label { display: block; margin-bottom: 10px; font-weight: 600; color: #343C6A; font-size: 15px; }
+        .input-with-icon { position: relative; }
+        .input-with-icon svg { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); color: #718EBF; }
+        input {
+          width: 100%;
+          padding: 14px 16px 14px 48px;
+          border: 1px solid #E6EFF5;
+          border-radius: 15px;
+          font-size: 15px;
+          transition: all 0.3s;
+          background-color: #fff;
+        }
+        input:focus { outline: none; border-color: #1814F3; box-shadow: 0 0 0 4px rgba(24, 20, 243, 0.1); }
+        .auth-submit {
+          width: 100%;
+          padding: 16px;
+          background-color: #1814F3;
+          color: white;
+          border: none;
+          border-radius: 15px;
+          font-size: 16px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.3s;
+          margin-top: 12px;
+        }
+        .auth-submit:hover { background-color: #1410c5; transform: translateY(-2px); }
+        .auth-submit:disabled { opacity: 0.7; transform: none; cursor: not-allowed; }
+        .auth-footer { text-align: center; margin-top: 32px; color: #718EBF; font-size: 15px; }
+        .auth-footer a { color: #1814F3; font-weight: 700; text-decoration: none; margin-left: 5px; }
+        .auth-footer a:hover { text-decoration: underline; }
+      `}</style>
     </div>
   );
 }
