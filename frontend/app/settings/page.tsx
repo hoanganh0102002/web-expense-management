@@ -4,9 +4,13 @@ import Link from 'next/link';
 import Sidebar from '../components/Sidebar';
 import { authApi } from '../lib/api';
 import { useAppContext } from '../context/AppContext';
+import { useLanguage } from '../lib/translations';
+import { useTheme } from '../context/ThemeContext';
 
 export default function Settings() {
   const { isLoggedIn, userData, logout, logoutAll } = useAppContext();
+  const { t } = useLanguage();
+  const { theme, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState('profile');
 
   // State for Change Password
@@ -17,11 +21,11 @@ export default function Settings() {
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      alert('Vui lòng điền đầy đủ thông tin mật khẩu!');
+      alert(t('fill_all_password'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      alert('Mật khẩu mới và xác nhận mật khẩu không khớp!');
+      alert(t('password_mismatch'));
       return;
     }
 
@@ -32,28 +36,28 @@ export default function Settings() {
         password: newPassword,
         password_confirmation: confirmPassword
       });
-      alert('Đổi mật khẩu thành công! Bạn sẽ được đăng xuất để bảo mật.');
+      alert(t('password_change_success'));
       logout();
     } catch (err: any) {
-      alert('Lỗi: ' + err.message);
+      alert(t('error_prefix') + err.message);
     } finally {
       setIsChangingPwd(false);
     }
   };
 
   const handleDeleteAccount = async () => {
-    const confirm1 = window.confirm('BẠN CÓ CHẮC CHẮN MUỐN XÓA TÀI KHOẢN? Hành động này không thể hoàn tác và toàn bộ dữ liệu giao dịch, ví tiền sẽ bị xóa sạch.');
+    const confirm1 = window.confirm(t('delete_confirm_1'));
     if (!confirm1) return;
 
-    const confirm2 = window.confirm('XÁC NHẬN LẦN CUỐI: Bạn thực sự muốn xóa vĩnh viễn tài khoản SpendWise chứ?');
+    const confirm2 = window.confirm(t('delete_confirm_2'));
     if (!confirm2) return;
 
     try {
       await authApi.deleteAccount();
-      alert('Tài khoản của bạn đã được xóa vĩnh viễn khỏi hệ thống.');
+      alert(t('account_deleted'));
       logout();
     } catch (err: any) {
-      alert('Lỗi khi xóa tài khoản: ' + err.message);
+      alert(t('delete_error') + err.message);
     }
   };
 
@@ -71,7 +75,7 @@ export default function Settings() {
       setFullName(userData.profile?.full_name || userData.full_name || '');
       setCurrency(userData.preference?.currency || 'VNĐ (₫)');
       setTimezone(userData.preference?.timezone || '(GMT+07:00) Bangkok, Hanoi, Jakarta');
-      setLanguage(userData.preference?.language || 'Tiếng Việt');
+      setLanguage(userData.preference?.language === 'en' ? 'English' : 'Tiếng Việt');
     }
   }, [userData]);
 
@@ -90,12 +94,13 @@ export default function Settings() {
         updatedUser.profile = { ...updatedUser.profile, full_name: fullName };
       } else {
         updatedUser.preference = { ...updatedUser.preference, ...payload };
+        localStorage.setItem('app_lang', payload.language as string);
       }
       localStorage.setItem('user_data', JSON.stringify(updatedUser));
-      alert('Cập nhật thành công!');
+      alert(t('update_success'));
       window.location.reload(); // Refresh to update all components
     } catch (err: any) {
-      alert('Lỗi: ' + err.message);
+      alert(t('error_prefix') + err.message);
     } finally {
       setIsUpdating(false);
     }
@@ -111,10 +116,16 @@ export default function Settings() {
     try {
       setIsUpdating(true);
       const data = await authApi.updateAvatar(formData);
-      alert('Cập nhật ảnh đại diện thành công!');
+      if (data && data.data) {
+        const updatedUser = { ...userData };
+        updatedUser.profile = { ...updatedUser.profile, ...data.data };
+        if (data.data.avatar_url) updatedUser.avatar_url = data.data.avatar_url;
+        localStorage.setItem('user_data', JSON.stringify(updatedUser));
+      }
+      alert(t('avatar_update_success'));
       window.location.reload();
     } catch (err: any) {
-      alert('Lỗi: ' + err.message);
+      alert(t('error_prefix') + err.message);
     } finally {
       setIsUpdating(false);
     }
@@ -122,52 +133,78 @@ export default function Settings() {
 
   // Lấy dữ liệu thật từ userData
   const profileFields = [
-    { label: 'Họ tên', value: fullName, setter: setFullName },
-    { label: 'Email', value: userData?.email || 'Chưa cập nhật', disabled: true },
-    { label: 'Số điện thoại', value: userData?.phone || '0', disabled: true },
-    { label: 'Địa chỉ', value: userData?.address || 'Chưa cập nhật', disabled: true },
+    { label: t('full_name'), value: fullName, setter: setFullName },
+    { label: t('email'), value: userData?.email || t('not_updated'), disabled: true },
+    { label: t('phone'), value: userData?.phone || '0', disabled: true },
+    { label: t('address'), value: userData?.address || t('not_updated'), disabled: true },
   ];
 
-  const displayName = userData?.profile?.full_name || userData?.full_name || userData?.name || 'Người dùng mới';
+  const displayName = userData?.profile?.full_name || userData?.full_name || userData?.name || t('new_user');
 
   return (
     <div className="dashboard-container">
       <Sidebar activeItem="settings" />
-      <main className="main-content" style={{ background: '#FFFFFF' }}>
-        <nav className="navbar" style={{ background: '#fff', borderBottom: '1px solid #E6EFF5' }}>
-          <h1 className="page-title" style={{ color: '#343C6A' }}>Cài đặt & Tùy chỉnh</h1>
-          <div className="nav-actions">
+      <main className="main-content" style={{ background: 'var(--bg-color)' }}>
+        <nav className="navbar" style={{ background: 'transparent', borderBottom: '1px solid var(--border-color)', backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 10 }}>
+          <h1 className="page-title" style={{ color: 'var(--text-main)', fontWeight: '800' }}>{t('settings_customize')}</h1>
+          <div className="nav-actions" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            {/* Notification Icon */}
+            <div style={{background: '#F5F7FA', width: '45px', height: '45px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffb300', cursor: 'pointer', fontSize: '20px'}}>
+              🔔
+            </div>
             {isLoggedIn ? (
-              <div style={{ position: 'relative' }}>
-                <img src={userData?.profile?.avatar_url || "https://api.dicebear.com/7.x/miniavs/svg?seed=SpendWise&backgroundColor=b6e3f4"} alt="Avatar" className="avatar" />
-                <div style={{ position: 'absolute', bottom: 0, right: 0, width: '12px', height: '12px', background: '#16DBCC', border: '2px solid #fff', borderRadius: '50%' }}></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <span style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '15px' }}>{displayName}</span>
+                <div style={{ position: 'relative', width: '45px', height: '45px' }}>
+                  <img src={userData?.profile?.avatar_url || userData?.avatar_url || userData?.avatar || "https://api.dicebear.com/7.x/miniavs/svg?seed=SpendWise&backgroundColor=b6e3f4"} alt="Avatar" className="avatar" style={{width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover'}}/>
+                  <div style={{ position: 'absolute', bottom: 0, right: 0, width: '12px', height: '12px', background: '#16DBCC', border: '2px solid #fff', borderRadius: '50%' }}></div>
+                </div>
               </div>
             ) : (
-              <Link href="/login" style={{ textDecoration: 'none', color: '#fff', background: '#343C6A', padding: '8px 15px', borderRadius: '20px', fontWeight: 'bold' }}>Đăng nhập</Link>
+              <Link href="/login" style={{ textDecoration: 'none', color: '#fff', background: '#343C6A', padding: '8px 15px', borderRadius: '20px', fontWeight: 'bold' }}>{t('login')}</Link>
             )}
           </div>
         </nav>
 
         <div className="content-area">
-          <div className="settings-card" style={{ background: '#fff', borderRadius: '24px', padding: '40px', border: '1px solid #E6EFF5', boxShadow: '0 2px 15px rgba(0,0,0,0.02)' }}>
-            {/* Tabs Navigation */}
-            <div style={{ display: 'flex', gap: '40px', borderBottom: '2px solid #F4F7FE', marginBottom: '40px' }}>
+          <div style={{ 
+            background: 'var(--card-bg)', 
+            borderRadius: '32px', 
+            padding: '0', 
+            boxShadow: '0 20px 50px rgba(0,0,0,0.3)', 
+            border: '1px solid var(--border-color)', 
+            position: 'relative', 
+            overflow: 'hidden',
+            backdropFilter: 'blur(30px)'
+          }}>
+            {/* Header Accent Decor */}
+            <div style={{ height: '140px', background: 'var(--accent-gradient)', opacity: 0.1, position: 'absolute', top: 0, left: 0, right: 0 }}></div>
+            
+            <div style={{ padding: '40px', position: 'relative' }}>
+              {/* Tabs Navigation */}
+              <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-color)', marginBottom: '40px', background: 'rgba(255,255,255,0.02)', padding: '6px', borderRadius: '16px' }}>
               {[
-                { k: 'profile', l: 'Thông tin cá nhân' },
-                { k: 'preferences', l: 'Tùy chọn hiển thị' },
-                { k: 'security', l: 'Bảo mật' },
+                { k: 'profile', l: t('personal_info') },
+                { k: 'preferences', l: t('display_options') },
+                { k: 'security', l: t('security') },
               ].map(tab => (
                 <div
                   key={tab.k}
                   onClick={() => setActiveTab(tab.k)}
                   style={{
                     paddingBottom: '20px',
-                    color: activeTab === tab.k ? '#1814F3' : '#718EBF',
-                    borderBottom: activeTab === tab.k ? '3px solid #1814F3' : '3px solid transparent',
+                    color: activeTab === tab.k ? 'var(--text-main)' : 'var(--text-muted)',
+                    background: activeTab === tab.k ? 'var(--input-bg)' : 'transparent',
+                    borderBottom: activeTab === tab.k ? '3px solid var(--active-blue)' : '3px solid transparent',
                     fontWeight: activeTab === tab.k ? '700' : '500',
                     cursor: 'pointer',
-                    fontSize: '16px',
-                    transition: 'all 0.3s'
+                    fontSize: '15px',
+                    transition: 'all 0.3s',
+                    borderRadius: '12px 12px 0 0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: '140px'
                   }}
                 >
                   {tab.l}
@@ -182,7 +219,7 @@ export default function Settings() {
                   <div style={{ position: 'relative' }}>
                     <div style={{ width: '130px', height: '130px', borderRadius: '50%', padding: '4px', border: '2px solid #1814F3' }}>
                       <img
-                        src={userData?.profile?.avatar_url || "https://api.dicebear.com/7.x/miniavs/svg?seed=SpendWise&backgroundColor=b6e3f4"}
+                        src={userData?.profile?.avatar_url || userData?.avatar_url || userData?.avatar || "https://api.dicebear.com/7.x/miniavs/svg?seed=SpendWise&backgroundColor=b6e3f4"}
                         alt="Profile"
                         style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
                       />
@@ -202,8 +239,8 @@ export default function Settings() {
                     </button>
                   </div>
                   <div style={{ textAlign: 'center' }}>
-                    <h3 style={{ margin: 0, color: '#343C6A', fontSize: '18px' }}>{displayName}</h3>
-                    <p style={{ margin: '4px 0 0', color: '#718EBF', fontSize: '13px' }}>{userData?.email || 'Email chưa xác thực'}</p>
+                    <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '18px' }}>{displayName}</h3>
+                    <p style={{ margin: '4px 0 0', color: '#718EBF', fontSize: '13px' }}>{userData?.email || t('email_not_verified')}</p>
                   </div>
                 </div>
 
@@ -212,21 +249,21 @@ export default function Settings() {
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', marginBottom: '40px' }}>
                     {profileFields.map((f: any, i) => (
                       <div key={i}>
-                        <label style={{ display: 'block', marginBottom: '10px', color: '#343C6A', fontWeight: '600', fontSize: '15px' }}>{f.label}</label>
+                        <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '600', fontSize: '15px' }}>{f.label}</label>
                         <div style={{ position: 'relative' }}>
                           <input
                             type="text"
                             value={f.value}
                             onChange={(e) => f.setter && f.setter(e.target.value)}
-                            placeholder={isLoggedIn ? `Nhập ${f.label.toLowerCase()}...` : 'Vui lòng đăng nhập'}
+                            placeholder={isLoggedIn ? `${t('enter_placeholder')} ${f.label.toLowerCase()}...` : t('please_login')}
                             disabled={!isLoggedIn || f.disabled}
                             style={{
                               width: '100%',
                               padding: '14px 18px',
-                              border: '1px solid #E6EFF5',
+                              border: '1px solid var(--border-color)',
                               borderRadius: '15px',
-                              background: f.disabled ? '#F4F7FE' : '#F8F9FB',
-                              color: '#343C6A',
+                              background: f.disabled ? 'rgba(255, 255, 255, 0.05)' : 'var(--input-bg)',
+                              color: 'var(--text-main)',
                               fontSize: '15px',
                               fontWeight: '500'
                             }}
@@ -240,9 +277,9 @@ export default function Settings() {
                       onClick={() => handleUpdateProfile('profile')}
                       disabled={isUpdating}
                       style={{ padding: '14px 35px', background: '#1814F3', color: '#fff', border: 'none', borderRadius: '15px', fontWeight: '700', cursor: 'pointer', fontSize: '15px', boxShadow: '0 4px 15px rgba(24, 20, 243, 0.25)', transition: 'transform 0.2s', opacity: isUpdating ? 0.7 : 1 }}>
-                      {isUpdating ? 'Đang lưu...' : 'Lưu thay đổi'}
+                      {isUpdating ? t('saving') : t('save_changes')}
                     </button>
-                    <button style={{ padding: '14px 35px', background: '#F8F9FB', color: '#718EBF', border: '1px solid #E6EFF5', borderRadius: '15px', fontWeight: '600', cursor: 'pointer', fontSize: '15px' }}>Hủy bỏ</button>
+                    <button style={{ padding: '14px 35px', background: 'var(--bg-color)', color: '#718EBF', border: '1px solid #E6EFF5', borderRadius: '15px', fontWeight: '600', cursor: 'pointer', fontSize: '15px' }}>{t('cancel_changes')}</button>
                   </div>
                 </div>
               </div>
@@ -252,79 +289,94 @@ export default function Settings() {
               <div style={{ maxWidth: '700px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
                   <div>
-                    <label style={{ display: 'block', marginBottom: '10px', color: '#343C6A', fontWeight: '600', fontSize: '15px' }}>Đơn vị tiền tệ</label>
+                    <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '600', fontSize: '15px' }}>{t('currency_label')}</label>
                     <select 
                       disabled={!isLoggedIn} 
                       value={currency}
                       onChange={(e) => setCurrency(e.target.value)}
-                      style={{ width: '100%', padding: '14px', border: '1px solid #E6EFF5', borderRadius: '15px', background: '#F8F9FB', color: '#343C6A', fontSize: '15px', appearance: 'none' }}>
+                      style={{ width: '100%', padding: '14px', border: '1px solid #E6EFF5', borderRadius: '15px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px', appearance: 'none' }}>
                       <option>VNĐ (₫)</option><option>USD ($)</option>
                     </select>
                   </div>
                   <div>
-                    <label style={{ display: 'block', marginBottom: '10px', color: '#343C6A', fontWeight: '600', fontSize: '15px' }}>Ngôn ngữ</label>
+                    <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '600', fontSize: '15px' }}>{t('language_label')}</label>
                     <select 
                       disabled={!isLoggedIn} 
                       value={language}
                       onChange={(e) => setLanguage(e.target.value)}
-                      style={{ width: '100%', padding: '14px', border: '1px solid #E6EFF5', borderRadius: '15px', background: '#F8F9FB', color: '#343C6A', fontSize: '15px', appearance: 'none' }}>
+                      style={{ width: '100%', padding: '14px', border: '1px solid #E6EFF5', borderRadius: '15px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px', appearance: 'none' }}>
                       <option>Tiếng Việt</option><option>English</option>
                     </select>
                   </div>
                 </div>
-                <div style={{ marginTop: '30px', padding: '24px', background: '#F8F9FB', borderRadius: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ marginTop: '30px', padding: '32px', background: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <div style={{ fontWeight: '700', color: '#343C6A', marginBottom: '4px' }}>Chế độ tối (Dark Mode)</div>
-                    <div style={{ fontSize: '13px', color: '#718EBF' }}>Giảm mỏi mắt và tiết kiệm pin trên màn hình OLED</div>
+                    <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '8px', fontSize: '17px' }}>{t('dark_mode')}</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '280px' }}>{t('dark_mode_desc')}</div>
                   </div>
-                  <div style={{ width: '50px', height: '26px', borderRadius: '13px', background: isLoggedIn ? '#1814F3' : '#E6EFF5', position: 'relative', cursor: 'pointer' }}>
-                    <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '3px', left: isLoggedIn ? '27px' : '3px', transition: '0.3s', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}></div>
+                  <div 
+                    onClick={toggleTheme}
+                    style={{ width: '56px', height: '30px', borderRadius: '15px', background: theme === 'dark' ? '#1814F3' : 'var(--border-color)', position: 'relative', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>
+                    <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '4px', left: theme === 'dark' ? '30px' : '4px', transition: '0.3s', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}></div>
                   </div>
                 </div>
                 <button 
                   onClick={() => handleUpdateProfile('preferences')}
                   disabled={isUpdating}
-                  style={{ marginTop: '30px', padding: '14px 35px', background: '#1814F3', color: '#fff', border: 'none', borderRadius: '15px', fontWeight: '700', cursor: 'pointer', fontSize: '15px', opacity: isUpdating ? 0.7 : 1 }}>
-                  Lưu tùy chọn
+                  style={{ 
+                    marginTop: '30px', 
+                    padding: '16px 40px', 
+                    background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)', 
+                    color: '#fff', 
+                    border: 'none', 
+                    borderRadius: '16px', 
+                    fontWeight: '700', 
+                    cursor: 'pointer', 
+                    fontSize: '15px', 
+                    boxShadow: '0 10px 20px -5px rgba(59, 130, 246, 0.4)',
+                    transition: 'all 0.3s',
+                    opacity: isUpdating ? 0.7 : 1 
+                  }}>
+                  {t('save_preferences')}
                 </button>
               </div>
             )}
 
             {activeTab === 'security' && (
               <div style={{ maxWidth: '600px' }}>
-                <h3 style={{ color: '#343C6A', marginBottom: '25px', fontSize: '20px' }}>Bảo mật tài khoản</h3>
+                <h3 style={{ color: 'var(--text-main)', marginBottom: '25px', fontSize: '20px' }}>{t('account_security')}</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   <div>
-                    <label style={{ display: 'block', marginBottom: '10px', color: '#343C6A', fontWeight: '600', fontSize: '14px' }}>Mật khẩu hiện tại</label>
+                    <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '600', fontSize: '14px' }}>{t('current_password')}</label>
                     <input 
                       type="password" 
                       placeholder="••••••••" 
                       disabled={!isLoggedIn} 
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
-                      style={{ width: '100%', padding: '14px', border: '1px solid #E6EFF5', borderRadius: '15px', background: '#F8F9FB' }} 
+                      style={{ width: '100%', padding: '14px', border: '1px solid var(--border-color)', borderRadius: '15px', background: 'var(--input-bg)', color: 'var(--text-main)' }} 
                     />
                   </div>
                   <div>
-                    <label style={{ display: 'block', marginBottom: '10px', color: '#343C6A', fontWeight: '600', fontSize: '14px' }}>Mật khẩu mới</label>
+                    <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '600', fontSize: '14px' }}>{t('new_password')}</label>
                     <input 
                       type="password" 
-                      placeholder="Nhập mật khẩu mới..." 
+                      placeholder={t('enter_new_password')} 
                       disabled={!isLoggedIn} 
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      style={{ width: '100%', padding: '14px', border: '1px solid #E6EFF5', borderRadius: '15px', background: '#F8F9FB' }} 
+                      style={{ width: '100%', padding: '14px', border: '1px solid var(--border-color)', borderRadius: '15px', background: 'var(--input-bg)', color: 'var(--text-main)' }} 
                     />
                   </div>
                   <div>
-                    <label style={{ display: 'block', marginBottom: '10px', color: '#343C6A', fontWeight: '600', fontSize: '14px' }}>Xác nhận mật khẩu mới</label>
+                    <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '600', fontSize: '14px' }}>{t('confirm_new_password')}</label>
                     <input 
                       type="password" 
-                      placeholder="Nhập lại mật khẩu mới..." 
+                      placeholder={t('confirm_password_again')} 
                       disabled={!isLoggedIn} 
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      style={{ width: '100%', padding: '14px', border: '1px solid #E6EFF5', borderRadius: '15px', background: '#F8F9FB' }} 
+                      style={{ width: '100%', padding: '14px', border: '1px solid var(--border-color)', borderRadius: '15px', background: 'var(--input-bg)', color: 'var(--text-main)' }} 
                     />
                   </div>
                   <div style={{ display: 'flex', gap: '15px' }}>
@@ -332,28 +384,29 @@ export default function Settings() {
                       onClick={handleChangePassword}
                       disabled={isChangingPwd}
                       style={{ width: 'fit-content', padding: '14px 30px', background: '#1814F3', color: '#fff', border: 'none', borderRadius: '15px', fontWeight: '700', cursor: 'pointer', marginTop: '10px', opacity: (isLoggedIn && !isChangingPwd) ? 1 : 0.5 }}>
-                      {isChangingPwd ? 'Đang cập nhật...' : 'Cập nhật mật khẩu'}
+                      {isChangingPwd ? t('updating') : t('update_password')}
                     </button>
                     <button 
                       onClick={logoutAll}
                       style={{ width: 'fit-content', padding: '14px 30px', background: '#FFE0EB', color: '#FE5C73', border: '1px solid #FE5C73', borderRadius: '15px', fontWeight: '700', cursor: 'pointer', marginTop: '10px', opacity: isLoggedIn ? 1 : 0.5 }}>
-                      Thu hồi tất cả thiết bị
+                      {t('revoke_all_devices')}
                     </button>
                   </div>
                 </div>
                 
                 <div style={{ marginTop: '40px', paddingTop: '30px', borderTop: '2px solid #F4F7FE' }}>
-                  <h3 style={{ color: '#FE5C73', marginBottom: '10px', fontSize: '18px' }}>Xóa tài khoản</h3>
-                  <p style={{ fontSize: '14px', color: '#718EBF', marginBottom: '20px' }}>Hành động này sẽ xóa vĩnh viễn tất cả dữ liệu giao dịch và ví của bạn.</p>
+                  <h3 style={{ color: '#FE5C73', marginBottom: '10px', fontSize: '18px' }}>{t('delete_account')}</h3>
+                  <p style={{ fontSize: '14px', color: '#718EBF', marginBottom: '20px' }}>{t('delete_account_warning')}</p>
                   <button 
                     onClick={handleDeleteAccount}
                     disabled={!isLoggedIn}
                     style={{ padding: '12px 25px', background: '#FFE0EB', color: '#FE5C73', border: '1px solid #FE5C73', borderRadius: '12px', fontWeight: '600', cursor: 'pointer', opacity: isLoggedIn ? 1 : 0.5 }}>
-                    Xóa tài khoản ngay
+                    {t('delete_account_now')}
                   </button>
                 </div>
               </div>
             )}
+            </div>
           </div>
         </div>
       </main>

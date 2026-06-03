@@ -1,6 +1,6 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { walletApi, authApi } from '../lib/api';
+import { walletApi, authApi, categoryApi } from '../lib/api';
 
 type AppContextType = {
   isLoggedIn: boolean;
@@ -18,6 +18,14 @@ type AppContextType = {
   createWallet: (data: any) => Promise<void>;
   updateWallet: (id: string, data: any) => Promise<void>;
   deleteWallet: (id: string) => Promise<void>;
+
+  // Quản lý Danh mục
+  categories: any[];
+  isLoadingCategories: boolean;
+  fetchCategories: () => Promise<void>;
+  createCategory: (data: any) => Promise<void>;
+  updateCategory: (id: string, data: any) => Promise<void>;
+  deleteCategory: (id: string) => Promise<void>;
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -28,12 +36,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [wallets, setWallets] = useState<any[]>([]);
   const [isLoadingWallets, setIsLoadingWallets] = useState(false);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
 
   useEffect(() => {
     const savedLogin = localStorage.getItem('isLoggedIn');
     if (savedLogin === 'true') {
       setIsLoggedIn(true);
       fetchWallets();
+      fetchCategories();
     }
     const savedUser = localStorage.getItem('user_data');
     if (savedUser) {
@@ -63,7 +74,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setWallets(response.data || []);
     } catch (error: any) {
       console.error("Lấy danh sách ví thất bại:", error);
-      // Logic 401 đã được xử lý bởi global listener trong api.ts
     } finally {
       setIsLoadingWallets(false);
     }
@@ -84,11 +94,37 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await fetchWallets();
   };
 
+  const fetchCategories = async () => {
+    if (!localStorage.getItem('access_token')) return;
+    setIsLoadingCategories(true);
+    try {
+      const response = await categoryApi.getAll();
+      setCategories(response.data || []);
+    } catch (error: any) {
+      console.error("Lấy danh sách danh mục thất bại:", error);
+    } finally {
+      setIsLoadingCategories(false);
+    }
+  };
+
+  const createCategory = async (data: any) => {
+    await categoryApi.create(data);
+    await fetchCategories();
+  };
+
+  const updateCategory = async (id: string, data: any) => {
+    await categoryApi.update(id, data);
+    await fetchCategories();
+  };
+
+  const deleteCategory = async (id: string) => {
+    await categoryApi.delete(id);
+    await fetchCategories();
+  };
+
   const login = (data?: any) => {
     setIsLoggedIn(true);
     localStorage.setItem('isLoggedIn', 'true');
-    // Khi đăng nhập tài khoản mới, xóa dữ liệu giao dịch cũ trong localStorage
-    // để đảm bảo tài khoản mới bắt đầu với dữ liệu trống (nếu chưa đồng bộ backend)
     setTransactions([]);
     localStorage.removeItem('transactions');
     
@@ -98,6 +134,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setUserData(data.data);
     }
     fetchWallets();
+    fetchCategories();
   };
 
   const logout = async () => {
@@ -112,6 +149,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('user_data');
     setUserData(null);
     setWallets([]);
+    setCategories([]);
     setTransactions([]);
     localStorage.removeItem('transactions');
   };
@@ -136,7 +174,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   return (
     <AppContext.Provider value={{ 
       isLoggedIn, userData, login, logout, logoutAll, transactions, addTransaction,
-      wallets, isLoadingWallets, fetchWallets, createWallet, updateWallet, deleteWallet 
+      wallets, isLoadingWallets, fetchWallets, createWallet, updateWallet, deleteWallet,
+      categories, isLoadingCategories, fetchCategories, createCategory, updateCategory, deleteCategory
     }}>
       {children}
     </AppContext.Provider>
@@ -148,3 +187,4 @@ export function useAppContext() {
   if (!context) throw new Error('useAppContext must be used within AppProvider');
   return context;
 }
+

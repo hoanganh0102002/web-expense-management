@@ -3,6 +3,8 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Sidebar from '../components/Sidebar';
 import { useAppContext } from '../context/AppContext';
+import { useLanguage } from '../lib/translations';
+import './wallets.css';
 
 // ==========================================
 // CUSTOM PREMIUM SVG ICONS
@@ -188,6 +190,7 @@ export default function Wallets() {
     isLoggedIn, wallets, fetchWallets, createWallet, 
     updateWallet, deleteWallet, isLoadingWallets, userData
   } = useAppContext();
+  const { t } = useLanguage();
 
   // State cho Modals
   const [showModal, setShowModal] = useState<'create' | 'edit' | null>(null);
@@ -209,7 +212,7 @@ export default function Wallets() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isLoggedIn) {
-      alert("Bạn cần phải đăng nhập mới được tạo ví");
+      alert(t('login_required_to_create_wallet'));
       return;
     }
     try {
@@ -217,7 +220,7 @@ export default function Wallets() {
       setShowModal(null);
       resetForm();
     } catch (err) {
-      alert("Lỗi khi tạo ví!");
+      alert(t('create_wallet_error'));
     }
   };
 
@@ -228,16 +231,16 @@ export default function Wallets() {
       setShowModal(null);
       resetForm();
     } catch (err) {
-      alert("Lỗi khi cập nhật ví!");
+      alert(t('update_wallet_error'));
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (confirm("Bạn có chắc chắn muốn xóa ví này?")) {
+    if (confirm(t('delete_wallet_confirm'))) {
       try {
         await deleteWallet(id);
       } catch (err: any) {
-        alert(err.message || "Lỗi khi xóa ví!");
+        alert(err.message || t('delete_wallet_error'));
       }
     }
   };
@@ -264,53 +267,65 @@ export default function Wallets() {
   return (
     <div className="dashboard-container">
       <Sidebar activeItem="wallets" />
-      <main className="main-content" style={{ background: '#F8F9FB' }}>
-        <nav className="navbar" style={{ background: '#fff', borderBottom: '1px solid #E6EFF5' }}>
-          <h1 className="page-title" style={{ color: '#343C6A' }}>Ví & Tài khoản tiền</h1>
+      <main className="main-content wallets-main">
+        <nav className="navbar wallets-navbar">
+          <h1 className="page-title wallets-title">{t('wallets_and_accounts')}</h1>
           <div className="nav-actions">
             <button 
               onClick={() => {
                 if (!isLoggedIn) {
-                  alert("Bạn cần phải đăng nhập mới được tạo ví");
+                  alert(t('login_required_to_create_wallet'));
                   return;
                 }
                 setShowModal('create');
               }}
-              style={{ background: '#1814F3', color: '#fff', padding: '10px 20px', borderRadius: '12px', fontWeight: '600', border: 'none', cursor: 'pointer' }}
+              className="create-wallet-btn"
             >
-              + Tạo ví mới
+              {t('create_new_wallet')}
             </button>
             {isLoggedIn ? (
-              <img src={userData?.avatar || "https://api.dicebear.com/7.x/miniavs/svg?seed=SpendWise&backgroundColor=b6e3f4"} alt="Avatar" className="avatar" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <span style={{ fontWeight: '600', color: '#343C6A', fontSize: '15px' }}>
+                  {userData?.profile?.full_name || userData?.full_name || userData?.name || t('new_user')}
+                </span>
+                <div style={{ position: 'relative', width: '45px', height: '45px' }}>
+                  <img 
+                    src={userData?.profile?.avatar_url || userData?.avatar_url || userData?.avatar || "https://api.dicebear.com/7.x/miniavs/svg?seed=SpendWise&backgroundColor=b6e3f4"} 
+                    alt="Avatar" 
+                    style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} 
+                  />
+                  <div style={{ position: 'absolute', bottom: 0, right: 0, width: '12px', height: '12px', background: '#16DBCC', border: '2px solid #fff', borderRadius: '50%' }}></div>
+                </div>
+              </div>
             ) : (
-              <Link href="/login" style={{ textDecoration: 'none', color: '#fff', background: '#343C6A', padding: '8px 15px', borderRadius: '20px', fontWeight: 'bold' }}>Đăng nhập</Link>
+              <Link href="/login" style={{ textDecoration: 'none', color: '#fff', background: '#343C6A', padding: '8px 15px', borderRadius: '20px', fontWeight: 'bold' }}>{t('login')}</Link>
             )}
           </div>
         </nav>
 
-        <div className="content-area">
+        <div className="content-area wallets-container">
           {isLoadingWallets ? (
-            <div style={{ textAlign: 'center', padding: '40px' }}>Đang tải dữ liệu...</div>
+            <div style={{ textAlign: 'center', padding: '40px' }}>{t('loading')}</div>
           ) : wallets.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '80px 20px', background: '#fff', borderRadius: '20px', border: '1px dashed #E6EFF5' }}>
+            <div className="wallets-empty-state">
               <div style={{ fontSize: '50px', marginBottom: '20px' }}>👛</div>
-              <h3 style={{ color: '#343C6A', marginBottom: '10px' }}>Chưa có ví nào</h3>
-              <p style={{ color: '#718EBF', marginBottom: '25px' }}>Bắt đầu quản lý tài chính bằng cách tạo chiếc ví đầu tiên của bạn!</p>
+              <h3 style={{ color: '#343C6A', marginBottom: '10px' }}>{t('no_wallets')}</h3>
+              <p style={{ color: '#718EBF', marginBottom: '25px' }}>{t('no_wallets_desc')}</p>
               <button 
                 onClick={() => {
                   if (!isLoggedIn) {
-                    alert("Bạn cần phải đăng nhập mới được tạo ví");
+                    alert(t('login_required_to_create_wallet'));
                     return;
                   }
                   setShowModal('create');
                 }}
-                style={{ background: '#1814F3', color: '#fff', padding: '12px 30px', borderRadius: '12px', fontWeight: '600', border: 'none', cursor: 'pointer' }}
+                className="create-wallet-btn"
               >
-                Tạo ví ngay
+                {t('create_wallet_now')}
               </button>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: '20px', marginBottom: '24px' }}>
+            <div className="wallets-grid">
               {wallets.map((w) => {
                 const cardColor = w.color || 'linear-gradient(135deg, #3A3FBD, #2E33A8)';
                 const txtColor = getContrastColor(cardColor);
@@ -318,85 +333,41 @@ export default function Wallets() {
                 const iconBg = getIconBgColor(cardColor);
                 
                 return (
-                  <div key={w.id} style={{ 
-                    background: cardColor, 
-                    borderRadius: '24px', 
-                    padding: '24px', 
-                    color: txtColor, 
-                    position: 'relative', 
-                    overflow: 'hidden', 
-                    minHeight: '170px',
-                    boxShadow: '0 8px 16px rgba(0,0,0,0.06)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    transition: 'all 0.3s ease'
-                  }}>
-                    <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '120px', height: '120px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }}></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                  <div key={w.id} className="wallet-card" style={{ background: cardColor, color: txtColor }}>
+                    <div className="wallet-card-decoration"></div>
+                    <div className="wallet-card-header">
                       <div>
-                        <div style={{ fontSize: '12px', color: muteColor, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Số dư</div>
-                        <div style={{ fontSize: '26px', fontWeight: '800' }}>
+                        <div className="wallet-label" style={{ color: muteColor }}>{t('balance_label')}</div>
+                        <div className="wallet-balance">
                           {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(w.available_balance || 0)}
                         </div>
                       </div>
-                      <div style={{ 
-                        background: iconBg, 
-                        width: '46px', 
-                        height: '46px', 
-                        borderRadius: '12px', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center',
-                        color: txtColor
-                      }}>
+                      <div className="wallet-icon-wrapper" style={{ background: iconBg, color: txtColor }}>
                         {renderWalletIcon(w.icon || 'wallet', 22)}
                       </div>
                     </div>
                     
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '16px', zIndex: 2 }}>
+                    <div className="wallet-card-footer">
                       <div>
-                        <div style={{ fontSize: '16px', fontWeight: '700' }}>{w.name}</div>
-                        <div style={{ fontSize: '12px', color: muteColor }}>
-                          Loại: {w.type === 'cash' ? 'Tiền mặt' : w.type === 'bank' ? 'Ngân hàng' : 'Ví điện tử'}
+                        <div className="wallet-name">{w.name}</div>
+                        <div className="wallet-type-label" style={{ color: muteColor }}>
+                          {t('type_label_prefix')}{w.type === 'cash' ? t('cash') : w.type === 'bank' ? t('bank') : t('ewallet')}
                         </div>
                       </div>
-                      <div style={{ display: 'flex', gap: '8px' }}>
+                      <div className="wallet-actions">
                         <button 
                           onClick={() => openEdit(w)}
-                          style={{ 
-                            background: iconBg, 
-                            color: txtColor, 
-                            border: 'none', 
-                            padding: '8px 16px', 
-                            borderRadius: '10px', 
-                            cursor: 'pointer', 
-                            fontSize: '13px', 
-                            fontWeight: '600',
-                            transition: 'opacity 0.2s',
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                          onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                          className="action-btn-edit"
+                          style={{ background: iconBg, color: txtColor }}
                         >
-                          Sửa
+                          {t('edit')}
                         </button>
                         <button 
                           onClick={() => handleDelete(w.id)}
-                          style={{ 
-                            background: 'rgba(239, 68, 68, 0.15)', 
-                            color: w.color ? (txtColor === '#FFFFFF' ? '#FF8A8A' : '#EF4444') : '#EF4444', 
-                            border: 'none', 
-                            padding: '8px 16px', 
-                            borderRadius: '10px', 
-                            cursor: 'pointer', 
-                            fontSize: '13px', 
-                            fontWeight: '600',
-                            transition: 'opacity 0.2s',
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                          onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                          className="action-btn-delete"
+                          style={{ color: w.color ? (txtColor === '#FFFFFF' ? '#FF8A8A' : '#EF4444') : '#EF4444' }}
                         >
-                          Xóa
+                          {t('delete')}
                         </button>
                       </div>
                     </div>
@@ -410,89 +381,38 @@ export default function Wallets() {
 
       {/* MODAL TẠO / SỬA VÍ */}
       {showModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(5px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-          <div style={{ 
-            background: '#fff', 
-            padding: '32px', 
-            borderRadius: '28px', 
-            width: '480px', 
-            maxHeight: '90vh',
-            overflowY: 'auto',
-            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
-            scrollbarWidth: 'none',
-            msOverflowStyle: 'none'
-          }}>
+        <div className="modal-overlay">
+          <div className="modal-content">
             {/* Modal Header */}
-            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px', position: 'relative', height: '40px' }}>
+            <div className="modal-header">
               <button 
                 type="button" 
                 onClick={() => { setShowModal(null); resetForm(); }}
-                style={{ 
-                  background: 'none', 
-                  border: 'none', 
-                  fontSize: '28px', 
-                  cursor: 'pointer', 
-                  color: '#1E293B', 
-                  position: 'absolute', 
-                  left: '4px',
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '8px',
-                  borderRadius: '50%',
-                  transition: 'background 0.2s'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.background = '#F1F5F9'}
-                onMouseLeave={(e) => e.currentTarget.style.background = 'none'}
+                className="modal-back-btn"
               >
                 ‹
               </button>
-              <h2 style={{ width: '100%', textAlign: 'center', margin: 0, color: '#1E293B', fontSize: '20px', fontWeight: '700' }}>
-                {showModal === 'create' ? 'Thêm ví mới' : 'Chỉnh sửa ví'}
+              <h2 className="modal-title">
+                {showModal === 'create' ? t('add_new_wallet') : t('edit_wallet')}
               </h2>
             </div>
 
             {/* Live Card Preview */}
-            <div style={{ 
-              background: color, 
-              borderRadius: '24px', 
-              padding: '24px', 
-              color: getContrastColor(color), 
-              position: 'relative', 
-              overflow: 'hidden', 
-              minHeight: '160px',
-              marginBottom: '24px',
-              boxShadow: '0 10px 25px rgba(0,0,0,0.08)',
-              transition: 'all 0.3s ease',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between'
-            }}>
-              <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '120px', height: '120px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }}></div>
+            <div className="card-preview" style={{ background: color, color: getContrastColor(color) }}>
+              <div className="wallet-card-decoration"></div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
                 <div>
-                  <div style={{ fontSize: '12px', color: getMutedContrastColor(color), letterSpacing: '0.5px', marginBottom: '4px' }}>Tên ví</div>
+                  <div className="wallet-label" style={{ color: getMutedContrastColor(color), letterSpacing: '0.5px' }}>{t('wallet_name')}</div>
                   <div style={{ fontSize: '18px', fontWeight: '700', wordBreak: 'break-all' }}>
-                    {name.toUpperCase() || 'VÍ MỚI CỦA TÔI'}
+                    {name.toUpperCase() || t('my_new_wallet_placeholder')}
                   </div>
                 </div>
-                <div style={{ 
-                  fontSize: '22px', 
-                  background: getIconBgColor(color), 
-                  width: '46px', 
-                  height: '46px', 
-                  borderRadius: '12px', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  color: getContrastColor(color)
-                }}>
+                <div className="wallet-icon-wrapper" style={{ background: getIconBgColor(color), color: getContrastColor(color) }}>
                   {renderWalletIcon(icon, 22)}
                 </div>
               </div>
               <div>
-                <div style={{ fontSize: '12px', color: getMutedContrastColor(color), letterSpacing: '0.5px', marginBottom: '4px' }}>Số dư khởi tạo</div>
+                <div className="wallet-label" style={{ color: getMutedContrastColor(color), letterSpacing: '0.5px' }}>{t('initial_balance')}</div>
                 <div style={{ fontSize: '26px', fontWeight: '800' }}>
                   {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(balance) || 0)}
                 </div>
@@ -502,39 +422,20 @@ export default function Wallets() {
             <form onSubmit={showModal === 'create' ? handleCreate : handleUpdate}>
               {/* Wallet Name */}
               <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '700', color: '#1E293B', fontSize: '15px' }}>Tên ví</label>
+                <label className="form-group-label">{t('wallet_name')}</label>
                 <input 
                   type="text" 
                   value={name} 
                   onChange={(e) => setName(e.target.value)} 
                   required 
-                  placeholder="Nhập tên ví (ví dụ: Ví Tiền Mặt)"
-                  style={{ 
-                    width: '100%', 
-                    padding: '14px 18px', 
-                    borderRadius: '14px', 
-                    border: '1px solid transparent',
-                    background: '#F5F7FA',
-                    color: '#1E293B',
-                    outline: 'none',
-                    fontWeight: '500',
-                    fontSize: '14px',
-                    transition: 'all 0.2s'
-                  }}
-                  onFocus={(e) => {
-                    e.currentTarget.style.background = '#FFF';
-                    e.currentTarget.style.borderColor = '#5F63E8';
-                  }}
-                  onBlur={(e) => {
-                    e.currentTarget.style.background = '#F5F7FA';
-                    e.currentTarget.style.borderColor = 'transparent';
-                  }}
+                  placeholder={t('wallet_name_placeholder')}
+                  className="wallet-input"
                 />
               </div>
 
               {/* Initial Balance */}
               <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '700', color: '#1E293B', fontSize: '15px' }}>Số dư ban đầu</label>
+                <label className="form-group-label">{t('initial_balance_label')}</label>
                 <div style={{ position: 'relative' }}>
                   <input 
                     type="number" 
@@ -542,30 +443,12 @@ export default function Wallets() {
                     onChange={(e) => setBalance(e.target.value)} 
                     placeholder="0"
                     disabled={showModal === 'edit'}
+                    className="wallet-input"
                     style={{ 
-                      width: '100%', 
-                      padding: '14px 40px 14px 18px', 
-                      borderRadius: '14px', 
-                      border: '1px solid transparent',
+                      paddingRight: '40px',
                       background: showModal === 'edit' ? '#F1F5F9' : '#F5F7FA',
                       color: showModal === 'edit' ? '#94A3B8' : '#1E293B',
-                      fontWeight: '600',
-                      fontSize: '14px',
-                      outline: 'none',
                       cursor: showModal === 'edit' ? 'not-allowed' : 'text',
-                      transition: 'all 0.2s'
-                    }}
-                    onFocus={(e) => {
-                      if (showModal !== 'edit') {
-                        e.currentTarget.style.background = '#FFF';
-                        e.currentTarget.style.borderColor = '#5F63E8';
-                      }
-                    }}
-                    onBlur={(e) => {
-                      if (showModal !== 'edit') {
-                        e.currentTarget.style.background = '#F5F7FA';
-                        e.currentTarget.style.borderColor = 'transparent';
-                      }
                     }}
                   />
                   <span style={{ 
@@ -578,19 +461,14 @@ export default function Wallets() {
                   }}>đ</span>
                 </div>
                 {showModal === 'edit' && (
-                  <div style={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    gap: '6px', 
-                    marginTop: '8px' 
-                  }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px' }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="12" cy="12" r="10" />
                       <line x1="12" y1="8" x2="12" y2="12" />
                       <line x1="12" y1="16" x2="12.01" y2="16" />
                     </svg>
                     <small style={{ color: '#EF4444', fontSize: '12px', fontWeight: '500' }}>
-                      không được thay đổi số dư khi đã đồng ý tạo ví
+                      {t('balance_locked_warning')}
                     </small>
                   </div>
                 )}
@@ -598,12 +476,12 @@ export default function Wallets() {
 
               {/* Wallet Type */}
               <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '700', color: '#1E293B', fontSize: '15px' }}>Chọn loại ví</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+                <label className="form-group-label">{t('select_wallet_type')}</label>
+                <div className="wallet-type-grid">
                   {[
-                    { key: 'cash', label: 'Tiền mặt', icon: <CardNoteIcon size={16} /> },
-                    { key: 'bank', label: 'Ngân hàng', icon: <BankIcon size={16} /> },
-                    { key: 'ewallet', label: 'Ví điện tử', icon: <QrIcon size={16} /> }
+                    { key: 'cash', label: t('cash'), icon: <CardNoteIcon size={16} /> },
+                    { key: 'bank', label: t('bank'), icon: <BankIcon size={16} /> },
+                    { key: 'ewallet', label: t('ewallet'), icon: <QrIcon size={16} /> }
                   ].map((t) => {
                     const isSelected = type === t.key;
                     return (
@@ -611,20 +489,11 @@ export default function Wallets() {
                         key={t.key}
                         type="button"
                         onClick={() => setType(t.key)}
+                        className="type-select-btn"
                         style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: '6px',
-                          padding: '12px 6px',
-                          borderRadius: '14px',
                           border: isSelected ? '2px solid #5F63E8' : '2px solid transparent',
                           background: isSelected ? '#EEF2FF' : '#F5F7FA',
                           color: isSelected ? '#5F63E8' : '#718EBF',
-                          fontWeight: '600',
-                          fontSize: '13px',
-                          cursor: 'pointer',
-                          transition: 'all 0.2s ease'
                         }}
                       >
                         {t.icon}
@@ -637,8 +506,8 @@ export default function Wallets() {
 
               {/* Icon Selection */}
               <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '700', color: '#1E293B', fontSize: '15px' }}>Chọn biểu tượng</label>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '10px' }}>
+                <label className="form-group-label">{t('select_icon')}</label>
+                <div className="icon-grid">
                   {[
                     { key: 'cash', component: CardNoteIcon },
                     { key: 'bank', component: BankIcon },
@@ -658,17 +527,11 @@ export default function Wallets() {
                         key={ic.key}
                         type="button"
                         onClick={() => setIcon(ic.key)}
+                        className="icon-select-btn"
                         style={{
-                          padding: '12px 0',
-                          borderRadius: '14px',
                           border: isSelected ? '2px solid #5F63E8' : '2px solid transparent',
                           background: isSelected ? '#EEF2FF' : '#F5F7FA',
                           color: isSelected ? '#5F63E8' : '#718EBF',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          transition: 'all 0.2s ease'
                         }}
                       >
                         <IconComp size={22} />
@@ -680,8 +543,8 @@ export default function Wallets() {
 
               {/* Color Selection */}
               <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', marginBottom: '10px', fontWeight: '700', color: '#1E293B', fontSize: '15px' }}>Chọn màu sắc</label>
-                <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                <label className="form-group-label">{t('select_color')}</label>
+                <div className="color-grid">
                   {colorOptions.map((col) => {
                     const isSelected = color === col;
                     return (
@@ -689,15 +552,10 @@ export default function Wallets() {
                         key={col}
                         type="button"
                         onClick={() => setColor(col)}
+                        className="color-dot"
                         style={{
-                          width: '38px',
-                          height: '38px',
-                          borderRadius: '50%',
                           background: col,
-                          border: 'none',
-                          cursor: 'pointer',
                           boxShadow: isSelected ? '0 0 0 2px #fff, 0 0 0 4px #5F63E8' : '0 2px 6px rgba(0,0,0,0.08)',
-                          transition: 'transform 0.2s ease',
                           transform: isSelected ? 'scale(1.1)' : 'scale(1)'
                         }}
                       />
@@ -708,35 +566,8 @@ export default function Wallets() {
 
               {/* Action Buttons */}
               <div style={{ display: 'flex', gap: '12px' }}>
-                <button 
-                  type="submit" 
-                  style={{ 
-                    flex: 1,
-                    background: '#5F63E8', 
-                    color: '#fff', 
-                    padding: '14px 20px', 
-                    borderRadius: '16px', 
-                    border: 'none', 
-                    fontWeight: '600',
-                    fontSize: '15px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    boxShadow: '0 4px 14px rgba(95, 99, 232, 0.3)',
-                    transition: 'all 0.2s'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = '#4A49E6';
-                    e.currentTarget.style.boxShadow = '0 6px 20px rgba(95, 99, 232, 0.4)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = '#5F63E8';
-                    e.currentTarget.style.boxShadow = '0 4px 14px rgba(95, 99, 232, 0.3)';
-                  }}
-                >
-                  <span>{showModal === 'create' ? 'Tạo ví' : 'Lưu thay đổi'}</span>
+                <button type="submit" className="btn-submit-wallet">
+                  <span>{showModal === 'create' ? t('create_wallet_btn') : t('save_changes')}</span>
                   {showModal === 'create' ? (
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="12" cy="12" r="10" />
