@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Sidebar from '../components/Sidebar';
 import { useAppContext } from '../context/AppContext';
+import { transferApi } from '../lib/api';
 
 // ==========================================
 // CUSTOM PREMIUM SVG ICONS
@@ -186,7 +187,8 @@ const renderWalletIcon = (iconName: string, size = 22, style = {}) => {
 export default function Wallets() {
   const { 
     isLoggedIn, wallets, fetchWallets, createWallet, 
-    updateWallet, deleteWallet, isLoadingWallets, userData
+    updateWallet, deleteWallet, isLoadingWallets, userData,
+    transactions, fetchTransactions, deleteTransaction
   } = useAppContext();
 
   // State cho Modals
@@ -199,12 +201,25 @@ export default function Wallets() {
   const [balance, setBalance] = useState('');
   const [color, setColor] = useState('linear-gradient(135deg, #3A3FBD, #2E33A8)');
   const [icon, setIcon] = useState('wallet');
+  const [isHidden, setIsHidden] = useState(false);
+
+  // State chuyển tiền
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [fromWalletId, setFromWalletId] = useState('');
+  const [toWalletId, setToWalletId] = useState('');
+  const [transferAmount, setTransferAmount] = useState('');
+  const [transferNotes, setTransferNotes] = useState('');
+
+  // Bộ lọc lịch sử giao dịch theo ví
+  const [selectedWalletFilter, setSelectedWalletFilter] = useState<string | null>(null);
+  const [showBalance, setShowBalance] = useState(false);
 
   useEffect(() => {
     if (isLoggedIn) {
       fetchWallets();
+      fetchTransactions(selectedWalletFilter ? { wallet_id: selectedWalletFilter } : undefined);
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, selectedWalletFilter]);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -213,18 +228,19 @@ export default function Wallets() {
       return;
     }
     try {
-      await createWallet({ name, type, available_balance: balance, color, icon });
+      await createWallet({ name, type, available_balance: balance, color, icon, is_hidden: isHidden });
       setShowModal(null);
       resetForm();
-    } catch (err) {
-      alert("Lỗi khi tạo ví!");
+    } catch (err: any) {
+      console.error("Lỗi tạo ví:", err);
+      alert(err.message || "Lỗi khi tạo ví!");
     }
   };
 
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await updateWallet(selectedWallet.id, { name, type, color, icon });
+      await updateWallet(selectedWallet.id, { name, type, color, icon, is_hidden: isHidden });
       setShowModal(null);
       resetForm();
     } catch (err) {
@@ -248,6 +264,7 @@ export default function Wallets() {
     setBalance('');
     setColor('linear-gradient(135deg, #3A3FBD, #2E33A8)');
     setIcon('wallet');
+    setIsHidden(false);
     setSelectedWallet(null);
   };
 
@@ -258,7 +275,43 @@ export default function Wallets() {
     setBalance(wallet.available_balance ? String(wallet.available_balance) : '0');
     setColor(wallet.color || 'linear-gradient(135deg, #3A3FBD, #2E33A8)');
     setIcon(wallet.icon || 'wallet');
+    setIsHidden(wallet.is_hidden || false);
     setShowModal('edit');
+  };
+
+  const handleTransferSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!fromWalletId || !toWalletId || !transferAmount) return;
+    try {
+      await transferApi.create({
+        from_wallet_id: fromWalletId,
+        to_wallet_id: toWalletId,
+        amount: transferAmount,
+        notes: transferNotes
+      });
+      alert("Chuyển tiền nội bộ thành công!");
+      setShowTransferModal(false);
+      resetTransferForm();
+      fetchWallets();
+      fetchTransactions(selectedWalletFilter ? { wallet_id: selectedWalletFilter } : undefined);
+    } catch (err: any) {
+      alert(err.message || "Lỗi khi thực hiện chuyển tiền!");
+    }
+  };
+
+  const resetTransferForm = () => {
+    setFromWalletId('');
+    setToWalletId('');
+    setTransferAmount('');
+    setTransferNotes('');
+  };
+
+  const toggleWalletFilter = (walletId: string) => {
+    if (selectedWalletFilter === walletId) {
+      setSelectedWalletFilter(null);
+    } else {
+      setSelectedWalletFilter(walletId);
+    }
   };
 
   return (
@@ -266,8 +319,43 @@ export default function Wallets() {
       <Sidebar activeItem="wallets" />
       <main className="main-content" style={{ background: '#F8F9FB' }}>
         <nav className="navbar" style={{ background: '#fff', borderBottom: '1px solid #E6EFF5' }}>
-          <h1 className="page-title" style={{ color: '#343C6A' }}>Ví & Tài khoản tiền</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <h1 className="page-title" style={{ color: '#343C6A', margin: 0 }}>Ví & Tài khoản tiền</h1>
+            <button 
+              onClick={() => setShowBalance(!showBalance)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', display: 'flex', alignItems: 'center', padding: 0, flexShrink: 0, width: '20px', height: '20px' }}
+              title={showBalance ? "Ẩn số dư" : "Hiện số dư"}
+            >
+              {showBalance ? (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#718EBF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              ) : (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#718EBF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                  <line x1="1" y1="1" x2="23" y2="23" />
+                </svg>
+              )}
+            </button>
+          </div>
           <div className="nav-actions">
+            <button 
+              onClick={() => {
+                if (!isLoggedIn) {
+                  alert("Bạn cần đăng nhập để chuyển tiền!");
+                  return;
+                }
+                if (wallets.length < 2) {
+                  alert("Bạn cần ít nhất 2 ví để thực hiện chuyển tiền!");
+                  return;
+                }
+                setShowTransferModal(true);
+              }}
+              style={{ background: '#FFF', color: '#1814F3', border: '1px solid #1814F3', padding: '10px 20px', borderRadius: '12px', fontWeight: '600', cursor: 'pointer', marginRight: '10px' }}
+            >
+              ⇆ Chuyển tiền nội bộ
+            </button>
             <button 
               onClick={() => {
                 if (!isLoggedIn) {
@@ -310,99 +398,211 @@ export default function Wallets() {
               </button>
             </div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: '20px', marginBottom: '24px' }}>
-              {wallets.map((w) => {
-                const cardColor = w.color || 'linear-gradient(135deg, #3A3FBD, #2E33A8)';
-                const txtColor = getContrastColor(cardColor);
-                const muteColor = getMutedContrastColor(cardColor);
-                const iconBg = getIconBgColor(cardColor);
-                
-                return (
-                  <div key={w.id} style={{ 
-                    background: cardColor, 
-                    borderRadius: '24px', 
-                    padding: '24px', 
-                    color: txtColor, 
-                    position: 'relative', 
-                    overflow: 'hidden', 
-                    minHeight: '170px',
-                    boxShadow: '0 8px 16px rgba(0,0,0,0.06)',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    transition: 'all 0.3s ease'
-                  }}>
-                    <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '120px', height: '120px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }}></div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <div>
-                        <div style={{ fontSize: '12px', color: muteColor, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Số dư</div>
-                        <div style={{ fontSize: '26px', fontWeight: '800' }}>
-                          {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(w.available_balance || 0)}
+            <div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,1fr)', gap: '20px', marginBottom: '24px' }}>
+                {wallets.map((w) => {
+                  const cardColor = w.color || 'linear-gradient(135deg, #3A3FBD, #2E33A8)';
+                  const txtColor = getContrastColor(cardColor);
+                  const muteColor = getMutedContrastColor(cardColor);
+                  const iconBg = getIconBgColor(cardColor);
+                  const isSelected = selectedWalletFilter === w.id;
+                  
+                  return (
+                    <div 
+                      key={w.id} 
+                      onClick={() => toggleWalletFilter(w.id)}
+                      style={{ 
+                        background: cardColor, 
+                        borderRadius: '24px', 
+                        padding: '24px', 
+                        color: txtColor, 
+                        position: 'relative', 
+                        overflow: 'hidden', 
+                        minHeight: '170px',
+                        boxShadow: isSelected ? '0 0 0 4px #5F63E8, 0 12px 20px rgba(95, 99, 232, 0.2)' : '0 8px 16px rgba(0,0,0,0.06)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        transition: 'all 0.3s ease',
+                        cursor: 'pointer',
+                        transform: isSelected ? 'scale(1.02)' : 'scale(1)',
+                      }}
+                    >
+                      <div style={{ position: 'absolute', top: '-20px', right: '-20px', width: '120px', height: '120px', borderRadius: '50%', background: 'rgba(255,255,255,0.08)' }}></div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <div>
+                          <div style={{ fontSize: '12px', color: muteColor, textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Số dư</div>
+                          <div style={{ fontSize: '26px', fontWeight: '800' }}>
+                            {showBalance ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(w.available_balance || 0) : "********"}
+                          </div>
+                        </div>
+                        <div style={{ 
+                          background: iconBg, 
+                          width: '46px', 
+                          height: '46px', 
+                          borderRadius: '12px', 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          color: txtColor
+                        }}>
+                          {renderWalletIcon(w.icon || 'wallet', 22)}
                         </div>
                       </div>
-                      <div style={{ 
-                        background: iconBg, 
-                        width: '46px', 
-                        height: '46px', 
-                        borderRadius: '12px', 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'center',
-                        color: txtColor
-                      }}>
-                        {renderWalletIcon(w.icon || 'wallet', 22)}
-                      </div>
-                    </div>
-                    
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '16px', zIndex: 2 }}>
-                      <div>
-                        <div style={{ fontSize: '16px', fontWeight: '700' }}>{w.name}</div>
-                        <div style={{ fontSize: '12px', color: muteColor }}>
-                          Loại: {w.type === 'cash' ? 'Tiền mặt' : w.type === 'bank' ? 'Ngân hàng' : 'Ví điện tử'}
+                      
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: '16px', zIndex: 2 }}>
+                        <div>
+                          <div style={{ fontSize: '16px', fontWeight: '700' }}>{w.name}</div>
+                          <div style={{ fontSize: '12px', color: muteColor, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span>Loại: {w.type === 'cash' ? 'Tiền mặt' : w.type === 'bank' ? 'Ngân hàng' : 'Ví điện tử'}</span>
+                            {w.is_hidden && (
+                              <span style={{ 
+                                padding: '2px 6px', 
+                                borderRadius: '6px', 
+                                background: 'rgba(254, 92, 115, 0.2)', 
+                                color: txtColor === '#FFFFFF' ? '#FF8A8A' : '#FE5C73',
+                                fontSize: '10px',
+                                fontWeight: 'bold',
+                                textTransform: 'uppercase'
+                              }}>
+                                Đã ẩn
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); openEdit(w); }}
+                            style={{ 
+                              background: iconBg, 
+                              color: txtColor, 
+                              border: 'none', 
+                              padding: '8px 16px', 
+                              borderRadius: '10px', 
+                              cursor: 'pointer', 
+                              fontSize: '13px', 
+                              fontWeight: '600',
+                              transition: 'opacity 0.2s',
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                            onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                          >
+                            Sửa
+                          </button>
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); handleDelete(w.id); }}
+                            style={{ 
+                              background: 'rgba(239, 68, 68, 0.15)', 
+                              color: w.color ? (txtColor === '#FFFFFF' ? '#FF8A8A' : '#EF4444') : '#EF4444', 
+                              border: 'none', 
+                              padding: '8px 16px', 
+                              borderRadius: '10px', 
+                              cursor: 'pointer', 
+                              fontSize: '13px', 
+                              fontWeight: '600',
+                              transition: 'opacity 0.2s',
+                            }}
+                            onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
+                            onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
+                          >
+                            Xóa
+                          </button>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button 
-                          onClick={() => openEdit(w)}
-                          style={{ 
-                            background: iconBg, 
-                            color: txtColor, 
-                            border: 'none', 
-                            padding: '8px 16px', 
-                            borderRadius: '10px', 
-                            cursor: 'pointer', 
-                            fontSize: '13px', 
-                            fontWeight: '600',
-                            transition: 'opacity 0.2s',
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                          onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
-                        >
-                          Sửa
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(w.id)}
-                          style={{ 
-                            background: 'rgba(239, 68, 68, 0.15)', 
-                            color: w.color ? (txtColor === '#FFFFFF' ? '#FF8A8A' : '#EF4444') : '#EF4444', 
-                            border: 'none', 
-                            padding: '8px 16px', 
-                            borderRadius: '10px', 
-                            cursor: 'pointer', 
-                            fontSize: '13px', 
-                            fontWeight: '600',
-                            transition: 'opacity 0.2s',
-                          }}
-                          onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
-                          onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
-                        >
-                          Xóa
-                        </button>
-                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+
+              {/* LỊCH SỬ GIAO DỊCH RIÊNG BIỆT */}
+              <div style={{ marginTop: '32px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                  <h2 style={{ fontSize: '20px', fontWeight: '700', color: '#343C6A' }}>
+                    {selectedWalletFilter 
+                      ? `Lịch sử giao dịch: ${wallets.find(w => w.id === selectedWalletFilter)?.name || ''}` 
+                      : 'Lịch sử giao dịch: Tất cả các ví'}
+                  </h2>
+                  {selectedWalletFilter && (
+                    <button 
+                      onClick={() => setSelectedWalletFilter(null)}
+                      style={{ background: 'transparent', color: '#1814F3', border: 'none', fontWeight: '600', cursor: 'pointer', fontSize: '14px' }}
+                    >
+                      Xem tất cả các ví
+                    </button>
+                  )}
+                </div>
+
+                <div style={{ background: '#fff', borderRadius: '24px', padding: '24px', border: '1px solid #E6EFF5', boxShadow: '0 8px 16px rgba(0,0,0,0.02)' }}>
+                  {transactions.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: '40px', color: '#718EBF' }}>
+                      Không có giao dịch nào cho lựa chọn này.
+                    </div>
+                  ) : (
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', color: '#343C6A', fontSize: '15px' }}>
+                      <thead style={{ color: '#718EBF', borderBottom: '1px solid #E6EFF5' }}>
+                        <tr>
+                          <th style={{ padding: '14px 8px', fontWeight: '500' }}>Mô tả</th>
+                          <th style={{ padding: '14px 8px', fontWeight: '500' }}>Ví</th>
+                          <th style={{ padding: '14px 8px', fontWeight: '500' }}>Loại</th>
+                          <th style={{ padding: '14px 8px', fontWeight: '500' }}>Ngày</th>
+                          <th style={{ padding: '14px 8px', fontWeight: '500' }}>Số tiền</th>
+                          <th style={{ padding: '14px 8px', fontWeight: '500' }}>Thao tác</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {transactions.map((tx, idx) => {
+                          const isExpense = tx.type === 'expense' || tx.type === 'Chi tiêu';
+                          const walletName = wallets.find(w => w.id === tx.wallet_id)?.name || 'Ví không tên';
+                          const dateText = tx.transaction_date ? new Date(tx.transaction_date).toLocaleDateString('vi-VN') : tx.date;
+                          
+                          return (
+                            <tr key={tx.id || idx} style={{ borderBottom: '1px solid #E6EFF5' }}>
+                              <td style={{ padding: '14px 8px', fontWeight: '600' }}>{tx.title || tx.desc}</td>
+                              <td style={{ padding: '14px 8px', color: '#718EBF' }}>{walletName}</td>
+                              <td style={{ padding: '14px 8px' }}>
+                                <span style={{ 
+                                  padding: '4px 10px', 
+                                  borderRadius: '20px', 
+                                  fontSize: '12px', 
+                                  fontWeight: '600', 
+                                  background: isExpense ? '#FFE0EB' : '#DCFAF8', 
+                                  color: isExpense ? '#FE5C73' : '#16DBCC' 
+                                }}>
+                                  {isExpense ? 'Chi tiêu' : 'Thu nhập'}
+                                </span>
+                              </td>
+                              <td style={{ padding: '14px 8px', color: '#718EBF' }}>{dateText}</td>
+                              <td style={{ padding: '14px 8px', fontWeight: '600', color: isExpense ? '#FE5C73' : '#16DBCC' }}>
+                                {(isExpense ? '-' : '+') + new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(tx.amount || 0)}
+                              </td>
+                              <td style={{ padding: '14px 8px' }}>
+                                <button 
+                                  onClick={async (e) => {
+                                    e.stopPropagation();
+                                    if (confirm("Xóa giao dịch này? Số dư ví tương ứng sẽ được tự động hoàn lại.")) {
+                                      try {
+                                        await deleteTransaction(tx.id);
+                                        fetchTransactions(selectedWalletFilter ? { wallet_id: selectedWalletFilter } : undefined);
+                                      } catch (err: any) {
+                                        alert(err.message || "Lỗi khi xóa giao dịch");
+                                      }
+                                    }
+                                  }}
+                                  style={{ border: '1px solid #FE5C73', color: '#FE5C73', background: 'transparent', padding: '5px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', transition: 'all 0.2s' }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.background = '#FFE0EB' }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+                                >
+                                  Xóa
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </div>
@@ -706,6 +906,25 @@ export default function Wallets() {
                 </div>
               </div>
 
+              {/* Checkbox ẩn ví trên dashboard */}
+              <div style={{ marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <input 
+                  type="checkbox" 
+                  id="isHiddenCheckbox"
+                  checked={isHidden} 
+                  onChange={(e) => setIsHidden(e.target.checked)} 
+                  style={{ 
+                    width: '18px', 
+                    height: '18px', 
+                    cursor: 'pointer',
+                    accentColor: '#5F63E8'
+                  }}
+                />
+                <label htmlFor="isHiddenCheckbox" style={{ fontWeight: '600', color: '#1E293B', fontSize: '14px', cursor: 'pointer' }}>
+                  Ẩn ví này trên Dashboard (Trang chủ)
+                </label>
+              </div>
+
               {/* Action Buttons */}
               <div style={{ display: 'flex', gap: '12px' }}>
                 <button 
@@ -750,6 +969,189 @@ export default function Wallets() {
                   )}
                 </button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL CHUYỂN TIỀN NỘI BỘ */}
+      {showTransferModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.35)', backdropFilter: 'blur(5px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+          <div style={{ 
+            background: '#fff', 
+            padding: '32px', 
+            borderRadius: '28px', 
+            width: '480px', 
+            maxHeight: '90vh',
+            overflowY: 'auto',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.1), 0 10px 10px -5px rgba(0,0,0,0.04)',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: '24px', position: 'relative', height: '40px' }}>
+              <button 
+                type="button" 
+                onClick={() => { setShowTransferModal(false); resetTransferForm(); }}
+                style={{ 
+                  background: 'none', 
+                  border: 'none', 
+                  fontSize: '28px', 
+                  cursor: 'pointer', 
+                  color: '#1E293B', 
+                  position: 'absolute', 
+                  left: '4px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '8px',
+                  borderRadius: '50%',
+                }}
+              >
+                ‹
+              </button>
+              <h2 style={{ width: '100%', textAlign: 'center', margin: 0, color: '#1E293B', fontSize: '20px', fontWeight: '700' }}>
+                Chuyển tiền nội bộ
+              </h2>
+            </div>
+
+            <form onSubmit={handleTransferSubmit}>
+              {/* Ví gửi */}
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '700', color: '#1E293B', fontSize: '15px' }}>Ví gửi tiền</label>
+                <select 
+                  value={fromWalletId} 
+                  onChange={(e) => {
+                    setFromWalletId(e.target.value);
+                    if (toWalletId === e.target.value) {
+                      setToWalletId('');
+                    }
+                  }} 
+                  required
+                  style={{ 
+                    width: '100%', 
+                    padding: '14px 18px', 
+                    borderRadius: '14px', 
+                    border: '1px solid #E6EFF5',
+                    background: '#F5F7FA',
+                    color: '#1E293B',
+                    outline: 'none',
+                    fontWeight: '500',
+                    fontSize: '14px',
+                  }}
+                >
+                  <option value="">-- Chọn ví gửi --</option>
+                  {wallets.map(w => (
+                    <option key={w.id} value={w.id}>
+                      {w.name} ({new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(w.available_balance)})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Ví nhận */}
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '700', color: '#1E293B', fontSize: '15px' }}>Ví nhận tiền</label>
+                <select 
+                  value={toWalletId} 
+                  onChange={(e) => setToWalletId(e.target.value)} 
+                  required
+                  disabled={!fromWalletId}
+                  style={{ 
+                    width: '100%', 
+                    padding: '14px 18px', 
+                    borderRadius: '14px', 
+                    border: '1px solid #E6EFF5',
+                    background: !fromWalletId ? '#E2E8F0' : '#F5F7FA',
+                    color: '#1E293B',
+                    outline: 'none',
+                    fontWeight: '500',
+                    fontSize: '14px',
+                    cursor: !fromWalletId ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  <option value="">-- Chọn ví nhận --</option>
+                  {wallets.filter(w => w.id !== fromWalletId).map(w => (
+                    <option key={w.id} value={w.id}>
+                      {w.name} ({new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(w.available_balance)})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Số tiền */}
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '700', color: '#1E293B', fontSize: '15px' }}>Số tiền chuyển</label>
+                <div style={{ position: 'relative' }}>
+                  <input 
+                    type="number" 
+                    value={transferAmount} 
+                    onChange={(e) => setTransferAmount(e.target.value)} 
+                    required 
+                    placeholder="0"
+                    min="1"
+                    style={{ 
+                      width: '100%', 
+                      padding: '14px 40px 14px 18px', 
+                      borderRadius: '14px', 
+                      border: '1px solid transparent',
+                      background: '#F5F7FA',
+                      color: '#1E293B',
+                      fontWeight: '600',
+                      fontSize: '14px',
+                      outline: 'none',
+                    }}
+                  />
+                  <span style={{ 
+                    position: 'absolute', 
+                    right: '18px', 
+                    top: '50%', 
+                    transform: 'translateY(-50%)', 
+                    color: '#475569', 
+                    fontWeight: 'bold' 
+                  }}>đ</span>
+                </div>
+              </div>
+
+              {/* Ghi chú */}
+              <div style={{ marginBottom: '24px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '700', color: '#1E293B', fontSize: '15px' }}>Ghi chú chuyển tiền</label>
+                <input 
+                  type="text" 
+                  value={transferNotes} 
+                  onChange={(e) => setTransferNotes(e.target.value)} 
+                  placeholder="Nhập ghi chú chuyển tiền..."
+                  style={{ 
+                    width: '100%', 
+                    padding: '14px 18px', 
+                    borderRadius: '14px', 
+                    border: '1px solid transparent',
+                    background: '#F5F7FA',
+                    color: '#1E293B',
+                    outline: 'none',
+                    fontWeight: '500',
+                    fontSize: '14px',
+                  }}
+                />
+              </div>
+
+              {/* Nút submit */}
+              <button 
+                type="submit" 
+                style={{ 
+                  width: '100%',
+                  background: '#5F63E8', 
+                  color: '#fff', 
+                  padding: '14px 20px', 
+                  borderRadius: '16px', 
+                  border: 'none', 
+                  fontWeight: '600',
+                  fontSize: '15px',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(95, 99, 232, 0.3)',
+                  transition: 'all 0.2s'
+                }}
+              >
+                Xác nhận chuyển khoản
+              </button>
             </form>
           </div>
         </div>

@@ -1,14 +1,16 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { walletApi } from '../lib/api';
+import { walletApi, transactionApi } from '../lib/api';
 
 type AppContextType = {
   isLoggedIn: boolean;
   userData: any | null;
-  login: (data?: any) => void;
+  login: (tokenOrData?: any, userData?: any) => void;
   logout: () => void;
   transactions: any[];
-  addTransaction: (tx: any) => void;
+  fetchTransactions: (filters?: any) => Promise<void>;
+  addTransaction: (tx: any) => Promise<void>;
+  deleteTransaction: (id: string) => Promise<void>;
   
   // Quản lý Ví
   wallets: any[];
@@ -33,14 +35,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (savedLogin === 'true') {
       setIsLoggedIn(true);
       fetchWallets();
+      fetchTransactions();
     }
     const savedUser = localStorage.getItem('user_data');
     if (savedUser) {
       setUserData(JSON.parse(savedUser));
-    }
-    const savedTxns = localStorage.getItem('transactions');
-    if (savedTxns) {
-      setTransactions(JSON.parse(savedTxns));
     }
   }, []);
 
@@ -49,9 +48,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setIsLoadingWallets(true);
     try {
       const response = await walletApi.getAll();
-      setWallets(response.data || []);
-    } catch (error) {
+      setWallets(Array.isArray(response.data) ? response.data : []);
+    } catch (error: any) {
       console.error("Lấy danh sách ví thất bại:", error);
+      if (error.message && (error.message.includes("hết hạn") || error.message.includes("hợp lệ") || error.message.includes("chặn"))) {
+        logout();
+      }
     } finally {
       setIsLoadingWallets(false);
     }
@@ -72,20 +74,49 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await fetchWallets();
   };
 
-  const login = (data?: any) => {
+  const fetchTransactions = async (filters?: any) => {
+    if (!localStorage.getItem('access_token')) return;
+    try {
+      const response = await transactionApi.getAll(filters);
+      setTransactions(Array.isArray(response.data) ? response.data : []);
+    } catch (error: any) {
+      console.error("Lấy danh sách giao dịch thất bại:", error);
+      if (error.message && (error.message.includes("hết hạn") || error.message.includes("hợp lệ") || error.message.includes("chặn"))) {
+        logout();
+      }
+    }
+  };
+
+  const addTransaction = async (txData: any) => {
+    await transactionApi.create(txData);
+    await fetchTransactions();
+    await fetchWallets(); // Đồng bộ lại ví vì số dư đã thay đổi!
+  };
+
+  const deleteTransaction = async (id: string) => {
+    await transactionApi.delete(id);
+    await fetchTransactions();
+    await fetchWallets(); // Đồng bộ lại ví vì số dư đã thay đổi!
+  };
+
+  const login = (tokenOrData?: any, userData?: any) => {
     setIsLoggedIn(true);
     localStorage.setItem('isLoggedIn', 'true');
-    // Khi đăng nhập tài khoản mới, xóa dữ liệu giao dịch cũ trong localStorage
-    // để đảm bảo tài khoản mới bắt đầu với dữ liệu trống (nếu chưa đồng bộ backend)
     setTransactions([]);
-    localStorage.removeItem('transactions');
     
-    if (data?.access_token) {
-      localStorage.setItem('access_token', data.access_token);
-      localStorage.setItem('user_data', JSON.stringify(data.data));
-      setUserData(data.data);
+    if (typeof tokenOrData === 'string') {
+      localStorage.setItem('access_token', tokenOrData);
+      if (userData) {
+        localStorage.setItem('user_data', JSON.stringify(userData));
+        setUserData(userData);
+      }
+    } else if (tokenOrData?.access_token) {
+      localStorage.setItem('access_token', tokenOrData.access_token);
+      localStorage.setItem('user_data', JSON.stringify(tokenOrData.data));
+      setUserData(tokenOrData.data);
     }
     fetchWallets();
+    fetchTransactions();
   };
 
   const logout = () => {
@@ -96,18 +127,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setUserData(null);
     setWallets([]);
     setTransactions([]);
-    localStorage.removeItem('transactions');
-  };
-
-  const addTransaction = (tx: any) => {
-    const newTxns = [tx, ...transactions];
-    setTransactions(newTxns);
-    localStorage.setItem('transactions', JSON.stringify(newTxns));
   };
 
   return (
     <AppContext.Provider value={{ 
-      isLoggedIn, userData, login, logout, transactions, addTransaction,
+      isLoggedIn, userData, login, logout, transactions, fetchTransactions, addTransaction, deleteTransaction,
       wallets, isLoadingWallets, fetchWallets, createWallet, updateWallet, deleteWallet 
     }}>
       {children}

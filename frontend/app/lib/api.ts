@@ -2,11 +2,11 @@
  * API Service - Kết nối Frontend với PHP Laravel
  */
 
-const API_BASE_URL = 'https://exp-mgmt-dev.onrender.com/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://exp-mgmt-dev.onrender.com/api';
 
 // Helper: Lấy token
 const getAuthHeaders = () => {
-  const token = localStorage.getItem('access_token');
+  const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
   return {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
@@ -25,6 +25,14 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
 
   const data = await response.json();
   if (!response.ok) {
+    if (response.status === 401 && typeof window !== 'undefined') {
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('user_data');
+      localStorage.setItem('isLoggedIn', 'false');
+      if (!window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login';
+      }
+    }
     throw new Error(data.message || 'Có lỗi xảy ra từ hệ thống API');
   }
   return data;
@@ -62,4 +70,42 @@ export const walletApi = {
 
   // Xóa mềm ví (DELETE /api/wallets/{id})
   delete: (id: string) => apiFetch(`/wallets/${id}`, { method: 'DELETE' }),
+};
+
+// --- TRANSACTION APIs ---
+export const transactionApi = {
+  getAll: (filters?: { wallet_id?: string; type?: string }) => {
+    const params = new URLSearchParams();
+    if (filters?.wallet_id) params.append('wallet_id', filters.wallet_id);
+    if (filters?.type) params.append('type', filters.type);
+    
+    const queryString = params.toString();
+    return apiFetch(`/transactions${queryString ? `?${queryString}` : ''}`);
+  },
+  create: (data: {
+    wallet_id: string;
+    category_id?: string;
+    type: 'income' | 'expense';
+    amount: string | number;
+    title: string;
+    notes?: string;
+    transaction_date?: string;
+  }) => apiFetch('/transactions', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  }),
+  delete: (id: string) => apiFetch(`/transactions/${id}`, { method: 'DELETE' }),
+};
+
+// --- TRANSFER APIs ---
+export const transferApi = {
+  create: (data: {
+    from_wallet_id: string;
+    to_wallet_id: string;
+    amount: string | number;
+    notes?: string;
+  }) => apiFetch('/transfers', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  }),
 };

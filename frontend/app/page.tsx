@@ -6,14 +6,43 @@ import { useAppContext } from './context/AppContext';
 
 export default function Dashboard() {
   const { isLoggedIn, wallets, transactions, isLoadingWallets } = useAppContext();
+  const safeTransactions = Array.isArray(transactions) ? transactions : [];
+  const [showBalance, setShowBalance] = useState(false);
 
-  // Tính toán số liệu từ dữ liệu thật
-  const totalBalance = wallets.reduce((sum, w) => sum + parseFloat(w.available_balance || 0), 0);
-  const totalIncome = transactions.filter(t => t.type === 'Thu nhập').reduce((sum, t) => sum + t.amount, 0);
-  const totalExpense = transactions.filter(t => t.type === 'Chi tiêu').reduce((sum, t) => sum + Math.abs(t.amount), 0);
+// Tính toán số liệu từ dữ liệu thật
+  const visibleWallets = Array.isArray(wallets) ? wallets.filter(w => !w.is_hidden) : [];
+  const totalBalance = visibleWallets.reduce((sum, w) => sum + parseFloat(w.available_balance || 0), 0);
+  
+  const totalIncome = safeTransactions
+    .filter(t => t.type === 'income' || t.type === 'Thu nhập')
+    .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
+    
+  const totalExpense = safeTransactions
+    .filter(t => t.type === 'expense' || t.type === 'Chi tiêu')
+    .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+  };
+
+  const getWalletTypeLabel = (type: string) => {
+    switch (type) {
+      case 'cash': return 'Tiền mặt';
+      case 'bank': return 'Ngân hàng';
+      case 'ewallet': return 'Ví điện tử';
+      case 'crypto': return 'Tiền mã hóa';
+      default: return 'Ví';
+    }
+  };
+
+  const getWalletTypeIcon = (type: string) => {
+    switch (type) {
+      case 'cash': return '💵';
+      case 'bank': return '🏦';
+      case 'ewallet': return '💳';
+      case 'crypto': return '🪙';
+      default: return '👛';
+    }
   };
 
   return (
@@ -103,13 +132,26 @@ export default function Dashboard() {
                 {!isLoggedIn || transactions.length === 0 ? (
                   <div style={{ padding: '20px', textAlign: 'center', color: '#718EBF' }}>Không có giao dịch nào</div>
                 ) : (
-                  transactions.slice(0, 4).map((x, i) => (
-                    <div className="transaction-item" key={i}>
-                      <div style={{width:'45px',height:'45px',borderRadius:'12px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'20px',background:'#F8F9FB',marginRight:'15px'}}>{x.icon || '💸'}</div>
-                      <div className="tx-details"><div className="tx-title">{x.desc}</div><div className="tx-date">{x.date}</div></div>
-                      <div className="tx-amount" style={{color: x.amount < 0 ? '#FE5C73' : '#16DBCC'}}>{formatCurrency(x.amount)}</div>
-                    </div>
-                  ))
+                  transactions.slice(0, 4).map((x, i) => {
+                    const isExpense = x.type === 'expense' || x.type === 'Chi tiêu';
+                    const title = x.title || x.desc || 'Giao dịch';
+                    const date = x.transaction_date ? new Date(x.transaction_date).toLocaleDateString('vi-VN') : x.date || '';
+                    const amt = parseFloat(x.amount);
+                    return (
+                      <div className="transaction-item" key={i}>
+                        <div style={{width:'45px',height:'45px',borderRadius:'12px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'20px',background:'#F8F9FB',marginRight:'15px'}}>
+                          {x.icon || (isExpense ? '💸' : '💰')}
+                        </div>
+                        <div className="tx-details">
+                          <div className="tx-title">{title}</div>
+                          <div className="tx-date">{date}</div>
+                        </div>
+                        <div className="tx-amount" style={{color: isExpense ? '#FE5C73' : '#16DBCC'}}>
+                          {(isExpense ? '-' : '+') + formatCurrency(amt)}
+                        </div>
+                      </div>
+                    );
+                  })
                 )}
               </div>
             </div>
@@ -122,18 +164,44 @@ export default function Dashboard() {
             </div>
 
             <div className="col-1" style={{flex:1}}>
-              <div className="section-header"><h2 className="section-title">Ví của tôi</h2></div>
+              <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 className="section-title">Ví của tôi</h2>
+                <button 
+                  onClick={() => setShowBalance(!showBalance)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '18px', display: 'flex', alignItems: 'center' }}
+                  title={showBalance ? "Ẩn số dư" : "Hiện số dư"}
+                >
+                  {showBalance ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#718EBF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#718EBF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
+                  )}
+                </button>
+              </div>
               <div className="transactions-card" style={{height:'auto'}}>
                 {isLoadingWallets ? (
                   <div style={{ padding: '20px', textAlign: 'center' }}>Đang tải...</div>
-                ) : !isLoggedIn || wallets.length === 0 ? (
-                  <div style={{ padding: '20px', textAlign: 'center', color: '#718EBF' }}>Chưa có ví nào</div>
+                ) : !isLoggedIn || visibleWallets.length === 0 ? (
+                  <div style={{ padding: '20px', textAlign: 'center', color: '#718EBF' }}>Chưa có ví hiển thị nào</div>
                 ) : (
-                  wallets.slice(0, 3).map((w, i) => (
+                  visibleWallets.slice(0, 3).map((w, i) => (
                     <div className="transaction-item" key={i} style={{marginBottom:'12px'}}>
-                      <div style={{width:'45px',height:'45px',borderRadius:'12px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'20px',background: '#E7EDFF',marginRight:'15px'}}>🏦</div>
-                      <div className="tx-details"><div className="tx-title">{w.wallet_name}</div><div className="tx-date">{w.account_name || 'Tài khoản chính'}</div></div>
-                      <div style={{fontWeight:'700',color:'#343C6A'}}>{formatCurrency(parseFloat(w.available_balance))}</div>
+                      <div style={{width:'45px',height:'45px',borderRadius:'12px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'20px',background: '#E7EDFF',marginRight:'15px'}}>
+                        {getWalletTypeIcon(w.type)}
+                      </div>
+                      <div className="tx-details">
+                        <div className="tx-title">{w.name}</div>
+                        <div className="tx-date">{getWalletTypeLabel(w.type)}</div>
+                      </div>
+                      <div style={{fontWeight:'700',color:'#343C6A'}}>
+                        {showBalance ? formatCurrency(parseFloat(w.available_balance)) : "********"}
+                      </div>
                     </div>
                   ))
                 )}
