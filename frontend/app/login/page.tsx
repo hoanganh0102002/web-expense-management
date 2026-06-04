@@ -17,6 +17,7 @@ function LoginForm() {
   const { theme, toggleTheme } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -35,10 +36,15 @@ function LoginForm() {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setSuccess('');
     try {
       const response = await authApi.login({ email, password });
       if (response.access_token) {
+        setSuccess(t('login_success'));
         login(response);
+        setTimeout(() => {
+          router.push('/');
+        }, 1500);
       }
     } catch (err: any) {
       setError(err.message || t('login_failed'));
@@ -55,11 +61,16 @@ function LoginForm() {
   const handleGitHubCallback = async (code: string) => {
     setLoading(true);
     setError('');
+    setSuccess('');
     try {
       const response = await authApi.socialLogin('github', code);
       if (response.access_token) {
+        setSuccess(t('login_success'));
         login(response);
         window.history.replaceState({}, document.title, window.location.pathname);
+        setTimeout(() => {
+          router.push('/');
+        }, 1500);
       }
     } catch (err: any) {
       setError(t('github_auth_error') + (err.message || t('unknown_error')));
@@ -99,6 +110,7 @@ function LoginForm() {
             <p className="auth-subtitle">{t('use_your_account')}</p>
 
             {error && <div className="error-message" style={{ background: '#FEE2E2', color: '#B91C1C', padding: '10px', borderRadius: '8px', marginBottom: '15px', fontSize: '14px', textAlign: 'center' }}>{error}</div>}
+            {success && <div className="success-message" style={{ background: '#D1FAE5', color: '#059669', padding: '10px', borderRadius: '8px', marginBottom: '15px', fontSize: '14px', textAlign: 'center', border: '1px solid #10B981' }}>{success}</div>}
             {loading && <div style={{ color: '#1814F3', marginBottom: '10px', textAlign: 'center' }}>{t('processing_wait')}</div>}
 
             <form onSubmit={handleLogin}>
