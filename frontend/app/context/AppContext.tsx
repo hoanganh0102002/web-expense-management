@@ -1,6 +1,6 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { walletApi, authApi, categoryApi } from '../lib/api';
+import { walletApi, authApi, categoryApi, transactionApi } from '../lib/api';
 
 type AppContextType = {
   isLoggedIn: boolean;
@@ -9,7 +9,10 @@ type AppContextType = {
   logout: () => Promise<void>;
   logoutAll: () => Promise<void>;
   transactions: any[];
-  addTransaction: (tx: any) => void;
+  isLoadingTransactions: boolean;
+  fetchTransactions: (params?: any) => Promise<void>;
+  createTransaction: (formData: FormData) => Promise<void>;
+  deleteTransaction: (id: string) => Promise<void>;
   
   // Quản lý Ví
   wallets: any[];
@@ -34,6 +37,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userData, setUserData] = useState<any | null>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
+  const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
   const [wallets, setWallets] = useState<any[]>([]);
   const [isLoadingWallets, setIsLoadingWallets] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
@@ -45,14 +49,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setIsLoggedIn(true);
       fetchWallets();
       fetchCategories();
+      fetchTransactions();
     }
     const savedUser = localStorage.getItem('user_data');
     if (savedUser) {
       setUserData(JSON.parse(savedUser));
-    }
-    const savedTxns = localStorage.getItem('transactions');
-    if (savedTxns) {
-      setTransactions(JSON.parse(savedTxns));
     }
 
     // Global listener for 401 errors
@@ -65,6 +66,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener('auth-unauthorized', handleUnauthorized);
     };
   }, []);
+
+  const fetchTransactions = async (params: any = {}) => {
+    if (!localStorage.getItem('access_token')) return;
+    setIsLoadingTransactions(true);
+    try {
+      const response = await transactionApi.getAll(params);
+      setTransactions(response.data?.data || response.data || []);
+    } catch (error: any) {
+      console.error("Lấy danh sách giao dịch thất bại:", error);
+    } finally {
+      setIsLoadingTransactions(false);
+    }
+  };
+
+  const createTransaction = async (formData: FormData) => {
+    await transactionApi.create(formData);
+    await Promise.all([
+      fetchTransactions(),
+      fetchWallets()
+    ]);
+  };
+
+  const deleteTransaction = async (id: string) => {
+    await transactionApi.delete(id);
+    await Promise.all([
+      fetchTransactions(),
+      fetchWallets()
+    ]);
+  };
 
   const fetchWallets = async () => {
     if (!localStorage.getItem('access_token')) return;
@@ -130,6 +160,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     
     if (data?.access_token) {
       localStorage.setItem('access_token', data.access_token);
+      if (data.refresh_token) {
+        localStorage.setItem('refresh_token', data.refresh_token);
+      }
       localStorage.setItem('user_data', JSON.stringify(data.data));
       setUserData(data.data);
     }
@@ -146,6 +179,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setIsLoggedIn(false);
     localStorage.setItem('isLoggedIn', 'false');
     localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
     localStorage.removeItem('user_data');
     setUserData(null);
     setWallets([]);
@@ -173,7 +207,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AppContext.Provider value={{ 
-      isLoggedIn, userData, login, logout, logoutAll, transactions, addTransaction,
+      isLoggedIn, userData, login, logout, logoutAll, 
+      transactions, isLoadingTransactions, fetchTransactions, createTransaction, deleteTransaction,
       wallets, isLoadingWallets, fetchWallets, createWallet, updateWallet, deleteWallet,
       categories, isLoadingCategories, fetchCategories, createCategory, updateCategory, deleteCategory
     }}>

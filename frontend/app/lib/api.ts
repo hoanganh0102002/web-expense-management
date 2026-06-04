@@ -50,23 +50,40 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}): Pro
     if (!isRefreshing) {
       isRefreshing = true;
       try {
-        // Gọi API refresh token
-        // Một số hệ thống dùng POST /refresh với token cũ trong Header Authorization
-        const refreshResponse = await fetch(`${API_BASE_URL}/refresh`, {
+        const refreshToken = localStorage.getItem('refresh_token');
+        const userDataStr = localStorage.getItem('user_data');
+        const userData = userDataStr ? JSON.parse(userDataStr) : null;
+        const userId = userData?.user_id || userData?.id;
+
+        if (!refreshToken || !userId) {
+          throw new Error('Hết hạn phiên làm việc');
+        }
+
+        const refreshResponse = await fetch(`${API_BASE_URL}/refresh-token`, {
           method: 'POST',
-          headers: getAuthHeaders()
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            refresh_token: refreshToken
+          })
         });
 
         if (refreshResponse.ok) {
           const refreshData = await refreshResponse.json();
           const newToken = refreshData.access_token;
+          const newRefreshToken = refreshData.refresh_token;
           
           if (newToken) {
             localStorage.setItem('access_token', newToken);
+            if (newRefreshToken) {
+              localStorage.setItem('refresh_token', newRefreshToken);
+            }
             isRefreshing = false;
             onTokenRefreshed(newToken);
             
-            // Thử lại request hiện tại
             return apiFetch(endpoint, options);
           }
         }
@@ -111,7 +128,7 @@ export const authApi = {
     method: 'POST',
     headers: userId ? { 'X-User-Id': userId } : {}
   }),
-  refresh: () => apiFetch('/refresh', { method: 'POST' }),
+  refresh: () => apiFetch('/refresh-token', { method: 'POST' }),
   forgotPassword: (email: string) => apiFetch('/auth/forgot-password', { 
     method: 'POST', 
     body: JSON.stringify({ email }) 
@@ -197,5 +214,51 @@ export const categoryApi = {
       method: 'POST', 
       body: JSON.stringify({ from_category_id: fromId, to_category_id: toId }) 
     }),
+};
+
+// --- TRANSACTION APIs ---
+export const transactionApi = {
+  getAll: (params: any = {}) => {
+    const query = new URLSearchParams();
+    Object.keys(params).forEach(key => {
+      if (params[key]) query.append(key, params[key]);
+    });
+    const queryString = query.toString();
+    return apiFetch(`/transactions${queryString ? `?${queryString}` : ''}`);
+  },
+  
+  create: (formData: FormData) => {
+    const token = localStorage.getItem('access_token');
+    return fetch(`${API_BASE_URL}/transactions`, {
+      method: 'POST',
+      body: formData,
+      headers: {
+        'Accept': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      }
+    }).then(async res => {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Thêm giao dịch thất bại');
+      return data;
+    });
+  },
+
+  update: (id: string, formData: FormData) => {
+    const token = localStorage.getItem('access_token');
+    return fetch(`${API_BASE_URL}/transactions/${id}`, {
+      method: 'POST', // POST for multipart workaround in Laravel
+      body: formData,
+      headers: {
+        'Accept': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+      }
+    }).then(async res => {
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Cập nhật giao dịch thất bại');
+      return data;
+    });
+  },
+
+  delete: (id: string) => apiFetch(`/transactions/${id}`, { method: 'DELETE' }),
 };
 
