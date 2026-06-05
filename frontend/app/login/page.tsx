@@ -3,15 +3,18 @@ import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAppContext } from '../context/AppContext';
+import { useLanguage } from '../lib/translations';
 import { authApi } from '../lib/api';
+import { useTheme } from '../context/ThemeContext';
 import './login.css';
 
 // --- CẤU HÌNH GITHUB ---
-const GITHUB_CLIENT_ID = "Ov23lisCCCkHQx90IibX"; // <--- Mã App của bạn
+const GITHUB_CLIENT_ID = "Ov23lisCCCkHQx90IibX"; 
 const GITHUB_REDIRECT_URI = typeof window !== 'undefined' ? `${window.location.origin}/login` : '';
 
 function LoginForm() {
-  const [isDark, setIsDark] = useState(false);
+  const { t } = useLanguage();
+  const { theme, toggleTheme } = useTheme();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -22,26 +25,11 @@ function LoginForm() {
   const { login, isLoggedIn } = useAppContext();
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('auth-theme');
-    if (savedTheme === 'dark') setIsDark(true);
-
     const code = searchParams.get('code');
     if (code) {
       handleGitHubCallback(code);
     }
   }, [searchParams]);
-
-  useEffect(() => {
-    if (isLoggedIn) {
-      router.push('/');
-    }
-  }, [isLoggedIn, router]);
-
-  const toggleTheme = () => {
-    const nextTheme = !isDark;
-    setIsDark(nextTheme);
-    localStorage.setItem('auth-theme', nextTheme ? 'dark' : 'light');
-  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -53,7 +41,7 @@ function LoginForm() {
         login(response);
       }
     } catch (err: any) {
-      setError(err.message || "Đăng nhập thất bại!");
+      setError(err.message || t('login_failed'));
     } finally {
       setLoading(false);
     }
@@ -67,27 +55,23 @@ function LoginForm() {
   const handleGitHubCallback = async (code: string) => {
     setLoading(true);
     setError('');
-    console.log("Đang xử lý GitHub code:", code); // <--- Thêm log
     try {
       const response = await authApi.socialLogin('github', code);
-      console.log("Backend response:", response); // <--- Thêm log
       if (response.access_token) {
         login(response);
-        // Xóa code trên URL
         window.history.replaceState({}, document.title, window.location.pathname);
       }
     } catch (err: any) {
-      console.error("Lỗi xác thực GitHub chi tiết:", err); // <--- Thêm log
-      setError("Lỗi xác thực GitHub: " + (err.message || "Không xác định"));
+      setError(t('github_auth_error') + (err.message || t('unknown_error')));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className={`login-wrapper ${isDark ? 'dark-theme' : ''}`}>
+    <div className={`login-wrapper ${theme === 'dark' ? 'dark-theme' : ''}`}>
       <button type="button" className="theme-toggle-btn" onClick={toggleTheme}>
-        {isDark ? '☀️' : '🌙'}
+        {theme === 'dark' ? '☀️' : '🌙'}
       </button>
       <div className="login-bg-shapes">
         <div className="shape shape-1"></div>
@@ -104,42 +88,42 @@ function LoginForm() {
               </svg>
               SpendWise.
             </div>
-            <h2>Đăng nhập hệ thống</h2>
-            <p>Sử dụng tài khoản GitHub để truy cập nhanh và quản lý ví ngay lập tức.</p>
+            <h2>{t('system_login')}</h2>
+            <p>{t('social_login_desc')}</p>
           </div>
         </div>
 
         <div className="login-right">
           <div className="login-form-box">
-            <h1 className="auth-title">Chào mừng trở lại</h1>
-            <p className="auth-subtitle">Sử dụng tài khoản của bạn</p>
+            <h1 className="auth-title">{t('welcome_back')}</h1>
+            <p className="auth-subtitle">{t('use_your_account')}</p>
 
             {error && <div className="error-message" style={{ background: '#FEE2E2', color: '#B91C1C', padding: '10px', borderRadius: '8px', marginBottom: '15px', fontSize: '14px', textAlign: 'center' }}>{error}</div>}
-            {loading && <div style={{ color: '#1814F3', marginBottom: '10px', textAlign: 'center' }}>Đang xử lý, vui lòng chờ...</div>}
+            {loading && <div style={{ color: '#1814F3', marginBottom: '10px', textAlign: 'center' }}>{t('processing_wait')}</div>}
 
             <form onSubmit={handleLogin}>
               <div className="floating-input-group">
                 <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder=" " required />
-                <label>Địa chỉ Email</label>
+                <label>{t('email_address')}</label>
               </div>
               <div className="floating-input-group">
                 <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder=" " required />
-                <label>Mật khẩu</label>
+                <label>{t('password_label')}</label>
               </div>
 
               <div className="auth-options" style={{ marginTop: '-10px', marginBottom: '25px', justifyContent: 'flex-end', display: 'flex' }}>
-                <Link href="/forgot-password" title="Quên mật khẩu?" className="forgot-pwd">
-                  Quên mật khẩu?
+                <Link href="/forgot-password" title={t('forgot_password')} className="forgot-pwd">
+                  {t('forgot_password')}
                 </Link>
               </div>
 
               <button type="submit" className="login-btn-glow" disabled={loading}>
-                <span>Đăng nhập</span>
+                <span>{t('login')}</span>
               </button>
             </form>
 
             <div className="auth-social">
-              <div className="auth-divider"><span>Hoặc tiếp tục bằng</span></div>
+              <div className="auth-divider"><span>{t('or_continue_with')}</span></div>
               <div className="social-btn-group" style={{ display: 'flex', gap: '15px' }}>
                 <button
                   type="button"
@@ -153,7 +137,7 @@ function LoginForm() {
                     <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" />
                     <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" />
                   </svg>
-                  Google
+                  {t('google')}
                 </button>
                 <button
                   onClick={handleGitHubLogin}
@@ -165,12 +149,12 @@ function LoginForm() {
                   <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
                     <path d="M12 .297c-6.63 0-12 5.373-12 12 0 5.303 3.438 9.8 8.205 11.385.6.113.82-.258.82-.577 0-.285-.01-1.04-.015-2.04-3.338.724-4.042-1.61-4.042-1.61C4.422 18.07 3.633 17.7 3.633 17.7c-1.087-.744.084-.729.084-.729 1.205.084 1.838 1.236 1.838 1.236 1.07 1.835 2.809 1.305 3.495.998.108-.776.417-1.305.76-1.605-2.665-.3-5.466-1.332-5.466-5.93 0-1.31.465-2.38 1.235-3.22-.135-.303-.54-1.523.105-3.176 0 0 1.005-.322 3.3 1.23.96-.267 1.98-.399 3-.405 1.02.006 2.04.138 3 .405 2.28-1.552 3.285-1.23 3.285-1.23.645 1.653.24 2.873.12 3.176.765.84 1.23 1.91 1.23 3.22 0 4.61-2.805 5.625-5.475 5.92.42.36.81 1.096.81 2.22 0 1.606-.015 2.896-.015 3.286 0 .315.21.69.825.57C20.565 22.092 24 17.592 24 12.297c0-6.627-5.373-12-12-12" />
                   </svg>
-                  GitHub
+                  {t('github')}
                 </button>
               </div>
             </div>
             <p className="create-account-text">
-              Chưa có tài khoản? <Link href="/register">Tạo tài khoản</Link>
+              {t('no_account_yet')} <Link href="/register">{t('create_account')}</Link>
             </p>
           </div>
         </div>
@@ -180,8 +164,9 @@ function LoginForm() {
 }
 
 export default function Login() {
+  const { t } = useLanguage();
   return (
-    <Suspense fallback={<div>Đang tải trang đăng nhập...</div>}>
+    <Suspense fallback={<div>{t('loading_login_page')}</div>}>
       <LoginForm />
     </Suspense>
   );

@@ -2,63 +2,209 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Sidebar from '../components/Sidebar';
+import { authApi } from '../lib/api';
 import { useAppContext } from '../context/AppContext';
+import { useLanguage } from '../lib/translations';
+import { useTheme } from '../context/ThemeContext';
 
 export default function Settings() {
-  const { isLoggedIn, userData } = useAppContext();
+  const { isLoggedIn, userData, logout, logoutAll } = useAppContext();
+  const { t } = useLanguage();
+  const { theme, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState('profile');
+
+  // State for Change Password
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isChangingPwd, setIsChangingPwd] = useState(false);
+
+  const handleChangePassword = async () => {
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      alert(t('fill_all_password'));
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      alert(t('password_mismatch'));
+      return;
+    }
+
+    setIsChangingPwd(true);
+    try {
+      await authApi.changePassword({
+        current_password: currentPassword,
+        password: newPassword,
+        password_confirmation: confirmPassword
+      });
+      alert(t('password_change_success'));
+      logout();
+    } catch (err: any) {
+      alert(t('error_prefix') + err.message);
+    } finally {
+      setIsChangingPwd(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    const confirm1 = window.confirm(t('delete_confirm_1'));
+    if (!confirm1) return;
+
+    const confirm2 = window.confirm(t('delete_confirm_2'));
+    if (!confirm2) return;
+
+    try {
+      await authApi.deleteAccount();
+      alert(t('account_deleted'));
+      logout();
+    } catch (err: any) {
+      alert(t('delete_error') + err.message);
+    }
+  };
+
+  // State for Profile
+  const [fullName, setFullName] = useState('');
+  const [currency, setCurrency] = useState('VNĐ (₫)');
+  const [timezone, setTimezone] = useState('(GMT+07:00) Bangkok, Hanoi, Jakarta');
+  const [language, setLanguage] = useState('Tiếng Việt');
+  const [isUpdating, setIsUpdating] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  // Sync state with userData when it changes
+  React.useEffect(() => {
+    if (userData) {
+      setFullName(userData.profile?.full_name || userData.full_name || '');
+      setCurrency(userData.preference?.currency || 'VNĐ (₫)');
+      setTimezone(userData.preference?.timezone || '(GMT+07:00) Bangkok, Hanoi, Jakarta');
+      setLanguage(userData.preference?.language === 'en' ? 'English' : 'Tiếng Việt');
+    }
+  }, [userData]);
+
+  const handleUpdateProfile = async (fieldSet: 'profile' | 'preferences') => {
+    setIsUpdating(true);
+    try {
+      const payload = fieldSet === 'profile' 
+        ? { full_name: fullName }
+        : { currency, timezone, language: language === 'Tiếng Việt' ? 'vi' : 'en' };
+      
+      const response = await authApi.updateProfile(payload);
+      
+      // Update local userData
+      const updatedUser = { ...userData };
+      if (fieldSet === 'profile') {
+        updatedUser.profile = { ...updatedUser.profile, full_name: fullName };
+      } else {
+        updatedUser.preference = { ...updatedUser.preference, ...payload };
+        localStorage.setItem('app_lang', payload.language as string);
+      }
+      localStorage.setItem('user_data', JSON.stringify(updatedUser));
+      alert(t('update_success'));
+      window.location.reload(); // Refresh to update all components
+    } catch (err: any) {
+      alert(t('error_prefix') + err.message);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('avatar', file);
+
+    try {
+      setIsUpdating(true);
+      const data = await authApi.updateAvatar(formData);
+      if (data && data.data) {
+        const updatedUser = { ...userData };
+        updatedUser.profile = { ...updatedUser.profile, ...data.data };
+        if (data.data.avatar_url) updatedUser.avatar_url = data.data.avatar_url;
+        localStorage.setItem('user_data', JSON.stringify(updatedUser));
+      }
+      alert(t('avatar_update_success'));
+      window.location.reload();
+    } catch (err: any) {
+      alert(t('error_prefix') + err.message);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
 
   // Lấy dữ liệu thật từ userData
   const profileFields = [
-    { label: 'Họ tên', value: userData?.full_name || userData?.name || 'Chưa cập nhật' },
-    { label: 'Email', value: userData?.email || 'Chưa cập nhật' },
-    { label: 'Số điện thoại', value: userData?.phone || '0' },
-    { label: 'Địa chỉ', value: userData?.address || 'Chưa cập nhật' },
+    { label: t('full_name'), value: fullName, setter: setFullName },
+    { label: t('email'), value: userData?.email || t('not_updated'), disabled: true },
+    { label: t('phone'), value: userData?.phone || '0', disabled: true },
+    { label: t('address'), value: userData?.address || t('not_updated'), disabled: true },
   ];
 
-  const displayName = userData?.full_name || userData?.name || 'Người dùng mới';
+  const displayName = userData?.profile?.full_name || userData?.full_name || userData?.name || t('new_user');
 
   return (
     <div className="dashboard-container">
       <Sidebar activeItem="settings" />
-      <main className="main-content" style={{ background: '#FFFFFF' }}>
-        <nav className="navbar" style={{ background: '#fff', borderBottom: '1px solid #E6EFF5' }}>
-          <h1 className="page-title" style={{ color: '#343C6A' }}>Cài đặt & Tùy chỉnh</h1>
-          <div className="nav-actions">
-            <button style={{ background: '#1814F3', color: '#fff', padding: '12px 24px', borderRadius: '24px', fontWeight: '600', border: 'none', cursor: 'pointer', fontSize: '15px', boxShadow: '0 4px 12px rgba(24, 20, 243, 0.2)' }}>
-              + Lưu tất cả
-            </button>
+      <main className="main-content" style={{ background: 'var(--bg-color)' }}>
+        <nav className="navbar" style={{ background: 'transparent', borderBottom: '1px solid var(--border-color)', backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 10 }}>
+          <h1 className="page-title" style={{ color: 'var(--text-main)', fontWeight: '800' }}>{t('settings_customize')}</h1>
+          <div className="nav-actions" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            {/* Notification Icon */}
+            <div style={{background: '#F5F7FA', width: '45px', height: '45px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffb300', cursor: 'pointer', fontSize: '20px'}}>
+              🔔
+            </div>
             {isLoggedIn ? (
-              <div style={{ position: 'relative' }}>
-                <img src={userData?.avatar || "https://api.dicebear.com/7.x/miniavs/svg?seed=SpendWise&backgroundColor=b6e3f4"} alt="Avatar" className="avatar" />
-                <div style={{ position: 'absolute', bottom: 0, right: 0, width: '12px', height: '12px', background: '#16DBCC', border: '2px solid #fff', borderRadius: '50%' }}></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <span style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '15px' }}>{displayName}</span>
+                <div style={{ position: 'relative', width: '45px', height: '45px' }}>
+                  <img src={userData?.profile?.avatar_url || userData?.avatar_url || userData?.avatar || "https://api.dicebear.com/7.x/miniavs/svg?seed=SpendWise&backgroundColor=b6e3f4"} alt="Avatar" className="avatar" style={{width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover'}}/>
+                  <div style={{ position: 'absolute', bottom: 0, right: 0, width: '12px', height: '12px', background: '#16DBCC', border: '2px solid #fff', borderRadius: '50%' }}></div>
+                </div>
               </div>
             ) : (
-              <Link href="/login" style={{ textDecoration: 'none', color: '#fff', background: '#343C6A', padding: '8px 15px', borderRadius: '20px', fontWeight: 'bold' }}>Đăng nhập</Link>
+              <Link href="/login" style={{ textDecoration: 'none', color: '#fff', background: '#343C6A', padding: '8px 15px', borderRadius: '20px', fontWeight: 'bold' }}>{t('login')}</Link>
             )}
           </div>
         </nav>
 
         <div className="content-area">
-          <div className="settings-card" style={{ background: '#fff', borderRadius: '24px', padding: '40px', border: '1px solid #E6EFF5', boxShadow: '0 2px 15px rgba(0,0,0,0.02)' }}>
-            {/* Tabs Navigation */}
-            <div style={{ display: 'flex', gap: '40px', borderBottom: '2px solid #F4F7FE', marginBottom: '40px' }}>
+          <div style={{ 
+            background: 'var(--card-bg)', 
+            borderRadius: '32px', 
+            padding: '0', 
+            boxShadow: '0 20px 50px rgba(0,0,0,0.3)', 
+            border: '1px solid var(--border-color)', 
+            position: 'relative', 
+            overflow: 'hidden',
+            backdropFilter: 'blur(30px)'
+          }}>
+            {/* Header Accent Decor */}
+            <div style={{ height: '140px', background: 'var(--accent-gradient)', opacity: 0.1, position: 'absolute', top: 0, left: 0, right: 0 }}></div>
+            
+            <div style={{ padding: '40px', position: 'relative' }}>
+              {/* Tabs Navigation */}
+              <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-color)', marginBottom: '40px', background: 'rgba(255,255,255,0.02)', padding: '6px', borderRadius: '16px' }}>
               {[
-                { k: 'profile', l: 'Thông tin cá nhân' },
-                { k: 'preferences', l: 'Tùy chọn hiển thị' },
-                { k: 'security', l: 'Bảo mật' },
+                { k: 'profile', l: t('personal_info') },
+                { k: 'preferences', l: t('display_options') },
+                { k: 'security', l: t('security') },
               ].map(tab => (
                 <div
                   key={tab.k}
                   onClick={() => setActiveTab(tab.k)}
                   style={{
                     paddingBottom: '20px',
-                    color: activeTab === tab.k ? '#1814F3' : '#718EBF',
-                    borderBottom: activeTab === tab.k ? '3px solid #1814F3' : '3px solid transparent',
+                    color: activeTab === tab.k ? 'var(--text-main)' : 'var(--text-muted)',
+                    background: activeTab === tab.k ? 'var(--input-bg)' : 'transparent',
+                    borderBottom: activeTab === tab.k ? '3px solid var(--active-blue)' : '3px solid transparent',
                     fontWeight: activeTab === tab.k ? '700' : '500',
                     cursor: 'pointer',
-                    fontSize: '16px',
-                    transition: 'all 0.3s'
+                    fontSize: '15px',
+                    transition: 'all 0.3s',
+                    borderRadius: '12px 12px 0 0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    minWidth: '140px'
                   }}
                 >
                   {tab.l}
@@ -73,40 +219,51 @@ export default function Settings() {
                   <div style={{ position: 'relative' }}>
                     <div style={{ width: '130px', height: '130px', borderRadius: '50%', padding: '4px', border: '2px solid #1814F3' }}>
                       <img
-                        src={userData?.avatar || "https://api.dicebear.com/7.x/miniavs/svg?seed=SpendWise&backgroundColor=b6e3f4"}
+                        src={userData?.profile?.avatar_url || userData?.avatar_url || userData?.avatar || "https://api.dicebear.com/7.x/miniavs/svg?seed=SpendWise&backgroundColor=b6e3f4"}
                         alt="Profile"
                         style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
                       />
                     </div>
-                    <button style={{ position: 'absolute', bottom: '5px', right: '5px', background: '#1814F3', border: 'none', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      onChange={handleAvatarChange} 
+                      style={{ display: 'none' }} 
+                      accept="image/*"
+                    />
+                    <button 
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={isUpdating}
+                      style={{ position: 'absolute', bottom: '5px', right: '5px', background: '#1814F3', border: 'none', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 10px rgba(0,0,0,0.1)', opacity: isUpdating ? 0.7 : 1 }}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                     </button>
                   </div>
                   <div style={{ textAlign: 'center' }}>
-                    <h3 style={{ margin: 0, color: '#343C6A', fontSize: '18px' }}>{displayName}</h3>
-                    <p style={{ margin: '4px 0 0', color: '#718EBF', fontSize: '13px' }}>{userData?.email || 'Email chưa xác thực'}</p>
+                    <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '18px' }}>{displayName}</h3>
+                    <p style={{ margin: '4px 0 0', color: '#718EBF', fontSize: '13px' }}>{userData?.email || t('email_not_verified')}</p>
                   </div>
                 </div>
 
                 {/* Form Section */}
                 <div style={{ flex: 1 }}>
                   <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', marginBottom: '40px' }}>
-                    {profileFields.map((f, i) => (
+                    {profileFields.map((f: any, i) => (
                       <div key={i}>
-                        <label style={{ display: 'block', marginBottom: '10px', color: '#343C6A', fontWeight: '600', fontSize: '15px' }}>{f.label}</label>
+                        <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '600', fontSize: '15px' }}>{f.label}</label>
                         <div style={{ position: 'relative' }}>
                           <input
                             type="text"
-                            defaultValue={isLoggedIn ? f.value : ''}
-                            placeholder={isLoggedIn ? `Nhập ${f.label.toLowerCase()}...` : 'Vui lòng đăng nhập'}
-                            disabled={!isLoggedIn}
+                            value={f.value}
+                            onChange={(e) => f.setter && f.setter(e.target.value)}
+                            placeholder={isLoggedIn ? `${t('enter_placeholder')} ${f.label.toLowerCase()}...` : t('please_login')}
+                            disabled={!isLoggedIn || f.disabled}
                             style={{
                               width: '100%',
                               padding: '14px 18px',
-                              border: '1px solid #E6EFF5',
+                              border: '1px solid var(--border-color)',
                               borderRadius: '15px',
-                              background: '#F8F9FB',
-                              color: '#343C6A',
+                              background: f.disabled ? 'rgba(255, 255, 255, 0.05)' : 'var(--input-bg)',
+                              color: 'var(--text-main)',
                               fontSize: '15px',
                               fontWeight: '500'
                             }}
@@ -116,8 +273,13 @@ export default function Settings() {
                     ))}
                   </div>
                   <div style={{ display: 'flex', gap: '15px' }}>
-                    <button style={{ padding: '14px 35px', background: '#1814F3', color: '#fff', border: 'none', borderRadius: '15px', fontWeight: '700', cursor: 'pointer', fontSize: '15px', boxShadow: '0 4px 15px rgba(24, 20, 243, 0.25)', transition: 'transform 0.2s' }}>Lưu thay đổi</button>
-                    <button style={{ padding: '14px 35px', background: '#F8F9FB', color: '#718EBF', border: '1px solid #E6EFF5', borderRadius: '15px', fontWeight: '600', cursor: 'pointer', fontSize: '15px' }}>Hủy bỏ</button>
+                    <button 
+                      onClick={() => handleUpdateProfile('profile')}
+                      disabled={isUpdating}
+                      style={{ padding: '14px 35px', background: '#1814F3', color: '#fff', border: 'none', borderRadius: '15px', fontWeight: '700', cursor: 'pointer', fontSize: '15px', boxShadow: '0 4px 15px rgba(24, 20, 243, 0.25)', transition: 'transform 0.2s', opacity: isUpdating ? 0.7 : 1 }}>
+                      {isUpdating ? t('saving') : t('save_changes')}
+                    </button>
+                    <button style={{ padding: '14px 35px', background: 'var(--bg-color)', color: '#718EBF', border: '1px solid #E6EFF5', borderRadius: '15px', fontWeight: '600', cursor: 'pointer', fontSize: '15px' }}>{t('cancel_changes')}</button>
                   </div>
                 </div>
               </div>
@@ -127,52 +289,124 @@ export default function Settings() {
               <div style={{ maxWidth: '700px' }}>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
                   <div>
-                    <label style={{ display: 'block', marginBottom: '10px', color: '#343C6A', fontWeight: '600', fontSize: '15px' }}>Đơn vị tiền tệ</label>
-                    <select disabled={!isLoggedIn} style={{ width: '100%', padding: '14px', border: '1px solid #E6EFF5', borderRadius: '15px', background: '#F8F9FB', color: '#343C6A', fontSize: '15px', appearance: 'none' }}>
+                    <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '600', fontSize: '15px' }}>{t('currency_label')}</label>
+                    <select 
+                      disabled={!isLoggedIn} 
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
+                      style={{ width: '100%', padding: '14px', border: '1px solid #E6EFF5', borderRadius: '15px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px', appearance: 'none' }}>
                       <option>VNĐ (₫)</option><option>USD ($)</option>
                     </select>
                   </div>
                   <div>
-                    <label style={{ display: 'block', marginBottom: '10px', color: '#343C6A', fontWeight: '600', fontSize: '15px' }}>Ngôn ngữ</label>
-                    <select disabled={!isLoggedIn} style={{ width: '100%', padding: '14px', border: '1px solid #E6EFF5', borderRadius: '15px', background: '#F8F9FB', color: '#343C6A', fontSize: '15px', appearance: 'none' }}>
+                    <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '600', fontSize: '15px' }}>{t('language_label')}</label>
+                    <select 
+                      disabled={!isLoggedIn} 
+                      value={language}
+                      onChange={(e) => setLanguage(e.target.value)}
+                      style={{ width: '100%', padding: '14px', border: '1px solid #E6EFF5', borderRadius: '15px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px', appearance: 'none' }}>
                       <option>Tiếng Việt</option><option>English</option>
                     </select>
                   </div>
                 </div>
-                <div style={{ marginTop: '30px', padding: '24px', background: '#F8F9FB', borderRadius: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ marginTop: '30px', padding: '32px', background: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <div>
-                    <div style={{ fontWeight: '700', color: '#343C6A', marginBottom: '4px' }}>Chế độ tối (Dark Mode)</div>
-                    <div style={{ fontSize: '13px', color: '#718EBF' }}>Giảm mỏi mắt và tiết kiệm pin trên màn hình OLED</div>
+                    <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '8px', fontSize: '17px' }}>{t('dark_mode')}</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '280px' }}>{t('dark_mode_desc')}</div>
                   </div>
-                  <div style={{ width: '50px', height: '26px', borderRadius: '13px', background: isLoggedIn ? '#1814F3' : '#E6EFF5', position: 'relative', cursor: 'pointer' }}>
-                    <div style={{ width: '20px', height: '20px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '3px', left: isLoggedIn ? '27px' : '3px', transition: '0.3s', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }}></div>
+                  <div 
+                    onClick={toggleTheme}
+                    style={{ width: '56px', height: '30px', borderRadius: '15px', background: theme === 'dark' ? '#1814F3' : 'var(--border-color)', position: 'relative', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>
+                    <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '4px', left: theme === 'dark' ? '30px' : '4px', transition: '0.3s', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}></div>
                   </div>
                 </div>
+                <button 
+                  onClick={() => handleUpdateProfile('preferences')}
+                  disabled={isUpdating}
+                  style={{ 
+                    marginTop: '30px', 
+                    padding: '16px 40px', 
+                    background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)', 
+                    color: '#fff', 
+                    border: 'none', 
+                    borderRadius: '16px', 
+                    fontWeight: '700', 
+                    cursor: 'pointer', 
+                    fontSize: '15px', 
+                    boxShadow: '0 10px 20px -5px rgba(59, 130, 246, 0.4)',
+                    transition: 'all 0.3s',
+                    opacity: isUpdating ? 0.7 : 1 
+                  }}>
+                  {t('save_preferences')}
+                </button>
               </div>
             )}
 
             {activeTab === 'security' && (
               <div style={{ maxWidth: '600px' }}>
-                <h3 style={{ color: '#343C6A', marginBottom: '25px', fontSize: '20px' }}>Bảo mật tài khoản</h3>
+                <h3 style={{ color: 'var(--text-main)', marginBottom: '25px', fontSize: '20px' }}>{t('account_security')}</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   <div>
-                    <label style={{ display: 'block', marginBottom: '10px', color: '#343C6A', fontWeight: '600', fontSize: '14px' }}>Mật khẩu hiện tại</label>
-                    <input type="password" placeholder="••••••••" disabled={!isLoggedIn} style={{ width: '100%', padding: '14px', border: '1px solid #E6EFF5', borderRadius: '15px', background: '#F8F9FB' }} />
+                    <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '600', fontSize: '14px' }}>{t('current_password')}</label>
+                    <input 
+                      type="password" 
+                      placeholder="••••••••" 
+                      disabled={!isLoggedIn} 
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      style={{ width: '100%', padding: '14px', border: '1px solid var(--border-color)', borderRadius: '15px', background: 'var(--input-bg)', color: 'var(--text-main)' }} 
+                    />
                   </div>
                   <div>
-                    <label style={{ display: 'block', marginBottom: '10px', color: '#343C6A', fontWeight: '600', fontSize: '14px' }}>Mật khẩu mới</label>
-                    <input type="password" placeholder="Nhập mật khẩu mới..." disabled={!isLoggedIn} style={{ width: '100%', padding: '14px', border: '1px solid #E6EFF5', borderRadius: '15px', background: '#F8F9FB' }} />
+                    <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '600', fontSize: '14px' }}>{t('new_password')}</label>
+                    <input 
+                      type="password" 
+                      placeholder={t('enter_new_password')} 
+                      disabled={!isLoggedIn} 
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      style={{ width: '100%', padding: '14px', border: '1px solid var(--border-color)', borderRadius: '15px', background: 'var(--input-bg)', color: 'var(--text-main)' }} 
+                    />
                   </div>
-                  <button style={{ width: 'fit-content', padding: '14px 30px', background: '#1814F3', color: '#fff', border: 'none', borderRadius: '15px', fontWeight: '700', cursor: 'pointer', marginTop: '10px', opacity: isLoggedIn ? 1 : 0.5 }}>Cập nhật mật khẩu</button>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '600', fontSize: '14px' }}>{t('confirm_new_password')}</label>
+                    <input 
+                      type="password" 
+                      placeholder={t('confirm_password_again')} 
+                      disabled={!isLoggedIn} 
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      style={{ width: '100%', padding: '14px', border: '1px solid var(--border-color)', borderRadius: '15px', background: 'var(--input-bg)', color: 'var(--text-main)' }} 
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '15px' }}>
+                    <button 
+                      onClick={handleChangePassword}
+                      disabled={isChangingPwd}
+                      style={{ width: 'fit-content', padding: '14px 30px', background: '#1814F3', color: '#fff', border: 'none', borderRadius: '15px', fontWeight: '700', cursor: 'pointer', marginTop: '10px', opacity: (isLoggedIn && !isChangingPwd) ? 1 : 0.5 }}>
+                      {isChangingPwd ? t('updating') : t('update_password')}
+                    </button>
+                    <button 
+                      onClick={logoutAll}
+                      style={{ width: 'fit-content', padding: '14px 30px', background: '#FFE0EB', color: '#FE5C73', border: '1px solid #FE5C73', borderRadius: '15px', fontWeight: '700', cursor: 'pointer', marginTop: '10px', opacity: isLoggedIn ? 1 : 0.5 }}>
+                      {t('revoke_all_devices')}
+                    </button>
+                  </div>
                 </div>
                 
                 <div style={{ marginTop: '40px', paddingTop: '30px', borderTop: '2px solid #F4F7FE' }}>
-                  <h3 style={{ color: '#FE5C73', marginBottom: '10px', fontSize: '18px' }}>Xóa tài khoản</h3>
-                  <p style={{ fontSize: '14px', color: '#718EBF', marginBottom: '20px' }}>Hành động này sẽ xóa vĩnh viễn tất cả dữ liệu giao dịch và ví của bạn.</p>
-                  <button style={{ padding: '12px 25px', background: '#FFE0EB', color: '#FE5C73', border: '1px solid #FE5C73', borderRadius: '12px', fontWeight: '600', cursor: 'pointer' }}>Xóa tài khoản ngay</button>
+                  <h3 style={{ color: '#FE5C73', marginBottom: '10px', fontSize: '18px' }}>{t('delete_account')}</h3>
+                  <p style={{ fontSize: '14px', color: '#718EBF', marginBottom: '20px' }}>{t('delete_account_warning')}</p>
+                  <button 
+                    onClick={handleDeleteAccount}
+                    disabled={!isLoggedIn}
+                    style={{ padding: '12px 25px', background: '#FFE0EB', color: '#FE5C73', border: '1px solid #FE5C73', borderRadius: '12px', fontWeight: '600', cursor: 'pointer', opacity: isLoggedIn ? 1 : 0.5 }}>
+                    {t('delete_account_now')}
+                  </button>
                 </div>
               </div>
             )}
+            </div>
           </div>
         </div>
       </main>
