@@ -25,6 +25,12 @@ function LoginForm() {
   const { login, isLoggedIn } = useAppContext();
 
   useEffect(() => {
+    if (isLoggedIn) {
+      router.push('/');
+    }
+  }, [isLoggedIn, router]);
+
+  useEffect(() => {
     const code = searchParams.get('code');
     if (code) {
       handleGitHubCallback(code);
