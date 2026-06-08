@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Sidebar from '../components/Sidebar';
 import { useAppContext } from '../context/AppContext';
 import { useLanguage } from '../lib/translations';
+import { apiFetch } from '../lib/api';
 
 const parseIcon = (iconName: string) => {
   const iconMap: Record<string, string> = {
@@ -56,6 +57,19 @@ export default function Transactions() {
   });
 
   const [activeTab, setActiveTab] = useState('all');
+
+  const [internalTransfers, setInternalTransfers] = useState<any[]>([]);
+  const [isLoadingTransfers, setIsLoadingTransfers] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'transfer' && internalTransfers.length === 0) {
+      setIsLoadingTransfers(true);
+      apiFetch('/wallets/transfers')
+        .then(res => setInternalTransfers(res.data || []))
+        .catch(err => console.error('Error fetching transfers', err))
+        .finally(() => setIsLoadingTransfers(false));
+    }
+  }, [activeTab]);
 
   // Flatten category tree into a flat list for the select dropdown
   const flatCategories = useMemo(() => {
@@ -177,14 +191,46 @@ export default function Transactions() {
 
         <div className="content-area">
           <div style={{display:'flex',gap:'30px',borderBottom:'1px solid var(--border-color)',marginBottom:'20px'}}>
-            {[{k:'all',l:t('all')},{k:'income',l:t('income')},{k:'expense',l:t('spending')}].map(tab=>(
+            {[{k:'all',l:t('all')},{k:'income',l:t('income')},{k:'expense',l:t('spending')},{k:'transfer',l:'Chuyển tiền nội bộ'}].map(tab=>(
               <div key={tab.k} onClick={()=>setActiveTab(tab.k)} style={{paddingBottom:'10px',color:activeTab===tab.k?'#1814F3':'#718EBF',borderBottom:activeTab===tab.k?'3px solid #1814F3':'none',fontWeight:activeTab===tab.k?'600':'400',cursor:'pointer'}}>{tab.l}</div>
             ))}
           </div>
 
           <div style={{background: 'var(--card-bg)',borderRadius:'20px',padding:'24px',border: '1px solid var(--border-color)', minHeight: '400px'}}>
-            {isLoadingTransactions ? (
+            {(activeTab === 'transfer' && isLoadingTransfers) || (activeTab !== 'transfer' && isLoadingTransactions) ? (
               <div style={{display:'flex', justifyContent:'center', padding:'40px', color:'var(--text-main)'}}>{t('loading')}...</div>
+            ) : activeTab === 'transfer' ? (
+              <table style={{width:'100%',borderCollapse:'collapse',textAlign:'left',color: 'var(--text-main)',fontSize:'15px'}}>
+                <thead style={{color:'#718EBF',borderBottom:'1px solid var(--border-color)'}}>
+                  <tr>
+                    <th style={{padding:'14px 8px',fontWeight:'500'}}>{t('description')}</th>
+                    <th style={{padding:'14px 8px',fontWeight:'500'}}>Từ ví</th>
+                    <th style={{padding:'14px 8px',fontWeight:'500'}}>Đến ví</th>
+                    <th style={{padding:'14px 8px',fontWeight:'500'}}>{t('date_label')}</th>
+                    <th style={{padding:'14px 8px',fontWeight:'500'}}>{t('amount_label')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {internalTransfers.length > 0 ? internalTransfers.map((tx: any)=>(
+                    <tr key={tx.id} style={{borderBottom:'1px solid var(--border-color)'}}>
+                      <td style={{padding:'14px 8px',fontWeight:600}}>Chuyển tiền nội bộ</td>
+                      <td style={{padding:'14px 8px',fontWeight:500,color:'#1814F3'}}>{tx.from_wallet_name}</td>
+                      <td style={{padding:'14px 8px',fontWeight:500,color:'#16DBCC'}}>{tx.to_wallet_name}</td>
+                      <td style={{padding:'14px 8px'}}>
+                        <div style={{fontWeight:'500'}}>{new Date(tx.date).toLocaleDateString('vi-VN')}</div>
+                        <div style={{fontSize:'12px', color:'#718EBF'}}>{new Date(tx.date).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}</div>
+                      </td>
+                      <td style={{padding:'14px 8px', color: '#8F9BB3', fontWeight:'600'}}>
+                        {Number(tx.amount).toLocaleString('vi-VN')}₫
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={5} style={{padding:'40px', textAlign:'center', color:'#718EBF'}}>Chưa có chuyển tiền nội bộ nào</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             ) : (
               <table style={{width:'100%',borderCollapse:'collapse',textAlign:'left',color: 'var(--text-main)',fontSize:'15px'}}>
                 <thead style={{color:'#718EBF',borderBottom:'1px solid var(--border-color)'}}>

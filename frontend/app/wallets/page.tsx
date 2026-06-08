@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Sidebar from '../components/Sidebar';
 import { useAppContext } from '../context/AppContext';
 import { useLanguage } from '../lib/translations';
+import { apiFetch } from '../lib/api';
 import './wallets.css';
 
 // ==========================================
@@ -193,8 +194,9 @@ export default function Wallets() {
   const { t } = useLanguage();
 
   // State cho Modals
-  const [showModal, setShowModal] = useState<'create' | 'edit' | null>(null);
+  const [showModal, setShowModal] = useState<'create' | 'edit' | 'transfer' | 'history' | null>(null);
   const [selectedWallet, setSelectedWallet] = useState<any>(null);
+  const [showWalletBalance, setShowWalletBalance] = useState(true);
 
   // Form states
   const [name, setName] = useState('');
@@ -202,6 +204,64 @@ export default function Wallets() {
   const [balance, setBalance] = useState('');
   const [color, setColor] = useState('linear-gradient(135deg, #3A3FBD, #2E33A8)');
   const [icon, setIcon] = useState('wallet');
+
+  // Internal Transfer states
+  const [transferFrom, setTransferFrom] = useState('');
+  const [transferTo, setTransferTo] = useState('');
+  const [transferAmount, setTransferAmount] = useState('');
+
+  const [isTransferring, setIsTransferring] = useState(false);
+
+  // History states
+  const [historyWallet, setHistoryWallet] = useState<any>(null);
+  const [historyTransactions, setHistoryTransactions] = useState<any[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  const openHistory = async (wallet: any) => {
+    setHistoryWallet(wallet);
+    setShowModal('history');
+    setIsLoadingHistory(true);
+    try {
+      const response = await apiFetch(`/wallets/${wallet.id}/transactions`);
+      setHistoryTransactions(response.data?.data || response.data || []);
+    } catch (e: any) {
+      alert("Lỗi tải lịch sử: " + (e.message || "Không thể tải"));
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  const handleTransfer = async () => {
+    if (!transferFrom || !transferTo || !transferAmount) {
+      alert("Vui lòng điền đầy đủ thông tin chuyển tiền!");
+      return;
+    }
+    if (transferFrom === transferTo) {
+      alert("Ví chuyển và ví nhận phải khác nhau!");
+      return;
+    }
+    setIsTransferring(true);
+    try {
+      await apiFetch('/wallets/transfer', {
+        method: 'POST',
+        body: JSON.stringify({
+          from_wallet_id: transferFrom,
+          to_wallet_id: transferTo,
+          amount: parseFloat(transferAmount),
+        })
+      });
+      alert("Chuyển tiền nội bộ thành công!");
+      setShowModal(null);
+      setTransferFrom('');
+      setTransferTo('');
+      setTransferAmount('');
+      fetchWallets();
+    } catch (e: any) {
+      alert("Lỗi chuyển tiền: " + (e.message || "Đã xảy ra lỗi"));
+    } finally {
+      setIsTransferring(false);
+    }
+  };
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -269,8 +329,46 @@ export default function Wallets() {
       <Sidebar activeItem="wallets" />
       <main className="main-content wallets-main">
         <nav className="navbar wallets-navbar">
-          <h1 className="page-title wallets-title">{t('wallets_and_accounts')}</h1>
-          <div className="nav-actions">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <h1 className="page-title wallets-title" style={{ margin: 0 }}>{t('wallets_and_accounts')}</h1>
+            <button 
+              onClick={() => setShowWalletBalance(!showWalletBalance)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#718EBF', display: 'flex', alignItems: 'center', padding: '5px' }}
+              title={showWalletBalance ? "Ẩn số tiền" : "Hiện số tiền"}
+            >
+              {showWalletBalance ? (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
+              ) : (
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                </svg>
+              )}
+            </button>
+          </div>
+          <div className="nav-actions" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <button 
+              onClick={() => {
+                if (!isLoggedIn) {
+                  alert(t('login_required_to_create_wallet'));
+                  return;
+                }
+                setShowModal('transfer');
+              }}
+              className="create-wallet-btn"
+              style={{ background: '#5F63E8', display: 'flex', alignItems: 'center', gap: '8px' }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 10L4 6l4-4" />
+                <path d="M4 6h16" />
+                <path d="M16 14l4 4-4 4" />
+                <path d="M20 18H4" />
+              </svg>
+              Chuyển tiền nội bộ
+            </button>
             <button 
               onClick={() => {
                 if (!isLoggedIn) {
@@ -325,6 +423,8 @@ export default function Wallets() {
               </button>
             </div>
           ) : (
+            <>
+
             <div className="wallets-grid">
               {wallets.map((w) => {
                 const cardColor = w.color || 'linear-gradient(135deg, #3A3FBD, #2E33A8)';
@@ -339,7 +439,7 @@ export default function Wallets() {
                       <div>
                         <div className="wallet-label" style={{ color: muteColor }}>{t('balance_label')}</div>
                         <div className="wallet-balance">
-                          {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(w.available_balance || 0)}
+                          {showWalletBalance ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(w.available_balance || 0) : '******'}
                         </div>
                       </div>
                       <div className="wallet-icon-wrapper" style={{ background: iconBg, color: txtColor }}>
@@ -355,6 +455,13 @@ export default function Wallets() {
                         </div>
                       </div>
                       <div className="wallet-actions">
+                        <button 
+                          onClick={() => openHistory(w)}
+                          className="action-btn-edit"
+                          style={{ background: iconBg, color: txtColor }}
+                        >
+                          Lịch sử
+                        </button>
                         <button 
                           onClick={() => openEdit(w)}
                           className="action-btn-edit"
@@ -375,12 +482,13 @@ export default function Wallets() {
                 );
               })}
             </div>
+            </>
           )}
         </div>
       </main>
 
       {/* MODAL TẠO / SỬA VÍ */}
-      {showModal && (
+      {(showModal === 'create' || showModal === 'edit') && (
         <div className="modal-overlay">
           <div className="modal-content">
             {/* Modal Header */}
@@ -582,6 +690,122 @@ export default function Wallets() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* TRANSFER MODAL */}
+      {showModal === 'transfer' && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ background: '#16192B', borderRadius: '24px', padding: '30px', border: '1px solid #2A2D40', maxWidth: '500px', width: '100%', position: 'relative' }}>
+            <button 
+              type="button" 
+              onClick={() => { setShowModal(null); setTransferFrom(''); setTransferTo(''); setTransferAmount(''); }}
+              style={{ position: 'absolute', top: '15px', right: '20px', background: 'none', border: 'none', fontSize: '24px', color: '#8F9BB3', cursor: 'pointer' }}
+            >
+              ×
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '30px' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5F63E8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 10L4 6l4-4" />
+                <path d="M4 6h16" />
+                <path d="M16 14l4 4-4 4" />
+                <path d="M20 18H4" />
+              </svg>
+              <h3 style={{ color: '#FFF', margin: 0, fontSize: '20px', fontWeight: '700', letterSpacing: '0.5px' }}>Chuyển tiền nội bộ</h3>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+              <div style={{ flex: 1, position: 'relative' }}>
+                <div style={{ color: '#8F9BB3', fontSize: '12px', fontWeight: '700', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Chuyển từ ví</div>
+                <select 
+                  value={transferFrom} 
+                  onChange={e => setTransferFrom(e.target.value)}
+                  style={{ width: '100%', background: '#1C1F33', border: '1px solid #2A2D40', color: transferFrom ? '#FFF' : '#8F9BB3', padding: '14px 16px', borderRadius: '12px', outline: 'none', appearance: 'none', fontSize: '15px', fontWeight: '500' }}
+                >
+                  <option value="" disabled>Chọn ví</option>
+                  {wallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                </select>
+                <svg style={{ position: 'absolute', right: '14px', bottom: '16px', pointerEvents: 'none' }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8F9BB3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </div>
+              
+              <div style={{ marginTop: '24px', width: '42px', height: '42px', borderRadius: '50%', background: '#5F63E8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(95, 99, 232, 0.3)' }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                  <polyline points="12 5 19 12 12 19"></polyline>
+                </svg>
+              </div>
+
+              <div style={{ flex: 1, position: 'relative' }}>
+                <div style={{ color: '#8F9BB3', fontSize: '12px', fontWeight: '700', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Chuyển đến ví</div>
+                <select 
+                  value={transferTo} 
+                  onChange={e => setTransferTo(e.target.value)}
+                  style={{ width: '100%', background: '#1C1F33', border: '1px solid #2A2D40', color: transferTo ? '#FFF' : '#8F9BB3', padding: '14px 16px', borderRadius: '12px', outline: 'none', appearance: 'none', fontSize: '15px', fontWeight: '500' }}
+                >
+                  <option value="" disabled>Chọn ví</option>
+                  {wallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                </select>
+                <svg style={{ position: 'absolute', right: '14px', bottom: '16px', pointerEvents: 'none' }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8F9BB3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '30px' }}>
+              <input 
+                type="number" 
+                value={transferAmount} 
+                onChange={e => setTransferAmount(e.target.value)}
+                placeholder="Nhập số tiền..."
+                style={{ width: '100%', background: '#1C1F33', border: '1px solid #2A2D40', color: '#FFF', padding: '16px', borderRadius: '12px', outline: 'none', fontSize: '15px', fontWeight: '500' }}
+              />
+            </div>
+
+            <button 
+              onClick={handleTransfer}
+              disabled={isTransferring}
+              style={{ width: '100%', background: isTransferring ? '#8F9BB3' : '#5F63E8', color: '#FFF', padding: '16px', borderRadius: '14px', border: 'none', fontWeight: '700', fontSize: '16px', cursor: isTransferring ? 'not-allowed' : 'pointer', boxShadow: '0 4px 14px rgba(95, 99, 232, 0.25)' }}
+            >
+              {isTransferring ? 'Đang xử lý...' : 'Chuyển tiền ngay'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* HISTORY MODAL */}
+      {showModal === 'history' && (
+        <div className="modal-overlay" onClick={() => setShowModal(null)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ background: '#16192B', borderRadius: '24px', padding: '30px', border: '1px solid #2A2D40', maxWidth: '600px', width: '100%', position: 'relative', maxHeight: '80vh', overflowY: 'auto' }}>
+            <button 
+              type="button" 
+              onClick={() => setShowModal(null)}
+              style={{ position: 'absolute', top: '15px', right: '20px', background: 'none', border: 'none', fontSize: '24px', color: '#8F9BB3', cursor: 'pointer' }}
+            >
+              ×
+            </button>
+            <h3 style={{ color: '#FFF', margin: '0 0 20px 0', fontSize: '20px', fontWeight: '700' }}>
+              Lịch sử giao dịch - {historyWallet?.name}
+            </h3>
+
+            {isLoadingHistory ? (
+              <div style={{ color: '#8F9BB3', textAlign: 'center', padding: '30px' }}>Đang tải dữ liệu...</div>
+            ) : historyTransactions.length === 0 ? (
+              <div style={{ color: '#8F9BB3', textAlign: 'center', padding: '30px' }}>Chưa có giao dịch nào trong ví này.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {historyTransactions.map((tx: any) => (
+                  <div key={tx.id} style={{ background: '#1C1F33', padding: '16px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ color: '#FFF', fontWeight: '600', marginBottom: '4px' }}>{tx.title || tx.category_name || tx.notes || 'Giao dịch'}</div>
+                      <div style={{ color: '#8F9BB3', fontSize: '12px' }}>{new Date(tx.transaction_date).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                    </div>
+                    <div style={{ fontWeight: '700', color: tx.type === 'expense' ? '#FF6B6B' : '#4CD964' }}>
+                      {tx.type === 'expense' ? '-' : '+'}
+                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(tx.amount || 0)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

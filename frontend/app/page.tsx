@@ -8,6 +8,7 @@ import { useLanguage } from './lib/translations';
 export default function Dashboard() {
   const { isLoggedIn, wallets, transactions, isLoadingWallets, userData } = useAppContext();
   const { t } = useLanguage();
+  const [showWalletBalance, setShowWalletBalance] = useState(true);
 
   // Tính toán số liệu từ dữ liệu thật
   const totalBalance = wallets.reduce((sum, w) => sum + parseFloat(w.available_balance || 0), 0);
@@ -134,7 +135,26 @@ export default function Dashboard() {
             </div>
 
             <div className="col-1" style={{flex:1}}>
-              <div className="section-header"><h2 className="section-title">{t('wallets')}</h2></div>
+              <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 className="section-title">{t('wallets')}</h2>
+                <button 
+                  onClick={() => setShowWalletBalance(!showWalletBalance)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#718EBF', display: 'flex', alignItems: 'center', padding: '5px' }}
+                  title={showWalletBalance ? "Ẩn số tiền" : "Hiện số tiền"}
+                >
+                  {showWalletBalance ? (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                      <circle cx="12" cy="12" r="3"></circle>
+                    </svg>
+                  ) : (
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                      <line x1="1" y1="1" x2="23" y2="23"></line>
+                    </svg>
+                  )}
+                </button>
+              </div>
               <div className="transactions-card" style={{height:'auto'}}>
                 {isLoadingWallets ? (
                   <div style={{ padding: '20px', textAlign: 'center' }}>{t('loading')}</div>
@@ -145,7 +165,7 @@ export default function Dashboard() {
                     <div className="transaction-item" key={i} style={{marginBottom:'12px'}}>
                       <div style={{width:'45px',height:'45px',borderRadius:'12px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'20px',background: '#E7EDFF',marginRight:'15px'}}>🏦</div>
                       <div className="tx-details"><div className="tx-title">{w.wallet_name}</div><div className="tx-date">{w.account_name || t('main_account')}</div></div>
-                      <div style={{fontWeight:'700',color:'var(--text-main)'}}>{formatCurrency(parseFloat(w.available_balance))}</div>
+                      <div style={{fontWeight:'700',color:'var(--text-main)'}}>{showWalletBalance ? formatCurrency(parseFloat(w.available_balance)) : '******'}</div>
                     </div>
                   ))
                 )}
