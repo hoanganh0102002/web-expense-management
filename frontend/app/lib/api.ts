@@ -262,3 +262,19 @@ export const transactionApi = {
   delete: (id: string) => apiFetch(`/transactions/${id}`, { method: 'DELETE' }),
 };
 
+// --- BUDGET APIs ---
+export const budgetApi = {
+  getAll: (month: number, year: number) => apiFetch(`/budgets?month=${month}&year=${year}`),
+  createOrUpdate: (data: { category_id?: string | null; limit_amount: number; month: number; year: number }) => 
+    apiFetch('/budgets', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+  delete: (id: string) => apiFetch(`/budgets/${id}`, { method: 'DELETE' }),
+  copy: (data: { from_month: number; from_year: number; to_month: number; to_year: number }) => 
+    apiFetch('/budgets/copy', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    })
+};
+
