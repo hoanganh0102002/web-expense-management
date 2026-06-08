@@ -22,6 +22,160 @@ const parseIcon = (iconName: string) => {
   return iconMap[iconName] || iconName;
 };
 
+interface SmartFilters {
+  minAmount?: string;
+  maxAmount?: string;
+  category_id?: string;
+  categoryName?: string;
+  wallet_id?: string;
+  walletName?: string;
+  startDate?: string;
+  endDate?: string;
+  type?: string;
+  typeName?: string;
+  cleanSearch?: string;
+}
+
+const parseSmartQuery = (query: string, flatCategories: any[], wallets: any[]): SmartFilters => {
+  if (!query) return {};
+
+  let text = query.toLowerCase().trim();
+  const filters: SmartFilters = {};
+
+  // Helper to parse amount strings like "50k" -> 50000, "1.5m" -> 1500000, "1tr" -> 1000000
+  const parseAmountVal = (valStr: string): number => {
+    let factor = 1;
+    let cleanVal = valStr.trim();
+    if (cleanVal.endsWith('k')) {
+      factor = 1000;
+      cleanVal = cleanVal.slice(0, -1);
+    } else if (cleanVal.endsWith('m')) {
+      factor = 1000000;
+      cleanVal = cleanVal.slice(0, -1);
+    } else if (cleanVal.endsWith('tr') || cleanVal.endsWith('triệu') || cleanVal.endsWith('trieu')) {
+      factor = 1000000;
+      if (cleanVal.endsWith('triệu')) cleanVal = cleanVal.slice(0, -5);
+      else if (cleanVal.endsWith('trieu')) cleanVal = cleanVal.slice(0, -5);
+      else cleanVal = cleanVal.slice(0, -2);
+    }
+    const num = parseFloat(cleanVal);
+    return isNaN(num) ? 0 : num * factor;
+  };
+
+  // 1. Lọc khoảng số tiền: e.g. "10k - 50k", "10000 - 50000"
+  const rangeRegex = /(\d+(?:\.\d+)?(?:k|m|tr|triệu|trieu)?)\s*-\s*(\d+(?:\.\d+)?(?:k|m|tr|triệu|trieu)?)/i;
+  const rangeMatch = rangeRegex.exec(text);
+  if (rangeMatch) {
+    const min = parseAmountVal(rangeMatch[1]);
+    const max = parseAmountVal(rangeMatch[2]);
+    if (min > 0) filters.minAmount = min.toString();
+    if (max > 0) filters.maxAmount = max.toString();
+    text = text.replace(rangeRegex, '');
+  }
+
+  // Lọc số tiền tối thiểu: e.g. "> 50k", ">= 100k", "lớn hơn 50k", "lon hon 500"
+  const gtRegex = /(?:>=|>|lớn hơn|lon hon)\s*(\d+(?:\.\d+)?(?:k|m|tr|triệu|trieu)?)/i;
+  const gtMatch = gtRegex.exec(text);
+  if (gtMatch) {
+    const val = parseAmountVal(gtMatch[1]);
+    if (val > 0) filters.minAmount = val.toString();
+    text = text.replace(gtRegex, '');
+  }
+
+  // Lọc số tiền tối đa: e.g. "< 50k", "<= 100k", "nhỏ hơn 50k", "nho hon 500"
+  const ltRegex = /(?:<=|<|nhỏ hơn|nho hon)\s*(\d+(?:\.\d+)?(?:k|m|tr|triệu|trieu)?)/i;
+  const ltMatch = ltRegex.exec(text);
+  if (ltMatch) {
+    const val = parseAmountVal(ltMatch[1]);
+    if (val > 0) filters.maxAmount = val.toString();
+    text = text.replace(ltRegex, '');
+  }
+
+  // 2. Lọc thời gian tương đối
+  const today = new Date();
+  const getISOString = (d: Date) => d.toISOString().split('T')[0];
+
+  if (text.includes('hôm nay') || text.includes('today')) {
+    filters.startDate = getISOString(today);
+    filters.endDate = getISOString(today);
+    text = text.replace(/hôm nay|today/gi, '');
+  } else if (text.includes('hôm qua') || text.includes('yesterday')) {
+    const yesterday = new Date();
+    yesterday.setDate(today.getDate() - 1);
+    filters.startDate = getISOString(yesterday);
+    filters.endDate = getISOString(yesterday);
+    text = text.replace(/hôm qua|yesterday/gi, '');
+  } else if (text.includes('tuần này') || text.includes('this week')) {
+    const day = today.getDay();
+    const diff = today.getDate() - day + (day === 0 ? -6 : 1);
+    const monday = new Date(today.setDate(diff));
+    filters.startDate = getISOString(monday);
+    filters.endDate = getISOString(new Date());
+    text = text.replace(/tuần này|this week/gi, '');
+  } else if (text.includes('tháng này') || text.includes('this month')) {
+    const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+    filters.startDate = getISOString(firstDay);
+    filters.endDate = getISOString(new Date());
+    text = text.replace(/tháng này|this month/gi, '');
+  } else {
+    // Check specific month: "tháng 5", "tháng 05", "thang 5", "month 5"
+    const monthRegex = /(?:tháng|thang|month)\s*(\d+)/i;
+    const monthMatch = monthRegex.exec(text);
+    if (monthMatch) {
+      const targetMonth = parseInt(monthMatch[1]) - 1;
+      if (targetMonth >= 0 && targetMonth <= 11) {
+        const year = today.getFullYear();
+        const firstDay = new Date(year, targetMonth, 1);
+        const lastDay = new Date(year, targetMonth + 1, 0);
+        filters.startDate = getISOString(firstDay);
+        filters.endDate = getISOString(lastDay);
+      }
+      text = text.replace(monthRegex, '');
+    }
+  }
+
+  // 3. Lọc Loại giao dịch
+  if (text.includes('thu nhập') || text.includes('income')) {
+    filters.type = 'income';
+    filters.typeName = 'Thu nhập';
+    text = text.replace(/thu nhập|income/gi, '');
+  } else if (text.includes('chi tiêu') || text.includes('spending') || text.includes('expense')) {
+    filters.type = 'expense';
+    filters.typeName = 'Chi tiêu';
+    text = text.replace(/chi tiêu|spending|expense/gi, '');
+  } else if (text.includes('chuyển khoản') || text.includes('chuyển tiền') || text.includes('transfer')) {
+    filters.type = 'transfer';
+    filters.typeName = 'Chuyển khoản';
+    text = text.replace(/chuyển khoản|chuyển tiền|transfer/gi, '');
+  }
+
+  // 4. Lọc theo Ví: Duyệt tìm ví phù hợp
+  for (const w of wallets) {
+    const wName = (w.wallet_name || w.name || '').toLowerCase();
+    if (wName && text.includes(wName)) {
+      filters.wallet_id = w.id;
+      filters.walletName = w.wallet_name || w.name;
+      text = text.replace(wName, '');
+      break;
+    }
+  }
+
+  // 5. Lọc theo Danh mục: Duyệt tìm danh mục phù hợp
+  for (const c of flatCategories) {
+    const cName = (c.name || '').toLowerCase();
+    if (cName && text.includes(cName)) {
+      filters.category_id = c.id;
+      filters.categoryName = c.name;
+      text = text.replace(cName, '');
+      break;
+    }
+  }
+
+  // Chuỗi sạch còn lại để tìm kiếm text
+  filters.cleanSearch = text.replace(/\s+/g, ' ').trim();
+  return filters;
+};
+
 export default function Transactions() {
   const { 
     isLoggedIn, 
@@ -80,6 +234,26 @@ export default function Transactions() {
   const [prevCursor, setPrevCursor] = useState<string | null>(null);
   const [currentCursor, setCurrentCursor] = useState<string | null>(null);
 
+  // Flatten category tree into a flat list for the select dropdown
+  const flatCategories = useMemo(() => {
+    const flatten = (cats: any[], prefix = ''): any[] => {
+      let result: any[] = [];
+      cats.forEach(cat => {
+        const emoji = parseIcon(cat.icon || '');
+        result.push({ ...cat, displayName: prefix + emoji + ' ' + cat.name });
+        if (cat.children && cat.children.length > 0) {
+          result = [...result, ...flatten(cat.children, prefix + '— ')];
+        }
+      });
+      return result;
+    };
+    return flatten(categories);
+  }, [categories]);
+
+  const smartFilters = useMemo(() => {
+    return parseSmartQuery(searchTerm, flatCategories, wallets);
+  }, [searchTerm, flatCategories, wallets]);
+
   // Helper to change filter states and automatically reset pagination cursor
   const handleFilterChange = (updater: () => void) => {
     updater();
@@ -97,22 +271,40 @@ export default function Transactions() {
 
   const loadFilteredTransactions = async (cursorVal?: string | null) => {
     if (!isLoggedIn) return;
+    
+    // Parse the query
+    const parsed = parseSmartQuery(debouncedSearch, flatCategories, wallets);
+    
     const params: any = {
       sort_by: sortBy,
       sort_order: sortOrder,
       per_page: perPage,
     };
-    if (debouncedSearch) params.search = debouncedSearch;
-    if (startDate) params.start_date = startDate;
-    if (endDate) params.end_date = endDate;
-    if (selectedWallet) params.wallet_id = selectedWallet;
-    if (selectedCategory) params.category_id = selectedCategory;
-    if (minAmount) params.min_amount = minAmount;
-    if (maxAmount) params.max_amount = maxAmount;
     
-    if (activeTab !== 'all' && activeTab !== 'transfer') {
-      params.type = activeTab;
+    // Apply clean text search
+    if (parsed.cleanSearch) {
+      params.search = parsed.cleanSearch;
+    } else if (debouncedSearch && Object.keys(parsed).length === 0) {
+      params.search = debouncedSearch;
     }
+    
+    // Apply parsed or manual filters
+    const finalStartDate = parsed.startDate || startDate;
+    const finalEndDate = parsed.endDate || endDate;
+    const finalWalletId = parsed.wallet_id || selectedWallet;
+    const finalCategoryId = parsed.category_id || selectedCategory;
+    const finalMinAmount = parsed.minAmount || minAmount;
+    const finalMaxAmount = parsed.maxAmount || maxAmount;
+    const finalType = parsed.type || (activeTab !== 'all' && activeTab !== 'transfer' ? activeTab : undefined);
+    
+    if (finalStartDate) params.start_date = finalStartDate;
+    if (finalEndDate) params.end_date = finalEndDate;
+    if (finalWalletId) params.wallet_id = finalWalletId;
+    if (finalCategoryId) params.category_id = finalCategoryId;
+    if (finalMinAmount) params.min_amount = finalMinAmount;
+    if (finalMaxAmount) params.max_amount = finalMaxAmount;
+    if (finalType) params.type = finalType;
+    
     if (cursorVal) {
       params.cursor = cursorVal;
     }
@@ -163,38 +355,46 @@ export default function Transactions() {
   // Client-side filtering and sorting for internal transfers
   const filteredTransfers = useMemo(() => {
     let result = [...internalTransfers];
+    const parsed = parseSmartQuery(debouncedSearch, flatCategories, wallets);
 
-    if (debouncedSearch) {
-      const s = debouncedSearch.toLowerCase();
+    const searchStr = parsed.cleanSearch || (Object.keys(parsed).length === 0 ? debouncedSearch : '');
+    if (searchStr) {
+      const s = searchStr.toLowerCase();
       result = result.filter(t => 
         t.from_wallet_name.toLowerCase().includes(s) || 
         t.to_wallet_name.toLowerCase().includes(s)
       );
     }
 
-    if (startDate) {
-      const start = new Date(startDate);
+    const finalStartDate = parsed.startDate || startDate;
+    const finalEndDate = parsed.endDate || endDate;
+    const finalWalletId = parsed.wallet_id || selectedWallet;
+    const finalMinAmount = parsed.minAmount || minAmount;
+    const finalMaxAmount = parsed.maxAmount || maxAmount;
+
+    if (finalStartDate) {
+      const start = new Date(finalStartDate);
       result = result.filter(t => new Date(t.date) >= start);
     }
-    if (endDate) {
-      const end = new Date(endDate);
+    if (finalEndDate) {
+      const end = new Date(finalEndDate);
       end.setHours(23, 59, 59, 999);
       result = result.filter(t => new Date(t.date) <= end);
     }
 
-    if (selectedWallet) {
-      const walletObj = wallets.find(w => w.id === selectedWallet);
+    if (finalWalletId) {
+      const walletObj = wallets.find(w => w.id === finalWalletId);
       if (walletObj) {
         const wName = walletObj.name || walletObj.wallet_name;
         result = result.filter(t => t.from_wallet_name === wName || t.to_wallet_name === wName);
       }
     }
 
-    if (minAmount) {
-      result = result.filter(t => t.amount >= parseFloat(minAmount));
+    if (finalMinAmount) {
+      result = result.filter(t => t.amount >= parseFloat(finalMinAmount));
     }
-    if (maxAmount) {
-      result = result.filter(t => t.amount <= parseFloat(maxAmount));
+    if (finalMaxAmount) {
+      result = result.filter(t => t.amount <= parseFloat(finalMaxAmount));
     }
 
     result.sort((a, b) => {
@@ -208,7 +408,7 @@ export default function Transactions() {
     });
 
     return result;
-  }, [internalTransfers, debouncedSearch, startDate, endDate, selectedWallet, minAmount, maxAmount, sortBy, sortOrder, wallets]);
+  }, [internalTransfers, debouncedSearch, startDate, endDate, selectedWallet, minAmount, maxAmount, sortBy, sortOrder, wallets, flatCategories]);
 
   const handleClearFilters = () => {
     setStartDate('');
@@ -223,22 +423,6 @@ export default function Transactions() {
     setSearchTerm('');
     setCurrentCursor(null);
   };
-
-  // Flatten category tree into a flat list for the select dropdown
-  const flatCategories = useMemo(() => {
-    const flatten = (cats: any[], prefix = ''): any[] => {
-      let result: any[] = [];
-      cats.forEach(cat => {
-        const emoji = parseIcon(cat.icon || '');
-        result.push({ ...cat, displayName: prefix + emoji + ' ' + cat.name });
-        if (cat.children && cat.children.length > 0) {
-          result = [...result, ...flatten(cat.children, prefix + '— ')];
-        }
-      });
-      return result;
-    };
-    return flatten(categories);
-  }, [categories]);
 
   useEffect(() => {
     if (wallets.length > 0 && !newTx.wallet_id) {
@@ -364,6 +548,59 @@ export default function Transactions() {
         </nav>
 
         <div className="content-area">
+          {/* SMART SEARCH FEEDBACK */}
+          {searchTerm && Object.keys(smartFilters).length > 0 && (
+            <div style={{
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '8px',
+              alignItems: 'center',
+              background: 'rgba(24, 20, 243, 0.05)',
+              border: '1px dashed rgba(24, 20, 243, 0.2)',
+              borderRadius: '12px',
+              padding: '8px 16px',
+              marginBottom: '20px',
+              fontSize: '13px',
+              color: 'var(--text-main)'
+            }}>
+              <span style={{fontWeight: '600', color: '#1814F3'}}>✨ Bộ lọc thông minh:</span>
+              {smartFilters.walletName && (
+                <span style={{background: '#E7EDFF', color: '#1814F3', padding: '2px 8px', borderRadius: '6px', fontWeight: '500'}}>
+                  Ví: {smartFilters.walletName}
+                </span>
+              )}
+              {smartFilters.categoryName && (
+                <span style={{background: '#E7EDFF', color: '#1814F3', padding: '2px 8px', borderRadius: '6px', fontWeight: '500'}}>
+                  Danh mục: {smartFilters.categoryName}
+                </span>
+              )}
+              {smartFilters.minAmount && (
+                <span style={{background: '#E7EDFF', color: '#1814F3', padding: '2px 8px', borderRadius: '6px', fontWeight: '500'}}>
+                  Số tiền ≥ {Math.round(Number(smartFilters.minAmount)).toLocaleString('vi-VN')}₫
+                </span>
+              )}
+              {smartFilters.maxAmount && (
+                <span style={{background: '#E7EDFF', color: '#1814F3', padding: '2px 8px', borderRadius: '6px', fontWeight: '500'}}>
+                  Số tiền ≤ {Math.round(Number(smartFilters.maxAmount)).toLocaleString('vi-VN')}₫
+                </span>
+              )}
+              {smartFilters.startDate && (
+                <span style={{background: '#E7EDFF', color: '#1814F3', padding: '2px 8px', borderRadius: '6px', fontWeight: '500'}}>
+                  Thời gian: {smartFilters.startDate} {smartFilters.endDate ? `đến ${smartFilters.endDate}` : ''}
+                </span>
+              )}
+              {smartFilters.typeName && (
+                <span style={{background: '#E7EDFF', color: '#1814F3', padding: '2px 8px', borderRadius: '6px', fontWeight: '500'}}>
+                  Loại: {smartFilters.typeName}
+                </span>
+              )}
+              {smartFilters.cleanSearch && (
+                <span style={{background: 'rgba(0,0,0,0.05)', color: 'var(--text-main)', padding: '2px 8px', borderRadius: '6px', fontStyle: 'italic'}}>
+                  Từ khóa: "{smartFilters.cleanSearch}"
+                </span>
+              )}
+            </div>
+          )}
           {/* FILTER PANEL */}
           {isFilterPanelOpen && (
             <div style={{
@@ -551,7 +788,7 @@ export default function Transactions() {
                         <div style={{fontSize:'12px', color:'#718EBF'}}>{new Date(tx.date).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}</div>
                       </td>
                       <td style={{padding:'14px 8px', color: '#8F9BB3', fontWeight:'600'}}>
-                        {Number(tx.amount).toLocaleString('vi-VN')}₫
+                        {Math.round(Number(tx.amount)).toLocaleString('vi-VN')}₫
                       </td>
                     </tr>
                   )) : (
@@ -582,7 +819,7 @@ export default function Transactions() {
                         <div style={{fontSize:'12px', color:'#718EBF'}}>{new Date(tx.transaction_date).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}</div>
                       </td>
                       <td style={{padding:'14px 8px', color: tx.type === 'income' ? '#16DBCC' : '#FE5C73', fontWeight:'600'}}>
-                        {tx.type === 'income' ? '+' : '-'}{Number(tx.amount).toLocaleString('vi-VN')}₫
+                        {tx.type === 'income' ? '+' : '-'}{Math.round(Number(tx.amount)).toLocaleString('vi-VN')}₫
                       </td>
                       <td style={{padding:'14px 8px',display:'flex',gap:'8px'}}>
                         <button style={{border:'1px solid #FE5C73',color:'#FE5C73',background:'transparent',padding:'5px 12px',borderRadius:'8px',cursor:'pointer',fontSize:'12px'}} onClick={() => handleDelete(tx.id)}>{t('delete')}</button>
