@@ -10,7 +10,7 @@ type AppContextType = {
   logoutAll: () => Promise<void>;
   transactions: any[];
   isLoadingTransactions: boolean;
-  fetchTransactions: (params?: any) => Promise<void>;
+  fetchTransactions: (params?: any) => Promise<any>;
   createTransaction: (formData: FormData) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
   
@@ -73,6 +73,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const response = await transactionApi.getAll(params);
       setTransactions(response.data?.data || response.data || []);
+      return response.data;
     } catch (error: any) {
       console.error("Lấy danh sách giao dịch thất bại:", error);
     } finally {
