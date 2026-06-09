@@ -209,7 +209,8 @@ export default function Transactions() {
     notes: '',
     attachment: null as File | null,
     is_recurring: false,
-    frequency: 'monthly'
+    frequency: 'monthly',
+    end_date: ''
   });
 
   const [activeTab, setActiveTab] = useState('all');
@@ -219,6 +220,9 @@ export default function Transactions() {
 
   const [recurringTransactions, setRecurringTransactions] = useState<any[]>([]);
   const [isLoadingRecurring, setIsLoadingRecurring] = useState(false);
+  const [isEditRecurringModalOpen, setIsEditRecurringModalOpen] = useState(false);
+  const [editingRecurringTx, setEditingRecurringTx] = useState<any>(null);
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
 
   // States for search and advanced filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -520,6 +524,7 @@ export default function Transactions() {
             category_id: newTx.category_id || null,
             frequency: newTx.frequency,
             start_date: newTx.transaction_date.split('T')[0],
+            end_date: newTx.end_date || null,
             notes: newTx.notes
           })
         });
@@ -542,7 +547,8 @@ export default function Transactions() {
         notes: '',
         attachment: null,
         is_recurring: false,
-        frequency: 'monthly'
+        frequency: 'monthly',
+        end_date: ''
       });
       setIsModalOpen(false);
       setCurrentCursor(null);
@@ -562,6 +568,49 @@ export default function Transactions() {
       } catch (error: any) {
         alert(error.message || 'Lỗi khi xóa giao dịch');
       }
+    }
+  };
+
+  const handleDeleteRecurringRule = async (id: string) => {
+    if (window.confirm('Bạn có chắc chắn muốn xóa giao dịch định kỳ này?')) {
+      try {
+        await apiFetch(`/recurring-rules/${id}`, { method: 'DELETE' });
+        setRecurringTransactions(prev => prev.filter(tx => tx.id !== id));
+      } catch (error: any) {
+        alert(error.message || 'Lỗi khi xóa giao dịch định kỳ');
+      }
+    }
+  };
+
+  const submitEditRecurringRule = async () => {
+    if (!editingRecurringTx.title || !editingRecurringTx.amount || !editingRecurringTx.wallet_id) {
+      alert('Vui lòng điền các trường bắt buộc');
+      return;
+    }
+    setIsSubmittingEdit(true);
+    try {
+      await apiFetch(`/recurring-rules/${editingRecurringTx.id}`, {
+        method: 'POST',
+        body: JSON.stringify({
+          title: editingRecurringTx.title,
+          amount: editingRecurringTx.amount,
+          type: editingRecurringTx.type,
+          wallet_id: editingRecurringTx.wallet_id,
+          category_id: editingRecurringTx.category_id || null,
+          frequency: editingRecurringTx.frequency,
+          start_date: editingRecurringTx.start_date,
+          end_date: editingRecurringTx.end_date || null,
+          notes: editingRecurringTx.notes
+        })
+      });
+      setIsLoadingRecurring(true);
+      const res = await apiFetch('/recurring-rules');
+      setRecurringTransactions(res.data ? res.data : (Array.isArray(res) ? res : []));
+      setIsEditRecurringModalOpen(false);
+    } catch (error: any) {
+      alert(error.message || 'Lỗi khi cập nhật giao dịch định kỳ');
+    } finally {
+      setIsSubmittingEdit(false);
     }
   };
 
@@ -875,6 +924,7 @@ export default function Transactions() {
                     <th style={{ padding: '14px 8px', fontWeight: '500' }}>Tần suất</th>
                     <th style={{ padding: '14px 8px', fontWeight: '500' }}>Ngày tiếp theo</th>
                     <th style={{ padding: '14px 8px', fontWeight: '500' }}>Trạng thái</th>
+                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -909,10 +959,60 @@ export default function Transactions() {
                           {tx.is_active ? 'Hoạt động' : 'Đã tắt'}
                         </button>
                       </td>
+                      <td style={{ padding: '14px 8px' }}>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            onClick={() => {
+                              setEditingRecurringTx({
+                                id: tx.id,
+                                title: tx.title || tx.description || tx.name || '',
+                                amount: tx.amount || '',
+                                type: tx.type || 'expense',
+                                wallet_id: tx.wallet_id || (wallets.length > 0 ? wallets[0].id : ''),
+                                category_id: tx.category_id || '',
+                                frequency: tx.frequency || 'monthly',
+                                start_date: tx.start_date ? tx.start_date.split('T')[0] : (tx.next_run_at ? tx.next_run_at.split('T')[0] : getLocalDateTime().split('T')[0]),
+                                end_date: tx.end_date ? tx.end_date.split('T')[0] : '',
+                                notes: tx.notes || ''
+                              });
+                              setIsEditRecurringModalOpen(true);
+                            }}
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: '8px',
+                              background: '#E7EDFF',
+                              color: '#1814F3',
+                              border: 'none',
+                              cursor: 'pointer',
+                              fontSize: '13px',
+                              fontWeight: '600'
+                            }}
+                          >
+                            Sửa
+                          </button>
+                          <button
+                            onClick={() => handleDeleteRecurringRule(tx.id)}
+                          style={{
+                            padding: '6px 12px',
+                            borderRadius: '8px',
+                            background: 'transparent',
+                            color: '#FE5C73',
+                            border: '1px solid #FFE2E5',
+                            cursor: 'pointer',
+                            fontSize: '13px',
+                            fontWeight: '600'
+                          }}
+                          onMouseOver={(e) => e.currentTarget.style.background = '#FFE2E5'}
+                          onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                        >
+                          Xóa
+                        </button>
+                        </div>
+                      </td>
                     </tr>
                   )) : (
                     <tr>
-                      <td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: '#718EBF' }}>Chưa có giao dịch định kỳ nào</td>
+                      <td colSpan={7} style={{ padding: '40px', textAlign: 'center', color: '#718EBF' }}>Chưa có giao dịch định kỳ nào</td>
                     </tr>
                   )}
                 </tbody>
@@ -1109,18 +1209,24 @@ export default function Transactions() {
             </div>
 
             {newTx.is_recurring && (
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Tần suất lặp lại *</label>
-                <select 
-                  value={newTx.frequency} 
-                  onChange={e => setNewTx({ ...newTx, frequency: e.target.value })} 
-                  style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}
-                >
-                  <option value="daily">Hàng ngày</option>
-                  <option value="weekly">Hàng tuần</option>
-                  <option value="monthly">Hàng tháng</option>
-                  <option value="yearly">Hàng năm</option>
-                </select>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Tần suất lặp lại *</label>
+                  <select 
+                    value={newTx.frequency} 
+                    onChange={e => setNewTx({ ...newTx, frequency: e.target.value })} 
+                    style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}
+                  >
+                    <option value="daily">Hàng ngày</option>
+                    <option value="weekly">Hàng tuần</option>
+                    <option value="monthly">Hàng tháng</option>
+                    <option value="yearly">Hàng năm</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Ngày kết thúc (Không bắt buộc)</label>
+                  <input type="date" value={newTx.end_date} onChange={e => setNewTx({ ...newTx, end_date: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }} />
+                </div>
               </div>
             )}
 
@@ -1209,6 +1315,91 @@ export default function Transactions() {
           </div>
         </div>
       )}
+
+      {/* EDIT RECURRING MODAL */}
+      {isEditRecurringModalOpen && editingRecurringTx && (
+        <div className="modal-overlay" style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }} onClick={() => setIsEditRecurringModalOpen(false)}>
+          <div className="modal-content" style={{ background: 'var(--card-bg)', width: '100%', maxWidth: '600px', borderRadius: '24px', padding: '30px', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
+              <h2 style={{ margin: 0, fontSize: '24px', color: 'var(--text-main)' }}>Sửa giao dịch định kỳ</h2>
+              <button onClick={() => setIsEditRecurringModalOpen(false)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#718EBF' }}>&times;</button>
+            </div>
+
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Tần suất lặp lại *</label>
+              <select value={editingRecurringTx.frequency} onChange={e => setEditingRecurringTx({ ...editingRecurringTx, frequency: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}>
+                <option value="daily">Hàng ngày</option>
+                <option value="weekly">Hàng tuần</option>
+                <option value="monthly">Hàng tháng</option>
+                <option value="yearly">Hàng năm</option>
+              </select>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Tên giao dịch *</label>
+                <input type="text" value={editingRecurringTx.title} onChange={e => setEditingRecurringTx({ ...editingRecurringTx, title: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Số tiền *</label>
+                <input type="number" value={editingRecurringTx.amount} onChange={e => setEditingRecurringTx({ ...editingRecurringTx, amount: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }} />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Loại *</label>
+                <select value={editingRecurringTx.type} onChange={e => setEditingRecurringTx({ ...editingRecurringTx, type: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}>
+                  <option value="expense">Chi tiêu</option>
+                  <option value="income">Thu nhập</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Ví *</label>
+                <select value={editingRecurringTx.wallet_id} onChange={e => setEditingRecurringTx({ ...editingRecurringTx, wallet_id: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}>
+                  {wallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Danh mục</label>
+                <select value={editingRecurringTx.category_id} onChange={e => setEditingRecurringTx({ ...editingRecurringTx, category_id: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}>
+                  <option value="">Chọn danh mục</option>
+                  {flatCategories.map(c => <option key={c.id} value={c.id}>{c.displayName}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Ngày bắt đầu *</label>
+                <input type="date" value={editingRecurringTx.start_date} onChange={e => setEditingRecurringTx({ ...editingRecurringTx, start_date: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }} />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Ngày kết thúc (Không bắt buộc)</label>
+              <input type="date" value={editingRecurringTx.end_date} onChange={e => setEditingRecurringTx({ ...editingRecurringTx, end_date: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }} />
+            </div>
+
+            <div style={{ marginBottom: '25px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Ghi chú</label>
+              <textarea value={editingRecurringTx.notes} onChange={e => setEditingRecurringTx({ ...editingRecurringTx, notes: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px', minHeight: '80px', resize: 'vertical' }} />
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button style={{ padding: '12px 24px', background: 'var(--bg-color)', color: '#718EBF', borderRadius: '12px', border: '1px solid var(--border-color)', cursor: 'pointer', fontWeight: '600', fontSize: '15px' }} onClick={() => setIsEditRecurringModalOpen(false)} disabled={isSubmittingEdit}>Hủy</button>
+              <button
+                style={{ padding: '12px 24px', background: '#1814F3', color: '#fff', borderRadius: '12px', border: 'none', cursor: 'pointer', fontWeight: '600', fontSize: '15px' }}
+                onClick={submitEditRecurringRule}
+                disabled={isSubmittingEdit}
+              >
+                {isSubmittingEdit ? 'Đang lưu...' : 'Lưu thay đổi'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
+
 }
