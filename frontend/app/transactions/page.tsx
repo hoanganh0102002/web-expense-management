@@ -469,6 +469,22 @@ export default function Transactions() {
     }
   };
 
+  const toggleRecurringRule = async (tx: any) => {
+    try {
+      // Gửi thẳng POST vì API chỉ nhận POST hoặc DELETE (Bỏ _method: 'PUT' để Laravel không tự ép thành PUT)
+      await apiFetch(`/recurring-rules/${tx.id}`, {
+        method: 'POST',
+        body: JSON.stringify({ 
+          is_active: !tx.is_active
+        })
+      });
+      setRecurringTransactions(prev => prev.map(item => item.id === tx.id ? { ...item, is_active: !tx.is_active } : item));
+    } catch (error) {
+      console.error('Lỗi khi cập nhật trạng thái:', error);
+      alert('Không thể thay đổi trạng thái lúc này. Vui lòng thử lại sau.');
+    }
+  };
+
   const submitAdd = async () => {
     if (!newTx.title || !newTx.amount || !newTx.wallet_id) {
       alert(t('please_fill_all_required_fields') || 'Vui lòng điền các trường bắt buộc');
@@ -477,13 +493,26 @@ export default function Transactions() {
 
     setIsSubmitting(true);
     try {
+      // 1. Luôn tạo giao dịch thực tế cho lần này
+      const formData = new FormData();
+      formData.append('title', newTx.title);
+      formData.append('amount', newTx.amount);
+      formData.append('type', newTx.type);
+      formData.append('wallet_id', newTx.wallet_id);
+      if (newTx.category_id) formData.append('category_id', newTx.category_id);
+      formData.append('transaction_date', new Date(newTx.transaction_date).toISOString());
+      if (newTx.notes) formData.append('notes', newTx.notes);
+      if (newTx.attachment) formData.append('attachment', newTx.attachment);
+
+      await createTransaction(formData);
+
+      // 2. Nếu có chọn định kỳ thì tạo thêm rule để hệ thống tự động chạy các lần sau
       if (newTx.is_recurring) {
-        // Gửi lên API recurring-rules
         await apiFetch('/recurring-rules', {
           method: 'POST',
           body: JSON.stringify({
             title: newTx.title,
-            name: newTx.title, // Gửi cả name và title để tương thích nhiều schema backend
+            name: newTx.title,
             description: newTx.title,
             amount: newTx.amount,
             type: newTx.type,
@@ -495,25 +524,12 @@ export default function Transactions() {
           })
         });
         
-        // Refresh recurring tab if we are on it, or just let user click it later
         if (activeTab === 'recurring') {
           setIsLoadingRecurring(true);
           apiFetch('/recurring-rules')
             .then(res => setRecurringTransactions(res.data ? res.data : (Array.isArray(res) ? res : [])))
             .finally(() => setIsLoadingRecurring(false));
         }
-      } else {
-        const formData = new FormData();
-        formData.append('title', newTx.title);
-        formData.append('amount', newTx.amount);
-        formData.append('type', newTx.type);
-        formData.append('wallet_id', newTx.wallet_id);
-        if (newTx.category_id) formData.append('category_id', newTx.category_id);
-        formData.append('transaction_date', new Date(newTx.transaction_date).toISOString());
-        if (newTx.notes) formData.append('notes', newTx.notes);
-        if (newTx.attachment) formData.append('attachment', newTx.attachment);
-
-        await createTransaction(formData);
       }
 
       setNewTx({
@@ -874,9 +890,24 @@ export default function Transactions() {
                         <div style={{ fontWeight: '500' }}>{tx.next_run_at ? new Date(tx.next_run_at).toLocaleDateString('vi-VN') : '-'}</div>
                       </td>
                       <td style={{ padding: '14px 8px' }}>
-                        <span style={{ padding: '4px 8px', borderRadius: '8px', fontSize: '12px', background: tx.is_active ? '#E7EDFF' : '#FFE2E5', color: tx.is_active ? '#1814F3' : '#FE5C73' }}>
-                          {tx.is_active ? 'Hoạt động' : 'Đã dừng'}
-                        </span>
+                        <button 
+                          onClick={() => toggleRecurringRule(tx)}
+                          style={{ 
+                            padding: '6px 10px', 
+                            borderRadius: '8px', 
+                            fontSize: '12px', 
+                            border: 'none',
+                            cursor: 'pointer',
+                            background: tx.is_active ? '#E7EDFF' : '#FFE2E5', 
+                            color: tx.is_active ? '#1814F3' : '#FE5C73',
+                            fontWeight: '600',
+                            transition: 'all 0.2s ease'
+                          }}
+                          onMouseOver={(e) => e.currentTarget.style.opacity = '0.8'}
+                          onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
+                        >
+                          {tx.is_active ? 'Hoạt động' : 'Đã tắt'}
+                        </button>
                       </td>
                     </tr>
                   )) : (
