@@ -8,12 +8,12 @@ import { apiFetch } from '../lib/api';
 
 const parseIcon = (iconName: string) => {
   const iconMap: Record<string, string> = {
-    food: '🍜', car: '🚗', shopping_cart: '🛒', shopping_bag: '🛍️', gamepad: '🎮', 
-    beauty: '💇', health: '🏥', heart: '💖', receipt: '📋', house: '🏠', 
-    users: '🤝', chart: '📈', book: '📚', salary: '💰', award: '🏆', 
-    business: '🏢', profit: '💹', debt: '📉', support: '🤗', building: '🏙️', 
-    rings: '💍', grid: '🔲', monitor: '🖥️', cash: '💵', coffee: '☕', 
-    baby_clothing: '👶', paw: '🐾', dumbbell: '🏋️', beer: '🍺', suitcase: '🧳', 
+    food: '🍜', car: '🚗', shopping_cart: '🛒', shopping_bag: '🛍️', gamepad: '🎮',
+    beauty: '💇', health: '🏥', heart: '💖', receipt: '📋', house: '🏠',
+    users: '🤝', chart: '📈', book: '📚', salary: '💰', award: '🏆',
+    business: '🏢', profit: '💹', debt: '📉', support: '🤗', building: '🏙️',
+    rings: '💍', grid: '🔲', monitor: '🖥️', cash: '💵', coffee: '☕',
+    baby_clothing: '👶', paw: '🐾', dumbbell: '🏋️', beer: '🍺', suitcase: '🧳',
     tshirt: '👕', graduation_cap: '🎓', money_bag: '💰', handshake: '🤝',
     lightbulb: '💡', gas_station: '⛽', flower: '🌸', piggy_bank: '🐷',
     restaurant: '🍽️', ticket: '🎫', wallet: '👛', gift: '🎁', airplane: '✈️',
@@ -177,16 +177,16 @@ const parseSmartQuery = (query: string, flatCategories: any[], wallets: any[]): 
 };
 
 export default function Transactions() {
-  const { 
-    isLoggedIn, 
-    transactions, 
-    isLoadingTransactions, 
-    fetchTransactions, 
-    createTransaction, 
+  const {
+    isLoggedIn,
+    transactions,
+    isLoadingTransactions,
+    fetchTransactions,
+    createTransaction,
     deleteTransaction,
     wallets,
     categories,
-    userData 
+    userData
   } = useAppContext();
   const { t } = useLanguage();
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -199,21 +199,26 @@ export default function Transactions() {
     return now.toISOString().slice(0, 16);
   };
 
-  const [newTx, setNewTx] = useState({ 
-    title: '', 
-    amount: '', 
-    type: 'expense', 
+  const [newTx, setNewTx] = useState({
+    title: '',
+    amount: '',
+    type: 'expense',
     wallet_id: '',
     category_id: '',
     transaction_date: getLocalDateTime(),
     notes: '',
-    attachment: null as File | null
+    attachment: null as File | null,
+    is_recurring: false,
+    frequency: 'monthly'
   });
 
   const [activeTab, setActiveTab] = useState('all');
 
   const [internalTransfers, setInternalTransfers] = useState<any[]>([]);
   const [isLoadingTransfers, setIsLoadingTransfers] = useState(false);
+
+  const [recurringTransactions, setRecurringTransactions] = useState<any[]>([]);
+  const [isLoadingRecurring, setIsLoadingRecurring] = useState(false);
 
   // States for search and advanced filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -228,7 +233,7 @@ export default function Transactions() {
   const [sortBy, setSortBy] = useState('date');
   const [sortOrder, setSortOrder] = useState('desc');
   const [perPage, setPerPage] = useState('20');
-  
+
   // Pagination cursors state
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [prevCursor, setPrevCursor] = useState<string | null>(null);
@@ -271,23 +276,23 @@ export default function Transactions() {
 
   const loadFilteredTransactions = async (cursorVal?: string | null) => {
     if (!isLoggedIn) return;
-    
+
     // Parse the query
     const parsed = parseSmartQuery(debouncedSearch, flatCategories, wallets);
-    
+
     const params: any = {
       sort_by: sortBy,
       sort_order: sortOrder,
       per_page: perPage,
     };
-    
+
     // Apply clean text search
     if (parsed.cleanSearch) {
       params.search = parsed.cleanSearch;
     } else if (debouncedSearch && Object.keys(parsed).length === 0) {
       params.search = debouncedSearch;
     }
-    
+
     // Apply parsed or manual filters
     const finalStartDate = parsed.startDate || startDate;
     const finalEndDate = parsed.endDate || endDate;
@@ -296,7 +301,7 @@ export default function Transactions() {
     const finalMinAmount = parsed.minAmount || minAmount;
     const finalMaxAmount = parsed.maxAmount || maxAmount;
     const finalType = parsed.type || (activeTab !== 'all' && activeTab !== 'transfer' ? activeTab : undefined);
-    
+
     if (finalStartDate) params.start_date = finalStartDate;
     if (finalEndDate) params.end_date = finalEndDate;
     if (finalWalletId) params.wallet_id = finalWalletId;
@@ -304,11 +309,11 @@ export default function Transactions() {
     if (finalMinAmount) params.min_amount = finalMinAmount;
     if (finalMaxAmount) params.max_amount = finalMaxAmount;
     if (finalType) params.type = finalType;
-    
+
     if (cursorVal) {
       params.cursor = cursorVal;
     }
-    
+
     try {
       const paginatedData = await fetchTransactions(params);
       if (paginatedData) {
@@ -322,7 +327,7 @@ export default function Transactions() {
 
   // Trigger transaction reload whenever filters or page cursor changes
   useEffect(() => {
-    if (isLoggedIn && activeTab !== 'transfer') {
+    if (isLoggedIn && activeTab !== 'transfer' && activeTab !== 'recurring') {
       loadFilteredTransactions(currentCursor);
     }
   }, [
@@ -352,6 +357,20 @@ export default function Transactions() {
     }
   }, [activeTab]);
 
+  // Fetch recurring when recurring tab is active
+  useEffect(() => {
+    if (activeTab === 'recurring') {
+      setIsLoadingRecurring(true);
+      apiFetch('/recurring-rules')
+        .then(res => {
+          const data = res.data ? res.data : (Array.isArray(res) ? res : []);
+          setRecurringTransactions(data);
+        })
+        .catch(err => console.error('Error fetching recurring transactions', err))
+        .finally(() => setIsLoadingRecurring(false));
+    }
+  }, [activeTab]);
+
   // Client-side filtering and sorting for internal transfers
   const filteredTransfers = useMemo(() => {
     let result = [...internalTransfers];
@@ -360,8 +379,8 @@ export default function Transactions() {
     const searchStr = parsed.cleanSearch || (Object.keys(parsed).length === 0 ? debouncedSearch : '');
     if (searchStr) {
       const s = searchStr.toLowerCase();
-      result = result.filter(t => 
-        t.from_wallet_name.toLowerCase().includes(s) || 
+      result = result.filter(t =>
+        t.from_wallet_name.toLowerCase().includes(s) ||
         t.to_wallet_name.toLowerCase().includes(s)
       );
     }
@@ -431,7 +450,7 @@ export default function Transactions() {
   }, [wallets]);
 
   const handleAdd = () => setIsModalOpen(true);
-  
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setNewTx({ ...newTx, attachment: e.target.files[0] });
@@ -446,27 +465,56 @@ export default function Transactions() {
 
     setIsSubmitting(true);
     try {
-      const formData = new FormData();
-      formData.append('title', newTx.title);
-      formData.append('amount', newTx.amount);
-      formData.append('type', newTx.type);
-      formData.append('wallet_id', newTx.wallet_id);
-      if (newTx.category_id) formData.append('category_id', newTx.category_id);
-      formData.append('transaction_date', new Date(newTx.transaction_date).toISOString());
-      if (newTx.notes) formData.append('notes', newTx.notes);
-      if (newTx.attachment) formData.append('attachment', newTx.attachment);
+      if (newTx.is_recurring) {
+        // Gửi lên API recurring-rules
+        await apiFetch('/recurring-rules', {
+          method: 'POST',
+          body: JSON.stringify({
+            title: newTx.title,
+            name: newTx.title, // Gửi cả name và title để tương thích nhiều schema backend
+            description: newTx.title,
+            amount: newTx.amount,
+            type: newTx.type,
+            wallet_id: newTx.wallet_id,
+            category_id: newTx.category_id || null,
+            frequency: newTx.frequency,
+            start_date: newTx.transaction_date.split('T')[0],
+            notes: newTx.notes
+          })
+        });
+        
+        // Refresh recurring tab if we are on it, or just let user click it later
+        if (activeTab === 'recurring') {
+          setIsLoadingRecurring(true);
+          apiFetch('/recurring-rules')
+            .then(res => setRecurringTransactions(res.data ? res.data : (Array.isArray(res) ? res : [])))
+            .finally(() => setIsLoadingRecurring(false));
+        }
+      } else {
+        const formData = new FormData();
+        formData.append('title', newTx.title);
+        formData.append('amount', newTx.amount);
+        formData.append('type', newTx.type);
+        formData.append('wallet_id', newTx.wallet_id);
+        if (newTx.category_id) formData.append('category_id', newTx.category_id);
+        formData.append('transaction_date', new Date(newTx.transaction_date).toISOString());
+        if (newTx.notes) formData.append('notes', newTx.notes);
+        if (newTx.attachment) formData.append('attachment', newTx.attachment);
 
-      await createTransaction(formData);
-      
-      setNewTx({ 
-        title: '', 
-        amount: '', 
-        type: 'expense', 
+        await createTransaction(formData);
+      }
+
+      setNewTx({
+        title: '',
+        amount: '',
+        type: 'expense',
         wallet_id: wallets[0]?.id || '',
         category_id: '',
         transaction_date: getLocalDateTime(),
         notes: '',
-        attachment: null
+        attachment: null,
+        is_recurring: false,
+        frequency: 'monthly'
       });
       setIsModalOpen(false);
       setCurrentCursor(null);
@@ -494,20 +542,20 @@ export default function Transactions() {
   return (
     <div className="dashboard-container">
       <Sidebar activeItem="transactions" />
-      <main className="main-content" style={{background:'var(--bg-color)'}}>
-        <nav className="navbar" style={{background:'var(--card-bg)',borderBottom:'1px solid var(--border-color)'}}>
-          <h1 className="page-title" style={{color:'var(--text-main)'}}>{t('transactions')}</h1>
+      <main className="main-content" style={{ background: 'var(--bg-color)' }}>
+        <nav className="navbar" style={{ background: 'var(--card-bg)', borderBottom: '1px solid var(--border-color)' }}>
+          <h1 className="page-title" style={{ color: 'var(--text-main)' }}>{t('transactions')}</h1>
           <div className="nav-actions">
-            <div className="search-bar" style={{background: 'var(--bg-color)'}}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="#718EBF"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-              <input 
-                type="text" 
-                placeholder={t('search_tx_placeholder')} 
+            <div className="search-bar" style={{ background: 'var(--bg-color)' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="#718EBF"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" /></svg>
+              <input
+                type="text"
+                placeholder={t('search_tx_placeholder')}
                 value={searchTerm}
                 onChange={e => handleFilterChange(() => setSearchTerm(e.target.value))}
               />
             </div>
-            <button 
+            <button
               onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
               style={{
                 background: isFilterPanelOpen ? '#E7EDFF' : 'var(--bg-color)',
@@ -528,7 +576,7 @@ export default function Transactions() {
               </svg>
               Bộ lọc
             </button>
-            <button style={{background:'#1814F3',color:'#fff',padding:'10px 20px',borderRadius:'24px',fontWeight:'600',border:'none',cursor:'pointer',fontSize:'15px',display:'flex',alignItems:'center',gap:'8px'}} onClick={handleAdd}>
+            <button style={{ background: '#1814F3', color: '#fff', padding: '10px 20px', borderRadius: '24px', fontWeight: '600', border: 'none', cursor: 'pointer', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={handleAdd}>
               {t('add_transaction')}
             </button>
             {isLoggedIn ? (
@@ -537,12 +585,12 @@ export default function Transactions() {
                   {userData?.profile?.full_name || userData?.full_name || userData?.name || t('new_user')}
                 </span>
                 <div style={{ position: 'relative', width: '45px', height: '45px' }}>
-                  <img src={userData?.profile?.avatar_url || userData?.avatar_url || userData?.avatar || "https://api.dicebear.com/7.x/miniavs/svg?seed=SpendWise&backgroundColor=b6e3f4"} alt="Avatar" className="avatar" style={{width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover'}}/>
+                  <img src={userData?.profile?.avatar_url || userData?.avatar_url || userData?.avatar || "https://api.dicebear.com/7.x/miniavs/svg?seed=SpendWise&backgroundColor=b6e3f4"} alt="Avatar" className="avatar" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
                   <div style={{ position: 'absolute', bottom: 0, right: 0, width: '12px', height: '12px', background: '#16DBCC', border: '2px solid #fff', borderRadius: '50%' }}></div>
                 </div>
               </div>
             ) : (
-              <Link href="/login" style={{textDecoration:'none',color:'#fff',background:'#343C6A',padding:'8px 15px',borderRadius:'20px',fontWeight:'bold'}}>{t('login')}</Link>
+              <Link href="/login" style={{ textDecoration: 'none', color: '#fff', background: '#343C6A', padding: '8px 15px', borderRadius: '20px', fontWeight: 'bold' }}>{t('login')}</Link>
             )}
           </div>
         </nav>
@@ -563,39 +611,39 @@ export default function Transactions() {
               fontSize: '13px',
               color: 'var(--text-main)'
             }}>
-              <span style={{fontWeight: '600', color: '#1814F3'}}>✨ Bộ lọc thông minh:</span>
+              <span style={{ fontWeight: '600', color: '#1814F3' }}>✨ Bộ lọc thông minh:</span>
               {smartFilters.walletName && (
-                <span style={{background: '#E7EDFF', color: '#1814F3', padding: '2px 8px', borderRadius: '6px', fontWeight: '500'}}>
+                <span style={{ background: '#E7EDFF', color: '#1814F3', padding: '2px 8px', borderRadius: '6px', fontWeight: '500' }}>
                   Ví: {smartFilters.walletName}
                 </span>
               )}
               {smartFilters.categoryName && (
-                <span style={{background: '#E7EDFF', color: '#1814F3', padding: '2px 8px', borderRadius: '6px', fontWeight: '500'}}>
+                <span style={{ background: '#E7EDFF', color: '#1814F3', padding: '2px 8px', borderRadius: '6px', fontWeight: '500' }}>
                   Danh mục: {smartFilters.categoryName}
                 </span>
               )}
               {smartFilters.minAmount && (
-                <span style={{background: '#E7EDFF', color: '#1814F3', padding: '2px 8px', borderRadius: '6px', fontWeight: '500'}}>
+                <span style={{ background: '#E7EDFF', color: '#1814F3', padding: '2px 8px', borderRadius: '6px', fontWeight: '500' }}>
                   Số tiền ≥ {Math.round(Number(smartFilters.minAmount)).toLocaleString('vi-VN')}₫
                 </span>
               )}
               {smartFilters.maxAmount && (
-                <span style={{background: '#E7EDFF', color: '#1814F3', padding: '2px 8px', borderRadius: '6px', fontWeight: '500'}}>
+                <span style={{ background: '#E7EDFF', color: '#1814F3', padding: '2px 8px', borderRadius: '6px', fontWeight: '500' }}>
                   Số tiền ≤ {Math.round(Number(smartFilters.maxAmount)).toLocaleString('vi-VN')}₫
                 </span>
               )}
               {smartFilters.startDate && (
-                <span style={{background: '#E7EDFF', color: '#1814F3', padding: '2px 8px', borderRadius: '6px', fontWeight: '500'}}>
+                <span style={{ background: '#E7EDFF', color: '#1814F3', padding: '2px 8px', borderRadius: '6px', fontWeight: '500' }}>
                   Thời gian: {smartFilters.startDate} {smartFilters.endDate ? `đến ${smartFilters.endDate}` : ''}
                 </span>
               )}
               {smartFilters.typeName && (
-                <span style={{background: '#E7EDFF', color: '#1814F3', padding: '2px 8px', borderRadius: '6px', fontWeight: '500'}}>
+                <span style={{ background: '#E7EDFF', color: '#1814F3', padding: '2px 8px', borderRadius: '6px', fontWeight: '500' }}>
                   Loại: {smartFilters.typeName}
                 </span>
               )}
               {smartFilters.cleanSearch && (
-                <span style={{background: 'rgba(0,0,0,0.05)', color: 'var(--text-main)', padding: '2px 8px', borderRadius: '6px', fontStyle: 'italic'}}>
+                <span style={{ background: 'rgba(0,0,0,0.05)', color: 'var(--text-main)', padding: '2px 8px', borderRadius: '6px', fontStyle: 'italic' }}>
                   Từ khóa: "{smartFilters.cleanSearch}"
                 </span>
               )}
@@ -619,11 +667,11 @@ export default function Transactions() {
               }}>
                 {/* Lọc theo Ví */}
                 <div>
-                  <label style={{display:'block',marginBottom:'6px',color:'#718EBF',fontSize:'13px',fontWeight:'500'}}>Ví tiền</label>
-                  <select 
-                    value={selectedWallet} 
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#718EBF', fontSize: '13px', fontWeight: '500' }}>Ví tiền</label>
+                  <select
+                    value={selectedWallet}
                     onChange={e => handleFilterChange(() => setSelectedWallet(e.target.value))}
-                    style={{width:'100%',padding:'10px',border: '1px solid var(--border-color)',borderRadius:'10px',background: 'var(--bg-color)',color: 'var(--text-main)',fontSize:'14px'}}
+                    style={{ width: '100%', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '10px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '14px' }}
                   >
                     <option value="">Tất cả ví</option>
                     {wallets.map(w => <option key={w.id} value={w.id}>{w.wallet_name || w.name}</option>)}
@@ -631,13 +679,13 @@ export default function Transactions() {
                 </div>
 
                 {/* Lọc theo Danh mục */}
-                {activeTab !== 'transfer' && (
+                {activeTab !== 'transfer' && activeTab !== 'recurring' && (
                   <div>
-                    <label style={{display:'block',marginBottom:'6px',color:'#718EBF',fontSize:'13px',fontWeight:'500'}}>Danh mục</label>
-                    <select 
-                      value={selectedCategory} 
+                    <label style={{ display: 'block', marginBottom: '6px', color: '#718EBF', fontSize: '13px', fontWeight: '500' }}>Danh mục</label>
+                    <select
+                      value={selectedCategory}
                       onChange={e => handleFilterChange(() => setSelectedCategory(e.target.value))}
-                      style={{width:'100%',padding:'10px',border: '1px solid var(--border-color)',borderRadius:'10px',background: 'var(--bg-color)',color: 'var(--text-main)',fontSize:'14px'}}
+                      style={{ width: '100%', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '10px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '14px' }}
                     >
                       <option value="">Tất cả danh mục</option>
                       {flatCategories.map(c => <option key={c.id} value={c.id}>{c.displayName}</option>)}
@@ -647,71 +695,71 @@ export default function Transactions() {
 
                 {/* Lọc theo ngày bắt đầu */}
                 <div>
-                  <label style={{display:'block',marginBottom:'6px',color:'#718EBF',fontSize:'13px',fontWeight:'500'}}>Từ ngày</label>
-                  <input 
-                    type="date" 
-                    value={startDate} 
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#718EBF', fontSize: '13px', fontWeight: '500' }}>Từ ngày</label>
+                  <input
+                    type="date"
+                    value={startDate}
                     onChange={e => handleFilterChange(() => setStartDate(e.target.value))}
-                    style={{width:'100%',padding:'10px',border: '1px solid var(--border-color)',borderRadius:'10px',background: 'var(--bg-color)',color: 'var(--text-main)',fontSize:'14px'}}
+                    style={{ width: '100%', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '10px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '14px' }}
                   />
                 </div>
 
                 {/* Lọc theo ngày kết thúc */}
                 <div>
-                  <label style={{display:'block',marginBottom:'6px',color:'#718EBF',fontSize:'13px',fontWeight:'500'}}>Đến ngày</label>
-                  <input 
-                    type="date" 
-                    value={endDate} 
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#718EBF', fontSize: '13px', fontWeight: '500' }}>Đến ngày</label>
+                  <input
+                    type="date"
+                    value={endDate}
                     onChange={e => handleFilterChange(() => setEndDate(e.target.value))}
-                    style={{width:'100%',padding:'10px',border: '1px solid var(--border-color)',borderRadius:'10px',background: 'var(--bg-color)',color: 'var(--text-main)',fontSize:'14px'}}
+                    style={{ width: '100%', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '10px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '14px' }}
                   />
                 </div>
 
                 {/* Lọc số tiền tối thiểu */}
                 <div>
-                  <label style={{display:'block',marginBottom:'6px',color:'#718EBF',fontSize:'13px',fontWeight:'500'}}>Số tiền tối thiểu</label>
-                  <input 
-                    type="number" 
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#718EBF', fontSize: '13px', fontWeight: '500' }}>Số tiền tối thiểu</label>
+                  <input
+                    type="number"
                     placeholder="Từ..."
-                    value={minAmount} 
+                    value={minAmount}
                     onChange={e => handleFilterChange(() => setMinAmount(e.target.value))}
-                    style={{width:'100%',padding:'10px',border: '1px solid var(--border-color)',borderRadius:'10px',background: 'var(--bg-color)',color: 'var(--text-main)',fontSize:'14px'}}
+                    style={{ width: '100%', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '10px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '14px' }}
                   />
                 </div>
 
                 {/* Lọc số tiền tối đa */}
                 <div>
-                  <label style={{display:'block',marginBottom:'6px',color:'#718EBF',fontSize:'13px',fontWeight:'500'}}>Số tiền tối đa</label>
-                  <input 
-                    type="number" 
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#718EBF', fontSize: '13px', fontWeight: '500' }}>Số tiền tối đa</label>
+                  <input
+                    type="number"
                     placeholder="Đến..."
-                    value={maxAmount} 
+                    value={maxAmount}
                     onChange={e => handleFilterChange(() => setMaxAmount(e.target.value))}
-                    style={{width:'100%',padding:'10px',border: '1px solid var(--border-color)',borderRadius:'10px',background: 'var(--bg-color)',color: 'var(--text-main)',fontSize:'14px'}}
+                    style={{ width: '100%', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '10px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '14px' }}
                   />
                 </div>
 
                 {/* Sắp xếp theo */}
                 <div>
-                  <label style={{display:'block',marginBottom:'6px',color:'#718EBF',fontSize:'13px',fontWeight:'500'}}>Sắp xếp theo</label>
-                  <select 
-                    value={sortBy} 
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#718EBF', fontSize: '13px', fontWeight: '500' }}>Sắp xếp theo</label>
+                  <select
+                    value={sortBy}
                     onChange={e => handleFilterChange(() => setSortBy(e.target.value))}
-                    style={{width:'100%',padding:'10px',border: '1px solid var(--border-color)',borderRadius:'10px',background: 'var(--bg-color)',color: 'var(--text-main)',fontSize:'14px'}}
+                    style={{ width: '100%', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '10px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '14px' }}
                   >
                     <option value="date">Ngày giao dịch</option>
                     <option value="amount">Số tiền</option>
-                    {activeTab !== 'transfer' && <option value="category">Danh mục</option>}
+                    {activeTab !== 'transfer' && activeTab !== 'recurring' && <option value="category">Danh mục</option>}
                   </select>
                 </div>
 
                 {/* Thứ tự sắp xếp */}
                 <div>
-                  <label style={{display:'block',marginBottom:'6px',color:'#718EBF',fontSize:'13px',fontWeight:'500'}}>Thứ tự</label>
-                  <select 
-                    value={sortOrder} 
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#718EBF', fontSize: '13px', fontWeight: '500' }}>Thứ tự</label>
+                  <select
+                    value={sortOrder}
                     onChange={e => handleFilterChange(() => setSortOrder(e.target.value))}
-                    style={{width:'100%',padding:'10px',border: '1px solid var(--border-color)',borderRadius:'10px',background: 'var(--bg-color)',color: 'var(--text-main)',fontSize:'14px'}}
+                    style={{ width: '100%', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '10px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '14px' }}
                   >
                     <option value="desc">Mới nhất / Lớn nhất</option>
                     <option value="asc">Cũ nhất / Nhỏ nhất</option>
@@ -719,13 +767,13 @@ export default function Transactions() {
                 </div>
 
                 {/* Số lượng mỗi trang */}
-                {activeTab !== 'transfer' && (
+                {activeTab !== 'transfer' && activeTab !== 'recurring' && (
                   <div>
-                    <label style={{display:'block',marginBottom:'6px',color:'#718EBF',fontSize:'13px',fontWeight:'500'}}>Số dòng hiển thị</label>
-                    <select 
-                      value={perPage} 
+                    <label style={{ display: 'block', marginBottom: '6px', color: '#718EBF', fontSize: '13px', fontWeight: '500' }}>Số dòng hiển thị</label>
+                    <select
+                      value={perPage}
                       onChange={e => handleFilterChange(() => setPerPage(e.target.value))}
-                      style={{width:'100%',padding:'10px',border: '1px solid var(--border-color)',borderRadius:'10px',background: 'var(--bg-color)',color: 'var(--text-main)',fontSize:'14px'}}
+                      style={{ width: '100%', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '10px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '14px' }}
                     >
                       <option value="10">10 dòng</option>
                       <option value="20">20 dòng</option>
@@ -737,16 +785,16 @@ export default function Transactions() {
               </div>
 
               {/* Hủy bộ lọc */}
-              <div style={{display:'flex', justifyContent:'flex-end'}}>
-                <button 
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button
                   onClick={handleClearFilters}
                   style={{
-                    padding:'8px 16px', 
-                    borderRadius:'10px', 
-                    background: 'transparent', 
-                    color: '#FE5C73', 
-                    border: '1px solid #FE5C73', 
-                    cursor:'pointer',
+                    padding: '8px 16px',
+                    borderRadius: '10px',
+                    background: 'transparent',
+                    color: '#FE5C73',
+                    border: '1px solid #FE5C73',
+                    cursor: 'pointer',
                     fontWeight: '600',
                     fontSize: '13px'
                   }}
@@ -757,77 +805,114 @@ export default function Transactions() {
             </div>
           )}
 
-          <div style={{display:'flex',gap:'30px',borderBottom:'1px solid var(--border-color)',marginBottom:'20px'}}>
-            {[{k:'all',l:t('all')},{k:'income',l:t('income')},{k:'expense',l:t('spending')},{k:'transfer',l:'Chuyển tiền nội bộ'}].map(tab=>(
-              <div key={tab.k} onClick={()=>setActiveTab(tab.k)} style={{paddingBottom:'10px',color:activeTab===tab.k?'#1814F3':'#718EBF',borderBottom:activeTab===tab.k?'3px solid #1814F3':'none',fontWeight:activeTab===tab.k?'600':'400',cursor:'pointer'}}>{tab.l}</div>
+          <div style={{ display: 'flex', gap: '30px', borderBottom: '1px solid var(--border-color)', marginBottom: '20px' }}>
+            {[{ k: 'all', l: t('all') }, { k: 'income', l: t('income') }, { k: 'expense', l: t('spending') }, { k: 'transfer', l: 'Chuyển tiền nội bộ' }, { k: 'recurring', l: 'Giao dịch định kỳ' }].map(tab => (
+              <div key={tab.k} onClick={() => setActiveTab(tab.k)} style={{ paddingBottom: '10px', color: activeTab === tab.k ? '#1814F3' : '#718EBF', borderBottom: activeTab === tab.k ? '3px solid #1814F3' : 'none', fontWeight: activeTab === tab.k ? '600' : '400', cursor: 'pointer' }}>{tab.l}</div>
             ))}
           </div>
 
-          <div style={{background: 'var(--card-bg)',borderRadius:'20px',padding:'24px',border: '1px solid var(--border-color)', minHeight: '400px'}}>
-            {(activeTab === 'transfer' && isLoadingTransfers) || (activeTab !== 'transfer' && isLoadingTransactions) ? (
-              <div style={{display:'flex', justifyContent:'center', padding:'40px', color:'var(--text-main)'}}>{t('loading')}...</div>
+          <div style={{ background: 'var(--card-bg)', borderRadius: '20px', padding: '24px', border: '1px solid var(--border-color)', minHeight: '400px' }}>
+            {(activeTab === 'transfer' && isLoadingTransfers) || (activeTab === 'recurring' && isLoadingRecurring) || (activeTab !== 'transfer' && activeTab !== 'recurring' && isLoadingTransactions) ? (
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '40px', color: 'var(--text-main)' }}>{t('loading')}...</div>
             ) : activeTab === 'transfer' ? (
-              <table style={{width:'100%',borderCollapse:'collapse',textAlign:'left',color: 'var(--text-main)',fontSize:'15px'}}>
-                <thead style={{color:'#718EBF',borderBottom:'1px solid var(--border-color)'}}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', color: 'var(--text-main)', fontSize: '15px' }}>
+                <thead style={{ color: '#718EBF', borderBottom: '1px solid var(--border-color)' }}>
                   <tr>
-                    <th style={{padding:'14px 8px',fontWeight:'500'}}>{t('description')}</th>
-                    <th style={{padding:'14px 8px',fontWeight:'500'}}>Từ ví</th>
-                    <th style={{padding:'14px 8px',fontWeight:'500'}}>Đến ví</th>
-                    <th style={{padding:'14px 8px',fontWeight:'500'}}>{t('date_label')}</th>
-                    <th style={{padding:'14px 8px',fontWeight:'500'}}>{t('amount_label')}</th>
+                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>{t('description')}</th>
+                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>Từ ví</th>
+                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>Đến ví</th>
+                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>{t('date_label')}</th>
+                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>{t('amount_label')}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredTransfers.length > 0 ? filteredTransfers.map((tx: any)=>(
-                    <tr key={tx.id} style={{borderBottom:'1px solid var(--border-color)'}}>
-                      <td style={{padding:'14px 8px',fontWeight:600}}>Chuyển tiền nội bộ</td>
-                      <td style={{padding:'14px 8px',fontWeight:500,color:'#1814F3'}}>{tx.from_wallet_name}</td>
-                      <td style={{padding:'14px 8px',fontWeight:500,color:'#16DBCC'}}>{tx.to_wallet_name}</td>
-                      <td style={{padding:'14px 8px'}}>
-                        <div style={{fontWeight:'500'}}>{new Date(tx.date).toLocaleDateString('vi-VN')}</div>
-                        <div style={{fontSize:'12px', color:'#718EBF'}}>{new Date(tx.date).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}</div>
+                  {filteredTransfers.length > 0 ? filteredTransfers.map((tx: any) => (
+                    <tr key={tx.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <td style={{ padding: '14px 8px', fontWeight: 600 }}>Chuyển tiền nội bộ</td>
+                      <td style={{ padding: '14px 8px', fontWeight: 500, color: '#1814F3' }}>{tx.from_wallet_name}</td>
+                      <td style={{ padding: '14px 8px', fontWeight: 500, color: '#16DBCC' }}>{tx.to_wallet_name}</td>
+                      <td style={{ padding: '14px 8px' }}>
+                        <div style={{ fontWeight: '500' }}>{new Date(tx.date).toLocaleDateString('vi-VN')}</div>
+                        <div style={{ fontSize: '12px', color: '#718EBF' }}>{new Date(tx.date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</div>
                       </td>
-                      <td style={{padding:'14px 8px', color: '#8F9BB3', fontWeight:'600'}}>
+                      <td style={{ padding: '14px 8px', color: '#8F9BB3', fontWeight: '600' }}>
                         {Math.round(Number(tx.amount)).toLocaleString('vi-VN')}₫
                       </td>
                     </tr>
                   )) : (
                     <tr>
-                      <td colSpan={5} style={{padding:'40px', textAlign:'center', color:'#718EBF'}}>Chưa có chuyển tiền nội bộ nào</td>
+                      <td colSpan={5} style={{ padding: '40px', textAlign: 'center', color: '#718EBF' }}>Chưa có chuyển tiền nội bộ nào</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            ) : activeTab === 'recurring' ? (
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', color: 'var(--text-main)', fontSize: '15px' }}>
+                <thead style={{ color: '#718EBF', borderBottom: '1px solid var(--border-color)' }}>
+                  <tr>
+                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>{t('description') || 'Mô tả'}</th>
+                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>{t('amount_label') || 'Số tiền'}</th>
+                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>Loại</th>
+                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>Tần suất</th>
+                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>Ngày tiếp theo</th>
+                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>Trạng thái</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {recurringTransactions.length > 0 ? recurringTransactions.map((tx: any) => (
+                    <tr key={tx.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <td style={{ padding: '14px 8px', fontWeight: 600 }}>{tx.title || tx.description || tx.name}</td>
+                      <td style={{ padding: '14px 8px', color: tx.type === 'income' ? '#16DBCC' : '#FE5C73', fontWeight: '600' }}>
+                        {tx.type === 'income' ? '+' : '-'}{Number(tx.amount).toLocaleString('vi-VN')}₫
+                      </td>
+                      <td style={{ padding: '14px 8px' }}>{tx.type === 'income' ? (t('income') || 'Thu nhập') : (t('spending') || 'Chi tiêu')}</td>
+                      <td style={{ padding: '14px 8px' }}>{tx.frequency || 'Hàng tháng'}</td>
+                      <td style={{ padding: '14px 8px' }}>
+                        <div style={{ fontWeight: '500' }}>{tx.next_run_at ? new Date(tx.next_run_at).toLocaleDateString('vi-VN') : '-'}</div>
+                      </td>
+                      <td style={{ padding: '14px 8px' }}>
+                        <span style={{ padding: '4px 8px', borderRadius: '8px', fontSize: '12px', background: tx.is_active ? '#E7EDFF' : '#FFE2E5', color: tx.is_active ? '#1814F3' : '#FE5C73' }}>
+                          {tx.is_active ? 'Hoạt động' : 'Đã dừng'}
+                        </span>
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: '#718EBF' }}>Chưa có giao dịch định kỳ nào</td>
                     </tr>
                   )}
                 </tbody>
               </table>
             ) : (
-              <table style={{width:'100%',borderCollapse:'collapse',textAlign:'left',color: 'var(--text-main)',fontSize:'15px'}}>
-                <thead style={{color:'#718EBF',borderBottom:'1px solid var(--border-color)'}}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', color: 'var(--text-main)', fontSize: '15px' }}>
+                <thead style={{ color: '#718EBF', borderBottom: '1px solid var(--border-color)' }}>
                   <tr>
-                    <th style={{padding:'14px 8px',fontWeight:'500'}}>{t('description')}</th>
-                    <th style={{padding:'14px 8px',fontWeight:'500'}}>{t('categories')}</th>
-                    <th style={{padding:'14px 8px',fontWeight:'500'}}>{t('date_label')}</th>
-                    <th style={{padding:'14px 8px',fontWeight:'500'}}>{t('amount_label')}</th>
-                    <th style={{padding:'14px 8px',fontWeight:'500'}}>{t('actions')}</th>
+                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>{t('description')}</th>
+                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>{t('categories')}</th>
+                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>{t('date_label')}</th>
+                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>{t('amount_label')}</th>
+                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>{t('actions')}</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.length > 0 ? filtered.map((tx)=>(
-                    <tr key={tx.id} style={{borderBottom:'1px solid var(--border-color)'}}>
-                      <td style={{padding:'14px 8px',fontWeight:600}}>{tx.title}</td>
-                      <td style={{padding:'14px 8px'}}>{tx.category?.name || '-'}</td>
-                      <td style={{padding:'14px 8px'}}>
-                        <div style={{fontWeight:'500'}}>{new Date(tx.transaction_date).toLocaleDateString('vi-VN')}</div>
-                        <div style={{fontSize:'12px', color:'#718EBF'}}>{new Date(tx.transaction_date).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}</div>
+                  {filtered.length > 0 ? filtered.map((tx) => (
+                    <tr key={tx.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                      <td style={{ padding: '14px 8px', fontWeight: 600 }}>{tx.title}</td>
+                      <td style={{ padding: '14px 8px' }}>{tx.category?.name || '-'}</td>
+                      <td style={{ padding: '14px 8px' }}>
+                        <div style={{ fontWeight: '500' }}>{new Date(tx.transaction_date).toLocaleDateString('vi-VN')}</div>
+                        <div style={{ fontSize: '12px', color: '#718EBF' }}>{new Date(tx.transaction_date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</div>
                       </td>
-                      <td style={{padding:'14px 8px', color: tx.type === 'income' ? '#16DBCC' : '#FE5C73', fontWeight:'600'}}>
+                      <td style={{ padding: '14px 8px', color: tx.type === 'income' ? '#16DBCC' : '#FE5C73', fontWeight: '600' }}>
                         {tx.type === 'income' ? '+' : '-'}{Math.round(Number(tx.amount)).toLocaleString('vi-VN')}₫
                       </td>
-                      <td style={{padding:'14px 8px',display:'flex',gap:'8px'}}>
-                        <button style={{border:'1px solid #FE5C73',color:'#FE5C73',background:'transparent',padding:'5px 12px',borderRadius:'8px',cursor:'pointer',fontSize:'12px'}} onClick={() => handleDelete(tx.id)}>{t('delete')}</button>
+                      <td style={{ padding: '14px 8px', display: 'flex', gap: '8px' }}>
+                        <button style={{ border: '1px solid #FE5C73', color: '#FE5C73', background: 'transparent', padding: '5px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }} onClick={() => handleDelete(tx.id)}>{t('delete')}</button>
                       </td>
                     </tr>
                   )) : (
                     <tr>
-                      <td colSpan={5} style={{padding:'40px', textAlign:'center', color:'#718EBF'}}>{t('no_transactions_found') || 'Không tìm thấy giao dịch nào'}</td>
+                      <td colSpan={5} style={{ padding: '40px', textAlign: 'center', color: '#718EBF' }}>{t('no_transactions_found') || 'Không tìm thấy giao dịch nào'}</td>
                     </tr>
                   )}
                 </tbody>
@@ -835,17 +920,17 @@ export default function Transactions() {
             )}
 
             {/* PHÂN TRANG */}
-            {activeTab !== 'transfer' && (nextCursor || prevCursor) && (
-              <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginTop:'24px'}}>
-                <button 
-                  disabled={!prevCursor} 
+            {activeTab !== 'transfer' && activeTab !== 'recurring' && (nextCursor || prevCursor) && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '24px' }}>
+                <button
+                  disabled={!prevCursor}
                   onClick={() => prevCursor && setCurrentCursor(prevCursor)}
                   style={{
-                    padding:'10px 20px', 
-                    borderRadius:'12px', 
-                    background: prevCursor ? '#1814F3' : 'var(--bg-color)', 
-                    color: prevCursor ? '#fff' : '#718EBF', 
-                    border: '1px solid var(--border-color)', 
+                    padding: '10px 20px',
+                    borderRadius: '12px',
+                    background: prevCursor ? '#1814F3' : 'var(--bg-color)',
+                    color: prevCursor ? '#fff' : '#718EBF',
+                    border: '1px solid var(--border-color)',
                     cursor: prevCursor ? 'pointer' : 'not-allowed',
                     fontWeight: '600',
                     fontSize: '14px'
@@ -853,18 +938,18 @@ export default function Transactions() {
                 >
                   {t('previous')}
                 </button>
-                <span style={{color: 'var(--text-main)', fontSize: '14px', fontWeight: '500'}}>
+                <span style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: '500' }}>
                   Trang giao dịch
                 </span>
-                <button 
-                  disabled={!nextCursor} 
+                <button
+                  disabled={!nextCursor}
                   onClick={() => nextCursor && setCurrentCursor(nextCursor)}
                   style={{
-                    padding:'10px 20px', 
-                    borderRadius:'12px', 
-                    background: nextCursor ? '#1814F3' : 'var(--bg-color)', 
-                    color: nextCursor ? '#fff' : '#718EBF', 
-                    border: '1px solid var(--border-color)', 
+                    padding: '10px 20px',
+                    borderRadius: '12px',
+                    background: nextCursor ? '#1814F3' : 'var(--bg-color)',
+                    color: nextCursor ? '#fff' : '#718EBF',
+                    border: '1px solid var(--border-color)',
                     cursor: nextCursor ? 'pointer' : 'not-allowed',
                     fontWeight: '600',
                     fontSize: '14px'
@@ -880,92 +965,121 @@ export default function Transactions() {
 
       {/* MODAL THÊM GIAO DỊCH */}
       {isModalOpen && (
-        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000, backdropFilter: 'blur(4px)'}}>
-          <div style={{background: 'var(--card-bg)',borderRadius:'24px',padding:'30px',width:'550px',maxWidth:'95%',boxShadow:'0 10px 40px rgba(0,0,0,0.1)', maxHeight: '90vh', overflowY: 'auto'}}>
-             <h2 style={{color: 'var(--text-main)',marginBottom:'24px',fontSize:'22px',fontWeight:'700'}}>{t('add_new_transaction')}</h2>
-             
-             <div style={{display:'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px'}}>
-               <div>
-                 <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>{t('transaction_name')} *</label>
-                 <input type="text" value={newTx.title} onChange={e=>setNewTx({...newTx,title:e.target.value})} placeholder={t('tx_name_placeholder')} style={{width:'100%',padding:'12px',border: '1px solid var(--border-color)',borderRadius:'12px',background: 'var(--bg-color)',color: 'var(--text-main)',fontSize:'15px'}} />
-               </div>
-               <div>
-                 <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>{t('amount_label')} *</label>
-                 <input type="number" value={newTx.amount} onChange={e=>setNewTx({...newTx,amount:e.target.value})} placeholder={t('tx_amount_placeholder')} style={{width:'100%',padding:'12px',border: '1px solid var(--border-color)',borderRadius:'12px',background: 'var(--bg-color)',color: 'var(--text-main)',fontSize:'15px'}} />
-               </div>
-             </div>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
+          <div style={{ background: 'var(--card-bg)', borderRadius: '24px', padding: '30px', width: '550px', maxWidth: '95%', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', maxHeight: '90vh', overflowY: 'auto' }}>
+            <h2 style={{ color: 'var(--text-main)', marginBottom: '24px', fontSize: '22px', fontWeight: '700' }}>{t('add_new_transaction')}</h2>
 
-             <div style={{display:'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px'}}>
-               <div>
-                 <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>{t('type')} *</label>
-                 <select value={newTx.type} onChange={e=>setNewTx({...newTx,type:e.target.value})} style={{width:'100%',padding:'12px',border: '1px solid var(--border-color)',borderRadius:'12px',background: 'var(--bg-color)',color: 'var(--text-main)',fontSize:'15px'}}>
-                    <option value="expense">{t('spending')}</option>
-                    <option value="income">{t('income')}</option>
-                 </select>
-               </div>
-               <div>
-                 <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>{t('wallets')} *</label>
-                 <select value={newTx.wallet_id} onChange={e=>setNewTx({...newTx,wallet_id:e.target.value})} style={{width:'100%',padding:'12px',border: '1px solid var(--border-color)',borderRadius:'12px',background: 'var(--bg-color)',color: 'var(--text-main)',fontSize:'15px'}}>
-                    {wallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
-                 </select>
-               </div>
-             </div>
+            <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <input 
+                type="checkbox" 
+                id="is_recurring" 
+                checked={newTx.is_recurring} 
+                onChange={e => setNewTx({ ...newTx, is_recurring: e.target.checked })} 
+                style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#1814F3' }}
+              />
+              <label htmlFor="is_recurring" style={{ color: 'var(--text-main)', fontSize: '15px', fontWeight: '500', cursor: 'pointer' }}>
+                Tạo giao dịch định kỳ (Tự động lặp lại)
+              </label>
+            </div>
 
-             <div style={{display:'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px'}}>
-               <div>
-                 <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>{t('categories')}</label>
-                 <select value={newTx.category_id} onChange={e=>setNewTx({...newTx,category_id:e.target.value})} style={{width:'100%',padding:'12px',border: '1px solid var(--border-color)',borderRadius:'12px',background: 'var(--bg-color)',color: 'var(--text-main)',fontSize:'15px'}}>
-                    <option value="">{t('select_category') || 'Chọn danh mục'}</option>
-                    {flatCategories.map(c => <option key={c.id} value={c.id}>{c.displayName}</option>)}
-                 </select>
-               </div>
-               <div>
-                 <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>{t('date_label')} *</label>
-                 <input type="datetime-local" value={newTx.transaction_date} onChange={e=>setNewTx({...newTx,transaction_date:e.target.value})} style={{width:'100%',padding:'12px',border: '1px solid var(--border-color)',borderRadius:'12px',background: 'var(--bg-color)',color: 'var(--text-main)',fontSize:'15px'}} />
-               </div>
-             </div>
+            {newTx.is_recurring && (
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Tần suất lặp lại *</label>
+                <select 
+                  value={newTx.frequency} 
+                  onChange={e => setNewTx({ ...newTx, frequency: e.target.value })} 
+                  style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}
+                >
+                  <option value="daily">Hàng ngày</option>
+                  <option value="weekly">Hàng tuần</option>
+                  <option value="monthly">Hàng tháng</option>
+                  <option value="yearly">Hàng năm</option>
+                </select>
+              </div>
+            )}
 
-             <div style={{marginBottom:'15px'}}>
-               <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>{t('notes')}</label>
-               <textarea value={newTx.notes} onChange={e=>setNewTx({...newTx,notes:e.target.value})} placeholder={t('notes_placeholder') || 'Thêm ghi chú...'} style={{width:'100%',padding:'12px',border: '1px solid var(--border-color)',borderRadius:'12px',background: 'var(--bg-color)',color: 'var(--text-main)',fontSize:'15px', minHeight: '80px', resize: 'vertical'}} />
-             </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>{t('transaction_name')} *</label>
+                <input type="text" value={newTx.title} onChange={e => setNewTx({ ...newTx, title: e.target.value })} placeholder={t('tx_name_placeholder')} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>{t('amount_label')} *</label>
+                <input type="number" value={newTx.amount} onChange={e => setNewTx({ ...newTx, amount: e.target.value })} placeholder={t('tx_amount_placeholder')} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }} />
+              </div>
+            </div>
 
-             <div style={{marginBottom:'25px'}}>
-               <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>{t('receipt_image') || 'Ảnh hóa đơn'}</label>
-               <div 
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>{t('type')} *</label>
+                <select value={newTx.type} onChange={e => setNewTx({ ...newTx, type: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}>
+                  <option value="expense">{t('spending')}</option>
+                  <option value="income">{t('income')}</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>{t('wallets')} *</label>
+                <select value={newTx.wallet_id} onChange={e => setNewTx({ ...newTx, wallet_id: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}>
+                  {wallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>{t('categories')}</label>
+                <select value={newTx.category_id} onChange={e => setNewTx({ ...newTx, category_id: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}>
+                  <option value="">{t('select_category') || 'Chọn danh mục'}</option>
+                  {flatCategories.map(c => <option key={c.id} value={c.id}>{c.displayName}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>{t('date_label')} *</label>
+                <input type="datetime-local" value={newTx.transaction_date} onChange={e => setNewTx({ ...newTx, transaction_date: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }} />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>{t('notes')}</label>
+              <textarea value={newTx.notes} onChange={e => setNewTx({ ...newTx, notes: e.target.value })} placeholder={t('notes_placeholder') || 'Thêm ghi chú...'} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px', minHeight: '80px', resize: 'vertical' }} />
+            </div>
+
+            <div style={{ marginBottom: '25px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>{t('receipt_image') || 'Ảnh hóa đơn'}</label>
+              <div
                 onClick={() => fileInputRef.current?.click()}
                 style={{
-                  width:'100%',
-                  padding:'20px',
+                  width: '100%',
+                  padding: '20px',
                   border: '2px dashed var(--border-color)',
-                  borderRadius:'12px',
+                  borderRadius: '12px',
                   background: 'var(--bg-color)',
                   textAlign: 'center',
                   cursor: 'pointer',
                   color: '#718EBF'
                 }}
-               >
-                 {newTx.attachment ? (
-                   <div style={{display:'flex', alignItems:'center', justifyContent:'center', gap:'10px'}}>
-                     <span style={{color: '#16DBCC'}}>✓</span> {newTx.attachment.name}
-                   </div>
-                 ) : (
-                   <div>{t('click_to_upload') || 'Nhấn để tải lên ảnh hóa đơn'}</div>
-                 )}
-               </div>
-               <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" style={{display:'none'}} />
-             </div>
-             
-             <div style={{display:'flex',gap:'12px',justifyContent:'flex-end'}}>
-               <button style={{padding:'12px 24px',background: 'var(--bg-color)',color:'#718EBF',borderRadius:'12px',border: '1px solid var(--border-color)',cursor:'pointer',fontWeight:'600',fontSize:'15px'}} onClick={()=>setIsModalOpen(false)} disabled={isSubmitting}>{t('cancel')}</button>
-               <button 
-                style={{padding:'12px 24px',background:'#1814F3',color:'#fff',borderRadius:'12px',border:'none',cursor:'pointer',fontWeight:'600',fontSize:'15px', display:'flex', alignItems:'center', gap:'8px'}} 
-                onClick={submitAdd} 
+              >
+                {newTx.attachment ? (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                    <span style={{ color: '#16DBCC' }}>✓</span> {newTx.attachment.name}
+                  </div>
+                ) : (
+                  <div>{t('click_to_upload') || 'Nhấn để tải lên ảnh hóa đơn'}</div>
+                )}
+              </div>
+              <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" style={{ display: 'none' }} />
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button style={{ padding: '12px 24px', background: 'var(--bg-color)', color: '#718EBF', borderRadius: '12px', border: '1px solid var(--border-color)', cursor: 'pointer', fontWeight: '600', fontSize: '15px' }} onClick={() => setIsModalOpen(false)} disabled={isSubmitting}>{t('cancel')}</button>
+              <button
+                style={{ padding: '12px 24px', background: '#1814F3', color: '#fff', borderRadius: '12px', border: 'none', cursor: 'pointer', fontWeight: '600', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                onClick={submitAdd}
                 disabled={isSubmitting}
-               >
-                 {isSubmitting ? (t('saving') || 'Đang lưu...') : t('save_transaction')}
-               </button>
-             </div>
+              >
+                {isSubmitting ? (t('saving') || 'Đang lưu...') : t('save_transaction')}
+              </button>
+            </div>
           </div>
         </div>
       )}
