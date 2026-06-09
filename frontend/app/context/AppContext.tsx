@@ -172,10 +172,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
-    try {
-      await authApi.logout();
-    } catch (e) {
-      console.error('Logout error:', e);
+    const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+    if (token) {
+      try {
+        await authApi.logout();
+      } catch (e) {
+        console.error('Logout error:', e);
+      }
     }
     setIsLoggedIn(false);
     localStorage.setItem('isLoggedIn', 'false');

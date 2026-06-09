@@ -40,7 +40,7 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}): Pro
   if (response.status === 401) {
     // Nếu lỗi xảy ra khi đang cố gắng refresh hoặc logout/login thì văng lỗi luôn
     if (endpoint.includes('/refresh') || endpoint.includes('/logout') || endpoint.includes('/login')) {
-      if (typeof window !== 'undefined' && !endpoint.includes('/login')) {
+      if (typeof window !== 'undefined' && !endpoint.includes('/login') && !endpoint.includes('/logout')) {
         window.dispatchEvent(new CustomEvent('auth-unauthorized'));
       }
       const data = await response.json().catch(() => ({}));
