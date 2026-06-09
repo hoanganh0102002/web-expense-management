@@ -1,10 +1,10 @@
 "use client";
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Sidebar from '../components/Sidebar';
 import { useAppContext } from '../context/AppContext';
 import { useLanguage } from '../lib/translations';
-import { budgetApi } from '../lib/api';
+import { budgetApi, transactionApi } from '../lib/api';
 
 const parseIcon = (iconName: string) => {
   const iconMap: Record<string, string> = {
@@ -30,13 +30,136 @@ export default function Budget() {
   const [month, setMonth] = useState<number>(now.getMonth() + 1);
   const [year, setYear] = useState<number>(now.getFullYear());
   const [budgetsList, setBudgetsList] = useState<any[]>([]);
+  const [prevBudgetsList, setPrevBudgetsList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+
+  // States for Budget History
+  const [showHistory, setShowHistory] = useState<boolean>(false);
+  const [budgetHistory, setBudgetHistory] = useState<any[]>([]);
+  const [isLoadingHistory, setIsLoadingHistory] = useState<boolean>(false);
 
   // States for Add/Update Modal
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [selectedCategory, setSelectedCategory] = useState<string>(''); // empty string means overall monthly budget
   const [limitAmount, setLimitAmount] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isEditMode, setIsEditMode] = useState<boolean>(false);
+
+  // States to calculate real-time used_amount on frontend
+  const [currentMonthTransactions, setCurrentMonthTransactions] = useState<any[]>([]);
+  const [prevMonthTransactions, setPrevMonthTransactions] = useState<any[]>([]);
+
+  // Helper to get category ID and all its children/subcategories IDs recursively
+  const getCategoryAndChildrenIds = useCallback((catId: string | null): string[] => {
+    if (!catId) return [];
+    const ids: string[] = [catId];
+    
+    const findChildren = (cats: any[]) => {
+      cats.forEach(c => {
+        if (c.parent_id === catId || ids.includes(c.parent_id)) {
+          if (!ids.includes(c.id)) {
+            ids.push(c.id);
+          }
+        }
+        if (c.children && c.children.length > 0) {
+          findChildren(c.children);
+        }
+      });
+    };
+
+    let prevLength = 0;
+    while (ids.length > prevLength) {
+      prevLength = ids.length;
+      findChildren(categories);
+    }
+    return ids;
+  }, [categories]);
+
+  // Helper to calculate used amount based on transaction list
+  const getBudgetRealtimeUsedAmount = useCallback((budget: any, transList: any[]) => {
+    if (budget.category_id === null) {
+      return transList
+        .filter((t: any) => t.type === 'expense')
+        .reduce((sum, t) => sum + Math.abs(parseFloat(t.amount_in_user_currency || t.amount || 0)), 0);
+    }
+    const catIds = getCategoryAndChildrenIds(budget.category_id);
+    return transList
+      .filter((t: any) => t.type === 'expense' && t.category_id && catIds.includes(t.category_id))
+      .reduce((sum, t) => sum + Math.abs(parseFloat(t.amount_in_user_currency || t.amount || 0)), 0);
+  }, [getCategoryAndChildrenIds]);
+
+  // Toast notification state
+  const [toasts, setToasts] = useState<{id: number; message: string; type: 'success' | 'error' | 'info'}[]>([]);
+  const toastIdRef = useRef(0);
+  const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'info') => {
+    const id = ++toastIdRef.current;
+    setToasts(prev => [...prev, { id, message, type }]);
+    setTimeout(() => setToasts(prev => prev.filter(t => t.id !== id)), 3500);
+  }, []);
+
+  // Confirm dialog state
+  const [confirmDialog, setConfirmDialog] = useState<{isOpen: boolean; title: string; message: string; onConfirm: () => void}>({isOpen: false, title: '', message: '', onConfirm: () => {}});
+  const showConfirm = useCallback((title: string, message: string, onConfirm: () => void) => {
+    setConfirmDialog({isOpen: true, title, message, onConfirm});
+  }, []);
+  const closeConfirm = useCallback(() => setConfirmDialog(prev => ({...prev, isOpen: false})), []);
+
+  const handleOpenAddModal = () => {
+    setIsEditMode(false);
+    setSelectedCategory('');
+    setLimitAmount('');
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditModal = (budget: any) => {
+    setIsEditMode(true);
+    setSelectedCategory(budget.category_id || '');
+    // Convert limit_amount to float then string to remove trailing decimals if any
+    setLimitAmount(parseFloat(budget.limit_amount).toString());
+    setIsModalOpen(true);
+  };
+
+  // States for expanding transactions under budget
+  const [expandedBudgetId, setExpandedBudgetId] = useState<string | null>(null);
+  const [categoryTransactions, setCategoryTransactions] = useState<any[]>([]);
+  const [isLoadingTransactions, setIsLoadingTransactions] = useState<boolean>(false);
+
+  const handleToggleExpand = async (budget: any) => {
+    if (expandedBudgetId === budget.id) {
+      setExpandedBudgetId(null);
+      setCategoryTransactions([]);
+      return;
+    }
+
+    setExpandedBudgetId(budget.id);
+    setIsLoadingTransactions(true);
+    setCategoryTransactions([]);
+
+    try {
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const totalDays = new Date(year, month, 0).getDate();
+      const start_date = `${year}-${pad(month)}-01`;
+      const end_date = `${year}-${pad(month)}-${pad(totalDays)}`;
+      
+      const params: any = {
+        start_date,
+        end_date,
+        per_page: 50
+      };
+      
+      if (budget.category_id) {
+        params.category_id = budget.category_id;
+      }
+
+      const res = await transactionApi.getAll(params);
+      const list = res.data?.data || res.data || [];
+      setCategoryTransactions(list);
+    } catch (error) {
+      console.error('Error fetching transactions:', error);
+    } finally {
+      setIsLoadingTransactions(false);
+    }
+  };
 
   // Fetch budgets
   const fetchBudgets = async () => {
@@ -45,6 +168,45 @@ export default function Budget() {
     try {
       const res = await budgetApi.getAll(month, year);
       setBudgetsList(res.data || []);
+
+      // Fetch all transactions for this month to calculate real-time used_amount
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      const totalDays = new Date(year, month, 0).getDate();
+      const start_date = `${year}-${pad(month)}-01`;
+      const end_date = `${year}-${pad(month)}-${pad(totalDays)}`;
+      try {
+        const transRes = await transactionApi.getAll({
+          start_date,
+          end_date,
+          per_page: 1000
+        });
+        setCurrentMonthTransactions(transRes.data?.data || transRes.data || []);
+      } catch (transErr) {
+        console.error('Error fetching current month transactions:', transErr);
+        setCurrentMonthTransactions([]);
+      }
+
+      // Fetch previous month's budgets for comparison
+      const prevM = month === 1 ? 12 : month - 1;
+      const prevY = month === 1 ? year - 1 : year;
+      try {
+        const prevRes = await budgetApi.getAll(prevM, prevY);
+        setPrevBudgetsList(prevRes.data || []);
+
+        const prevTotalDays = new Date(prevY, prevM, 0).getDate();
+        const prev_start_date = `${prevY}-${pad(prevM)}-01`;
+        const prev_end_date = `${prevY}-${pad(prevM)}-${pad(prevTotalDays)}`;
+        const prevTransRes = await transactionApi.getAll({
+          start_date: prev_start_date,
+          end_date: prev_end_date,
+          per_page: 1000
+        });
+        setPrevMonthTransactions(prevTransRes.data?.data || prevTransRes.data || []);
+      } catch (prevErr) {
+        console.error('Error fetching previous month budgets/transactions:', prevErr);
+        setPrevBudgetsList([]);
+        setPrevMonthTransactions([]);
+      }
     } catch (error) {
       console.error('Error fetching budgets:', error);
     } finally {
@@ -57,6 +219,43 @@ export default function Budget() {
       fetchBudgets();
     }
   }, [isLoggedIn, month, year]);
+
+  // Fetch budget history (6 tháng gần nhất, trừ tháng đang chọn)
+  const fetchBudgetHistory = async () => {
+    if (!isLoggedIn) return;
+    setIsLoadingHistory(true);
+    try {
+      const history: any[] = [];
+      for (let i = 1; i <= 6; i++) {
+        let hMonth = month - i;
+        let hYear = year;
+        while (hMonth <= 0) {
+          hMonth += 12;
+          hYear -= 1;
+        }
+        const res = await budgetApi.getAll(hMonth, hYear);
+        const data = res.data || [];
+        if (data.length > 0) {
+          const overall = data.find((b: any) => b.category_id === null);
+          const cats = data.filter((b: any) => b.category_id !== null);
+          const limit = overall ? parseFloat(overall.limit_amount) : cats.reduce((s: number, b: any) => s + parseFloat(b.limit_amount), 0);
+          const used = overall ? Math.abs(parseFloat(overall.used_amount)) : cats.reduce((s: number, b: any) => s + Math.abs(parseFloat(b.used_amount)), 0);
+          history.push({ month: hMonth, year: hYear, limit, used, count: data.length });
+        }
+      }
+      setBudgetHistory(history);
+    } catch (e) {
+      console.error('Error fetching budget history:', e);
+    } finally {
+      setIsLoadingHistory(false);
+    }
+  };
+
+  useEffect(() => {
+    if (showHistory && isLoggedIn && budgetHistory.length === 0) {
+      fetchBudgetHistory();
+    }
+  }, [showHistory, isLoggedIn]);
 
   // Flatten categories list for dropdown selection
   const flatCategories = useMemo(() => {
@@ -74,25 +273,75 @@ export default function Budget() {
     return flatten(categories);
   }, [categories]);
 
+  // Dynamically inject real-time used_amount into the budget lists
+  const budgetsWithRealtimeUsage = useMemo(() => {
+    return budgetsList.map(b => ({
+      ...b,
+      used_amount: getBudgetRealtimeUsedAmount(b, currentMonthTransactions)
+    }));
+  }, [budgetsList, currentMonthTransactions, getBudgetRealtimeUsedAmount]);
+
+  const prevBudgetsWithRealtimeUsage = useMemo(() => {
+    return prevBudgetsList.map(b => ({
+      ...b,
+      used_amount: getBudgetRealtimeUsedAmount(b, prevMonthTransactions)
+    }));
+  }, [prevBudgetsList, prevMonthTransactions, getBudgetRealtimeUsedAmount]);
+
   // Calculate overall budget stats
-  const overallBudget = budgetsList.find(b => b.category_id === null);
-  const categoryBudgets = budgetsList.filter(b => b.category_id !== null);
+  const overallBudget = budgetsWithRealtimeUsage.find(b => b.category_id === null);
+  const categoryBudgets = budgetsWithRealtimeUsage.filter(b => b.category_id !== null);
 
   const totalLimit = overallBudget 
     ? parseFloat(overallBudget.limit_amount) 
     : categoryBudgets.reduce((sum, b) => sum + parseFloat(b.limit_amount), 0);
 
   const totalUsed = overallBudget 
-    ? parseFloat(overallBudget.used_amount) 
-    : categoryBudgets.reduce((sum, b) => sum + parseFloat(b.used_amount), 0);
+    ? Math.abs(parseFloat(overallBudget.used_amount)) 
+    : categoryBudgets.reduce((sum, b) => sum + Math.abs(parseFloat(b.used_amount)), 0);
 
   const totalPct = totalLimit > 0 ? Math.round((totalUsed / totalLimit) * 100) : 0;
   const fmt = (n: number) => Math.round(n).toLocaleString('vi-VN') + '₫';
 
+  // Calculate total days in month
+  const totalDaysInMonth = new Date(year, month, 0).getDate();
+  
+  // Calculate passed days in selected month
+  const getPassedDays = () => {
+    const today = new Date();
+    if (today.getFullYear() === year && (today.getMonth() + 1) === month) {
+      return today.getDate();
+    }
+    return totalDaysInMonth; // If it's a past/future month
+  };
+  
+  const passedDays = Math.max(getPassedDays(), 1);
+  
+  // Stats calculations
+  const remainingAmount = Math.max(totalLimit - totalUsed, 0);
+  const averagePerDay = totalUsed / passedDays;
+  const projectedTotal = averagePerDay * totalDaysInMonth;
+  const isOverBudget = totalUsed > totalLimit;
+
+  // Previous month comparison calculations
+  const prevOverallBudget = prevBudgetsWithRealtimeUsage.find(b => b.category_id === null);
+  const prevCategoryBudgets = prevBudgetsWithRealtimeUsage.filter(b => b.category_id !== null);
+  
+  const prevTotalUsed = prevOverallBudget
+    ? Math.abs(parseFloat(prevOverallBudget.used_amount))
+    : prevCategoryBudgets.reduce((sum, b) => sum + Math.abs(parseFloat(b.used_amount)), 0);
+
+  const prevTotalLimit = prevOverallBudget
+    ? parseFloat(prevOverallBudget.limit_amount)
+    : prevCategoryBudgets.reduce((sum, b) => sum + parseFloat(b.limit_amount), 0);
+
+  const totalDiff = totalUsed - prevTotalUsed;
+  const totalPctDiff = prevTotalUsed > 0 ? Math.round((totalDiff / prevTotalUsed) * 100) : null;
+
   // Create or update budget
   const handleSaveBudget = async () => {
     if (!limitAmount || parseFloat(limitAmount) <= 0) {
-      alert('Vui lòng nhập số tiền hạn mức hợp lệ!');
+      showToast('Vui lòng nhập số tiền hạn mức hợp lệ!', 'error');
       return;
     }
 
@@ -107,9 +356,10 @@ export default function Budget() {
       setIsModalOpen(false);
       setSelectedCategory('');
       setLimitAmount('');
+      showToast('Lưu hạn mức ngân sách thành công!', 'success');
       await fetchBudgets();
     } catch (error: any) {
-      alert(error.message || 'Lỗi khi lưu hạn mức ngân sách');
+      showToast(error.message || 'Lỗi khi lưu hạn mức ngân sách', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -117,14 +367,15 @@ export default function Budget() {
 
   // Delete budget
   const handleDeleteBudget = async (id: string) => {
-    if (window.confirm('Bạn có chắc chắn muốn xóa ngân sách này?')) {
+    showConfirm('Xóa ngân sách', 'Bạn có chắc chắn muốn xóa ngân sách này?', async () => {
       try {
         await budgetApi.delete(id);
+        showToast('Đã xóa ngân sách thành công!', 'success');
         await fetchBudgets();
       } catch (error: any) {
-        alert(error.message || 'Lỗi khi xóa ngân sách');
+        showToast(error.message || 'Lỗi khi xóa ngân sách', 'error');
       }
-    }
+    });
   };
 
   // Copy budgets from previous month
@@ -132,7 +383,7 @@ export default function Budget() {
     const fromMonth = month === 1 ? 12 : month - 1;
     const fromYear = month === 1 ? year - 1 : year;
 
-    if (window.confirm(`Bạn có muốn sao chép toàn bộ hạn mức ngân sách từ tháng ${fromMonth}/${fromYear} sang tháng ${month}/${year} không?`)) {
+    showConfirm('Sao chép ngân sách', `Bạn có muốn sao chép toàn bộ hạn mức ngân sách từ tháng ${fromMonth}/${fromYear} sang tháng ${month}/${year} không?`, async () => {
       setIsLoading(true);
       try {
         const res = await budgetApi.copy({
@@ -141,14 +392,14 @@ export default function Budget() {
           to_month: month,
           to_year: year
         });
-        alert(`Sao chép thành công! Đã sao chép ${res.data?.length || 0} mục hạn mức.`);
+        showToast(`Sao chép thành công! Đã sao chép ${res.data?.length || 0} mục hạn mức.`, 'success');
         await fetchBudgets();
       } catch (error: any) {
-        alert(error.message || 'Không tìm thấy ngân sách nguồn để sao chép!');
+        showToast(error.message || 'Không tìm thấy ngân sách nguồn để sao chép!', 'error');
       } finally {
         setIsLoading(false);
       }
-    }
+    });
   };
   
   return (
@@ -182,7 +433,7 @@ export default function Budget() {
             </div>
 
             <button 
-              onClick={() => setIsModalOpen(true)}
+              onClick={handleOpenAddModal}
               style={{background:'#1814F3',color:'#fff',padding:'10px 20px',borderRadius:'12px',fontWeight:'600',border:'none',cursor:'pointer'}}
             >
               {t('set_budget')}
@@ -212,25 +463,99 @@ export default function Budget() {
         
         <div className="content-area">
           {/* TỔNG QUAN NGÂN SÁCH */}
-          <div style={{background:'linear-gradient(135deg,#1814F3,#6366F1)',borderRadius:'20px',padding:'30px',color:'#fff',marginBottom:'24px', boxShadow:'0 10px 30px rgba(24, 20, 243, 0.2)'}}>
+          <div className="bdg-card-animate" style={{background:'linear-gradient(135deg,#1814F3,#6366F1)',borderRadius:'20px',padding:'30px',color:'#fff',marginBottom:'24px', boxShadow:'0 10px 30px rgba(24, 20, 243, 0.2)'}}>
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px'}}>
               <div style={{fontSize:'14px',opacity:0.85}}>{overallBudget ? 'TỔNG NGÂN SÁCH THÁNG' : 'TỔNG NGÂN SÁCH CÁC DANH MỤC'} - {month}/{year}</div>
               {overallBudget && (
-                <button 
-                  onClick={() => handleDeleteBudget(overallBudget.id)}
-                  style={{background:'rgba(255,255,255,0.15)', border:'none', borderRadius:'8px', color:'#fff', padding:'4px 8px', fontSize:'11px', fontWeight:'600', cursor:'pointer'}}
-                >
-                  Xóa hạn mức tổng
-                </button>
+                <div style={{display:'flex', gap:'8px'}}>
+                  <button 
+                    onClick={() => handleOpenEditModal(overallBudget)}
+                    style={{background:'rgba(255,255,255,0.25)', border:'none', borderRadius:'8px', color:'#fff', padding:'4px 8px', fontSize:'11px', fontWeight:'600', cursor:'pointer'}}
+                  >
+                    ✏️ Sửa hạn mức
+                  </button>
+                  <button 
+                    onClick={() => handleDeleteBudget(overallBudget.id)}
+                    style={{background:'rgba(255,255,255,0.15)', border:'none', borderRadius:'8px', color:'#fff', padding:'4px 8px', fontSize:'11px', fontWeight:'600', cursor:'pointer'}}
+                  >
+                    Xóa hạn mức tổng
+                  </button>
+                </div>
               )}
             </div>
             <div style={{fontSize:'36px',fontWeight:'800',marginBottom:'15px'}}>{fmt(totalUsed)} / {fmt(totalLimit)}</div>
             <div style={{width:'100%',height:'12px',background:'rgba(255,255,255,0.2)',borderRadius:'6px'}}>
                 <div style={{width:`${Math.min(totalPct, 100)}%`,height:'100%',background:totalPct>80?'#FE5C73':'#16DBCC',borderRadius:'6px',transition:'width 0.5s'}}></div>
             </div>
-            <div style={{display:'flex',justifyContent:'space-between',marginTop:'10px',fontSize:'13px',opacity:0.85}}>
+            <div style={{display:'flex',justifyContent:'space-between',marginTop:'10px',fontSize:'13px',opacity:0.85, alignItems:'center'}}>
                 <span>{t('used_label')} {totalPct}%</span>
-                <span>{t('remaining_label')} {fmt(Math.max(totalLimit - totalUsed, 0))} {totalUsed > totalLimit && `(Vượt ${fmt(totalUsed - totalLimit)})`}</span>
+                <span style={{display:'flex', alignItems:'center', gap:'8px'}}>
+                  {totalUsed > totalLimit && totalLimit > 0 && <span style={{fontWeight:'700'}}>⚠️ Vượt {fmt(totalUsed - totalLimit)}</span>}
+                  {totalPctDiff !== null && (
+                    <span style={{padding:'2px 6px', background: totalPctDiff > 0 ? 'rgba(254, 92, 115, 0.25)' : 'rgba(22, 219, 204, 0.25)', color: totalPctDiff > 0 ? '#FFD2D7' : '#D1FFF9', borderRadius:'4px', fontWeight:'700', fontSize:'11px'}}>
+                      {totalPctDiff > 0 ? `↑ +${totalPctDiff}%` : totalPctDiff < 0 ? `↓ ${totalPctDiff}%` : '~ Bằng tháng trước'}
+                    </span>
+                  )}
+                </span>
+            </div>
+          </div>
+
+          {/* STATS GRID */}
+          <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', gap:'16px', marginBottom:'24px'}}>
+            {/* Stat 1: Remaining */}
+            <div className="bdg-card-animate" style={{background:'var(--card-bg)', borderRadius:'16px', padding:'20px', border:'1px solid var(--border-color)', boxShadow:'0 4px 15px rgba(0,0,0,0.02)', animationDelay:'0.08s'}}>
+              <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px'}}>
+                <span style={{fontSize:'20px'}}>💰</span>
+                <span style={{fontSize:'14px', color:'#718EBF', fontWeight:'600'}}>Còn lại</span>
+              </div>
+              <div style={{fontSize:'20px', fontWeight:'800', color: remainingAmount === 0 && totalLimit > 0 ? '#FE5C73' : 'var(--text-main)'}}>
+                {fmt(remainingAmount)}
+              </div>
+              <div style={{fontSize:'12px', color:'#718EBF', marginTop:'4px'}}>
+                {isOverBudget ? 'Đã dùng hết ngân sách' : 'Số dư khả dụng hiện tại'}
+              </div>
+            </div>
+
+            {/* Stat 2: Average Spend per Day */}
+            <div className="bdg-card-animate" style={{background:'var(--card-bg)', borderRadius:'16px', padding:'20px', border:'1px solid var(--border-color)', boxShadow:'0 4px 15px rgba(0,0,0,0.02)', animationDelay:'0.16s'}}>
+              <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px'}}>
+                <span style={{fontSize:'20px'}}>📅</span>
+                <span style={{fontSize:'14px', color:'#718EBF', fontWeight:'600'}}>Trung bình/ngày</span>
+              </div>
+              <div style={{fontSize:'20px', fontWeight:'800', color:'var(--text-main)'}}>
+                {fmt(averagePerDay)}
+              </div>
+              <div style={{fontSize:'12px', color:'#718EBF', marginTop:'4px'}}>
+                Tính trên {passedDays} ngày đã qua
+              </div>
+            </div>
+
+            {/* Stat 3: Month End Forecast */}
+            <div className="bdg-card-animate" style={{background:'var(--card-bg)', borderRadius:'16px', padding:'20px', border:'1px solid var(--border-color)', boxShadow:'0 4px 15px rgba(0,0,0,0.02)', animationDelay:'0.24s'}}>
+              <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px'}}>
+                <span style={{fontSize:'20px'}}>🔮</span>
+                <span style={{fontSize:'14px', color:'#718EBF', fontWeight:'600'}}>Dự báo cuối tháng</span>
+              </div>
+              <div style={{fontSize:'20px', fontWeight:'800', color: projectedTotal > totalLimit && totalLimit > 0 ? '#FE5C73' : '#16DBCC'}}>
+                {fmt(projectedTotal)}
+              </div>
+              <div style={{fontSize:'12px', color:'#718EBF', marginTop:'4px'}}>
+                {projectedTotal > totalLimit && totalLimit > 0 ? '⚠️ Dự kiến vượt hạn mức' : 'Dự kiến chi hết tháng'}
+              </div>
+            </div>
+
+            {/* Stat 4: Category Budgets Count */}
+            <div className="bdg-card-animate" style={{background:'var(--card-bg)', borderRadius:'16px', padding:'20px', border:'1px solid var(--border-color)', boxShadow:'0 4px 15px rgba(0,0,0,0.02)', animationDelay:'0.32s'}}>
+              <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px'}}>
+                <span style={{fontSize:'20px'}}>🔲</span>
+                <span style={{fontSize:'14px', color:'#718EBF', fontWeight:'600'}}>Số danh mục hạn mức</span>
+              </div>
+              <div style={{fontSize:'20px', fontWeight:'800', color:'var(--text-main)'}}>
+                {categoryBudgets.length} danh mục
+              </div>
+              <div style={{fontSize:'12px', color:'#718EBF', marginTop:'4px'}}>
+                Từ tổng số {categories.length} nhóm chi tiêu
+              </div>
             </div>
           </div>
 
@@ -241,20 +566,34 @@ export default function Budget() {
             <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(350px, 1fr))',gap:'20px'}}>
               {categoryBudgets.map((b,i)=>{
                 const limit = parseFloat(b.limit_amount);
-                const used = parseFloat(b.used_amount);
+                const used = Math.abs(parseFloat(b.used_amount));
                 const pct = limit > 0 ? Math.round(used/limit*100) : 0;
                 const catName = b.category?.name || 'Danh mục khác';
                 const catIcon = parseIcon(b.category?.icon || 'grid');
                 const catColor = b.category?.color || '#FF6384';
                 
+                const prevB = prevBudgetsList.find(pb => pb.category_id === b.category_id);
+                const prevUsed = prevB ? Math.abs(parseFloat(prevB.used_amount)) : 0;
+                const diff = used - prevUsed;
+                const pctDiff = prevUsed > 0 ? Math.round((diff / prevUsed) * 100) : null;
+                
                 return(
-                  <div key={b.id} style={{background:'var(--card-bg)',borderRadius:'20px',padding:'24px',border:'1px solid var(--border-color)', display:'flex', flexDirection:'column', justifyContent:'space-between', minHeight:'170px', boxShadow:'0 4px 15px rgba(0,0,0,0.02)'}}>
+                  <div key={b.id} className="bdg-card-animate" style={{background:'var(--card-bg)',borderRadius:'20px',padding:'24px',border:'1px solid var(--border-color)', display:'flex', flexDirection:'column', justifyContent:'space-between', minHeight:'170px', boxShadow:'0 4px 15px rgba(0,0,0,0.02)', animationDelay:`${i * 0.07}s`}}>
                     <div>
                       <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:'16px'}}>
-                        <div style={{display:'flex',alignItems:'center',gap:'12px'}}>
+                        <div 
+                          onClick={() => handleToggleExpand(b)}
+                          style={{display:'flex',alignItems:'center',gap:'12px', cursor:'pointer', flex: 1}}
+                          title="Bấm để xem chi tiết giao dịch"
+                        >
                           <div style={{width:'45px',height:'45px',borderRadius:'12px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'22px',background:`${catColor}15`}}>{catIcon}</div>
                           <div>
-                            <div style={{fontWeight:'700',color:'var(--text-main)'}}>{catName}</div>
+                            <div style={{fontWeight:'700',color:'var(--text-main)', display:'flex', alignItems:'center', gap:'6px'}}>
+                              {catName}
+                              <span style={{fontSize:'10px', color:'#718EBF'}}>
+                                {expandedBudgetId === b.id ? '▲' : '▼'}
+                              </span>
+                            </div>
                             <div style={{fontSize:'13px',color:'#718EBF'}}>{t('limit_label')} {fmt(limit)}</div>
                           </div>
                         </div>
@@ -264,12 +603,20 @@ export default function Budget() {
                               {pct>=100?t('over_budget'):t('almost_empty')}
                             </span>
                           )}
-                          <button 
-                            onClick={() => handleDeleteBudget(b.id)}
-                            style={{background:'none', border:'none', color:'#FE5C73', fontSize:'12px', fontWeight:'600', cursor:'pointer', padding:'2px 4px'}}
-                          >
-                            Xóa hạn mức
-                          </button>
+                          <div style={{display:'flex', gap:'8px'}}>
+                            <button 
+                              onClick={() => handleOpenEditModal(b)}
+                              style={{background:'none', border:'none', color:'#1814F3', fontSize:'12px', fontWeight:'600', cursor:'pointer', padding:'2px 4px'}}
+                            >
+                              ✏️ Sửa
+                            </button>
+                            <button 
+                              onClick={() => handleDeleteBudget(b.id)}
+                              style={{background:'none', border:'none', color:'#FE5C73', fontSize:'12px', fontWeight:'600', cursor:'pointer', padding:'2px 4px'}}
+                            >
+                              🗑️ Xóa
+                            </button>
+                          </div>
                         </div>
                       </div>
                       <div style={{width:'100%',height:'10px',background:'var(--bg-color)',borderRadius:'5px',marginBottom:'8px'}}>
@@ -278,23 +625,180 @@ export default function Budget() {
                     </div>
                     <div style={{display:'flex',justifyContent:'space-between',fontSize:'13px'}}>
                       <span style={{color:pct>=80?'#FE5C73':catColor,fontWeight:'600'}}>{fmt(used)}</span>
-                      <span style={{color:'#718EBF'}}>{pct}%</span>
+                      <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
+                        {pctDiff !== null && (
+                          <span style={{fontSize:'11px', fontWeight:'700', color: pctDiff > 0 ? '#FE5C73' : '#16DBCC', background: pctDiff > 0 ? '#FFE0EB' : '#E0FBF6', padding:'2px 6px', borderRadius:'10px'}}>
+                            {pctDiff > 0 ? `↑ +${pctDiff}%` : `↓ ${pctDiff}%`}
+                          </span>
+                        )}
+                        <span style={{color:'#718EBF'}}>{pct}%</span>
+                      </div>
                     </div>
+
+                    {/* Collapsible Transactions List */}
+                    {expandedBudgetId === b.id && (
+                      <div style={{marginTop:'16px', borderTop:'1px solid var(--border-color)', paddingTop:'16px', width:'100%'}}>
+                        <div style={{fontWeight:'700', fontSize:'13px', color:'var(--text-main)', marginBottom:'10px'}}>
+                          Giao dịch trong tháng ({categoryTransactions.length})
+                        </div>
+                        {isLoadingTransactions ? (
+                          <div style={{fontSize:'12px', color:'#718EBF', textAlign:'center', padding:'10px'}}>Đang tải giao dịch...</div>
+                        ) : categoryTransactions.length > 0 ? (
+                          <div style={{maxHeight:'160px', overflowY:'auto', display:'flex', flexDirection:'column', gap:'6px', paddingRight:'4px'}}>
+                            {categoryTransactions.map((tx: any) => (
+                              <div key={tx.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 10px', background:'var(--bg-color)', borderRadius:'8px', fontSize:'12px'}}>
+                                <div style={{display:'flex', flexDirection:'column', gap:'1px', maxWidth:'65%'}}>
+                                  <span style={{fontWeight:'600', color:'var(--text-main)', textOverflow:'ellipsis', overflow:'hidden', whiteSpace:'nowrap'}}>{tx.title}</span>
+                                  <span style={{fontSize:'10px', color:'#718EBF'}}>{new Date(tx.transaction_date).toLocaleDateString('vi-VN')}</span>
+                                </div>
+                                <span style={{fontWeight:'700', color: tx.type === 'income' ? '#16DBCC' : '#FE5C73'}}>
+                                  {tx.type === 'income' ? '+' : '-'}{fmt(parseFloat(tx.amount))}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div style={{fontSize:'12px', color:'#718EBF', textAlign:'center', padding:'10px'}}>Không có giao dịch nào.</div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 )
               })}
             </div>
           ) : (
-            <div style={{background:'var(--card-bg)', border:'1px dashed var(--border-color)', borderRadius:'20px', padding:'60px 20px', textAlign:'center', color:'#718EBF'}}>
-              <div style={{fontSize:'40px', marginBottom:'16px'}}>📊</div>
-              <h3 style={{color:'var(--text-main)', marginBottom:'8px'}}>Chưa thiết lập ngân sách</h3>
-              <p style={{fontSize:'14px', maxWidth:'400px', margin:'0 auto 20px'}}>Bắt đầu kiểm soát tài chính bằng cách đặt hạn mức chi tiêu cho các danh mục hoặc ngân sách chung trong tháng này.</p>
-              <button 
-                onClick={() => setIsModalOpen(true)}
-                style={{background:'#1814F3',color:'#fff',padding:'10px 24px',borderRadius:'12px',fontWeight:'600',border:'none',cursor:'pointer'}}
+            <div style={{
+              background: 'var(--card-bg)',
+              border: '1px dashed var(--border-color)',
+              borderRadius: '24px',
+              padding: '60px 40px',
+              textAlign: 'center',
+              boxShadow: '0 8px 30px rgba(0,0,0,0.02)',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              marginTop: '20px'
+            }}>
+              <div style={{
+                width: '80px',
+                height: '80px',
+                borderRadius: '50%',
+                background: 'rgba(24, 20, 243, 0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '40px',
+                marginBottom: '20px'
+              }}>
+                🎯
+              </div>
+              <h3 style={{color: 'var(--text-main)', fontSize: '20px', fontWeight: '700', marginBottom: '10px'}}>
+                Chưa thiết lập ngân sách tháng này
+              </h3>
+              <p style={{fontSize: '14px', color: '#718EBF', maxWidth: '440px', lineHeight: '1.6', margin: '0 auto 24px'}}>
+                Thiết lập ngân sách giúp bạn kiểm soát việc chi tiêu tốt hơn, tối ưu hóa tiền tích lũy và nhanh chóng đạt được các cột mốc tự do tài chính.
+              </p>
+              <div style={{display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap'}}>
+                <button 
+                  onClick={handleOpenAddModal}
+                  style={{
+                    background: '#1814F3',
+                    color: '#fff',
+                    padding: '12px 24px',
+                    borderRadius: '12px',
+                    fontWeight: '600',
+                    border: 'none',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    boxShadow: '0 4px 15px rgba(24, 20, 243, 0.25)',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  ➕ Đặt ngân sách mới
+                </button>
+                <button 
+                  onClick={handleCopyBudgets}
+                  style={{
+                    background: 'transparent',
+                    color: '#1814F3',
+                    padding: '12px 24px',
+                    borderRadius: '12px',
+                    fontWeight: '600',
+                    border: '1px solid #1814F3',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  📋 Sao chép từ tháng trước
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* LỊCH SỬ NGÂN SÁCH CÁC THÁNG TRƯỚC */}
+          {isLoggedIn && (
+            <div style={{marginTop:'28px'}}>
+              <div 
+                onClick={() => setShowHistory(!showHistory)} 
+                style={{display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', padding:'16px 20px', background:'var(--card-bg)', borderRadius:'16px', border:'1px solid var(--border-color)'}}
               >
-                Đặt ngân sách ngay
-              </button>
+                <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
+                  <span style={{fontSize:'20px'}}>📅</span>
+                  <span style={{fontWeight:'700', color:'var(--text-main)', fontSize:'16px'}}>Lịch sử ngân sách các tháng trước</span>
+                </div>
+                <span style={{color:'#718EBF', fontSize:'20px', transition:'transform 0.3s', transform: showHistory ? 'rotate(180deg)' : 'rotate(0deg)'}}>▼</span>
+              </div>
+
+              {showHistory && (
+                <div style={{marginTop:'16px'}}>
+                  {isLoadingHistory ? (
+                    <div style={{display:'flex', justifyContent:'center', padding:'40px', color:'var(--text-main)'}}>{t('loading')}...</div>
+                  ) : budgetHistory.length > 0 ? (
+                    <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(300px, 1fr))', gap:'16px'}}>
+                      {budgetHistory.map((h, i) => {
+                        const pct = h.limit > 0 ? Math.round((h.used / h.limit) * 100) : 0;
+                        const barColor = pct >= 100 ? '#FE5C73' : pct >= 80 ? '#FF9800' : '#16DBCC';
+                        return (
+                          <div 
+                            key={i} 
+                            style={{
+                              background:'var(--card-bg)', 
+                              borderRadius:'16px', 
+                              padding:'20px', 
+                              border:'1px solid var(--border-color)',
+                              cursor:'pointer',
+                              transition:'all 0.2s'
+                            }}
+                            onClick={() => { setMonth(h.month); setYear(h.year); setShowHistory(false); }}
+                          >
+                            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'12px'}}>
+                              <span style={{fontWeight:'700', color:'var(--text-main)', fontSize:'15px'}}>Tháng {h.month}/{h.year}</span>
+                              <span style={{fontSize:'13px', fontWeight:'700', color: barColor}}>{pct}%</span>
+                            </div>
+                            <div style={{width:'100%', height:'10px', background:'var(--bg-color)', borderRadius:'5px', overflow:'hidden', marginBottom:'10px'}}>
+                              <div style={{width:`${Math.min(pct, 100)}%`, height:'100%', background: barColor, borderRadius:'5px', transition:'width 0.5s'}}></div>
+                            </div>
+                            <div style={{display:'flex', justifyContent:'space-between', fontSize:'13px', color:'#718EBF'}}>
+                              <span>{fmt(h.used)} / {fmt(h.limit)}</span>
+                              <span>{h.count} mục</span>
+                            </div>
+                            {pct >= 100 && (
+                              <div style={{marginTop:'6px', fontSize:'12px', color:'#FE5C73', fontWeight:'600'}}>🚨 Đã vượt ngân sách</div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div style={{background:'var(--card-bg)', border:'1px dashed var(--border-color)', borderRadius:'16px', padding:'40px 20px', textAlign:'center', color:'#718EBF'}}>
+                      <div style={{fontSize:'32px', marginBottom:'12px'}}>📭</div>
+                      <p style={{fontSize:'14px', margin:0}}>Không tìm thấy ngân sách của các tháng trước.</p>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -304,14 +808,17 @@ export default function Budget() {
       {isModalOpen && (
         <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000, backdropFilter: 'blur(4px)'}}>
           <div style={{background: 'var(--card-bg)',borderRadius:'24px',padding:'30px',width:'450px',maxWidth:'95%',boxShadow:'0 10px 40px rgba(0,0,0,0.1)'}}>
-             <h2 style={{color: 'var(--text-main)',marginBottom:'24px',fontSize:'20px',fontWeight:'700'}}>Thiết lập ngân sách hạn mức</h2>
+             <h2 style={{color: 'var(--text-main)',marginBottom:'24px',fontSize:'20px',fontWeight:'700'}}>
+               {isEditMode ? 'Chỉnh sửa hạn mức ngân sách' : 'Thiết lập ngân sách hạn mức'}
+             </h2>
              
              <div style={{marginBottom:'20px'}}>
                <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>Áp dụng cho danh mục</label>
                <select 
                  value={selectedCategory} 
                  onChange={e=>setSelectedCategory(e.target.value)} 
-                 style={{width:'100%',padding:'12px',border: '1px solid var(--border-color)',borderRadius:'12px',background: 'var(--bg-color)',color: 'var(--text-main)',fontSize:'15px'}}
+                 disabled={isEditMode}
+                 style={{width:'100%',padding:'12px',border: '1px solid var(--border-color)',borderRadius:'12px',background: isEditMode ? 'var(--border-color)' : 'var(--bg-color)',color: 'var(--text-main)',fontSize:'15px', cursor: isEditMode ? 'not-allowed' : 'default'}}
                >
                   <option value="">Ngân sách chung (Toàn bộ chi tiêu)</option>
                   {flatCategories.map(c => <option key={c.id} value={c.id}>{c.displayName}</option>)}
@@ -342,6 +849,58 @@ export default function Budget() {
           </div>
         </div>
       )}
+
+      {/* CONFIRM DIALOG */}
+      {confirmDialog.isOpen && (
+        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2000,backdropFilter:'blur(4px)',animation:'bdg-fadeIn 0.2s ease'}}>
+          <div style={{background:'var(--card-bg)',borderRadius:'20px',padding:'28px',width:'400px',maxWidth:'90%',boxShadow:'0 20px 60px rgba(0,0,0,0.3)',animation:'bdg-slideUp 0.25s ease'}}>
+            <div style={{display:'flex',alignItems:'center',gap:'12px',marginBottom:'16px'}}>
+              <div style={{width:'42px',height:'42px',borderRadius:'12px',background:'linear-gradient(135deg,#FF6B6B,#EE5A24)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'20px'}}>⚠️</div>
+              <h3 style={{color:'var(--text-main)',fontSize:'18px',fontWeight:'700',margin:0}}>{confirmDialog.title}</h3>
+            </div>
+            <p style={{color:'#718EBF',fontSize:'14px',lineHeight:'1.6',margin:'0 0 24px 0'}}>{confirmDialog.message}</p>
+            <div style={{display:'flex',gap:'12px',justifyContent:'flex-end'}}>
+              <button onClick={closeConfirm} style={{padding:'10px 22px',background:'var(--bg-color)',color:'#718EBF',borderRadius:'12px',border:'1px solid var(--border-color)',cursor:'pointer',fontWeight:'600',fontSize:'14px',transition:'all 0.2s'}}>Hủy</button>
+              <button onClick={() => { confirmDialog.onConfirm(); closeConfirm(); }} style={{padding:'10px 22px',background:'linear-gradient(135deg,#FF6B6B,#EE5A24)',color:'#fff',borderRadius:'12px',border:'none',cursor:'pointer',fontWeight:'600',fontSize:'14px',transition:'all 0.2s'}}>Xác nhận</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TOAST NOTIFICATIONS */}
+      <div style={{position:'fixed',top:'24px',right:'24px',zIndex:3000,display:'flex',flexDirection:'column',gap:'10px',pointerEvents:'none'}}>
+        {toasts.map(toast => (
+          <div key={toast.id} style={{
+            pointerEvents:'auto',
+            padding:'14px 20px',
+            borderRadius:'14px',
+            background: toast.type === 'success' ? 'linear-gradient(135deg,#00C9A7,#00B4D8)' : toast.type === 'error' ? 'linear-gradient(135deg,#FF6B6B,#EE5A24)' : 'linear-gradient(135deg,#1814F3,#5B73E8)',
+            color:'#fff',
+            fontSize:'14px',
+            fontWeight:'600',
+            boxShadow:'0 8px 32px rgba(0,0,0,0.18)',
+            display:'flex',
+            alignItems:'center',
+            gap:'10px',
+            minWidth:'280px',
+            maxWidth:'400px',
+            animation:'bdg-toastIn 0.35s ease, bdg-toastOut 0.35s ease 3.15s forwards'
+          }}>
+            <span style={{fontSize:'18px'}}>{toast.type === 'success' ? '✅' : toast.type === 'error' ? '❌' : 'ℹ️'}</span>
+            {toast.message}
+          </div>
+        ))}
+      </div>
+
+      {/* Keyframe animations */}
+      <style>{`
+        @keyframes bdg-fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes bdg-slideUp { from { opacity: 0; transform: translateY(20px) scale(0.95); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        @keyframes bdg-toastIn { from { opacity: 0; transform: translateX(80px); } to { opacity: 1; transform: translateX(0); } }
+        @keyframes bdg-toastOut { from { opacity: 1; transform: translateX(0); } to { opacity: 0; transform: translateX(80px); } }
+        @keyframes bdg-cardFadeIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+        .bdg-card-animate { animation: bdg-cardFadeIn 0.4s ease both; }
+      `}</style>
     </div>
   );
 }

@@ -278,3 +278,11 @@ export const budgetApi = {
     })
 };
 
+// --- NOTIFICATION APIs --- Cảnh báo khi đạt 80% và vượt 100% ngân sách (push notification + email) Tích hợp API thực tế:
+export const notificationApi = {
+  getAll: (page: number = 1) => apiFetch(`/notifications?page=${page}`),
+  read: (id: string) => apiFetch(`/notifications/${id}/read`, { method: 'POST' }),
+  readAll: () => apiFetch('/notifications/read-all', { method: 'POST' }),
+  delete: (id: string) => apiFetch(`/notifications/${id}`, { method: 'DELETE' }),
+};
+
