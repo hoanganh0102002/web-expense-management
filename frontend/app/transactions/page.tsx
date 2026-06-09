@@ -232,12 +232,15 @@ export default function Transactions() {
   const [maxAmount, setMaxAmount] = useState('');
   const [sortBy, setSortBy] = useState('date');
   const [sortOrder, setSortOrder] = useState('desc');
-  const [perPage, setPerPage] = useState('20');
+  const [perPage, setPerPage] = useState('10');
 
   // Pagination cursors state
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [prevCursor, setPrevCursor] = useState<string | null>(null);
   const [currentCursor, setCurrentCursor] = useState<string | null>(null);
+  const [regularPage, setRegularPage] = useState(1);
+  const [transferPage, setTransferPage] = useState(1);
+  const [recurringPage, setRecurringPage] = useState(1);
 
   // Flatten category tree into a flat list for the select dropdown
   const flatCategories = useMemo(() => {
@@ -263,6 +266,9 @@ export default function Transactions() {
   const handleFilterChange = (updater: () => void) => {
     updater();
     setCurrentCursor(null);
+    setRegularPage(1);
+    setTransferPage(1);
+    setRecurringPage(1);
   };
 
   // Debounce search term
@@ -270,6 +276,9 @@ export default function Transactions() {
     const handler = setTimeout(() => {
       setDebouncedSearch(searchTerm);
       setCurrentCursor(null);
+      setRegularPage(1);
+      setTransferPage(1);
+      setRecurringPage(1);
     }, 500);
     return () => clearTimeout(handler);
   }, [searchTerm]);
@@ -438,9 +447,12 @@ export default function Transactions() {
     setMaxAmount('');
     setSortBy('date');
     setSortOrder('desc');
-    setPerPage('20');
+    setPerPage('10');
     setSearchTerm('');
     setCurrentCursor(null);
+    setRegularPage(1);
+    setTransferPage(1);
+    setRecurringPage(1);
   };
 
   useEffect(() => {
@@ -766,22 +778,7 @@ export default function Transactions() {
                   </select>
                 </div>
 
-                {/* Số lượng mỗi trang */}
-                {activeTab !== 'transfer' && activeTab !== 'recurring' && (
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '6px', color: '#718EBF', fontSize: '13px', fontWeight: '500' }}>Số dòng hiển thị</label>
-                    <select
-                      value={perPage}
-                      onChange={e => handleFilterChange(() => setPerPage(e.target.value))}
-                      style={{ width: '100%', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '10px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '14px' }}
-                    >
-                      <option value="10">10 dòng</option>
-                      <option value="20">20 dòng</option>
-                      <option value="50">50 dòng</option>
-                      <option value="100">100 dòng</option>
-                    </select>
-                  </div>
-                )}
+                {/* Fixed maximum 20 transactions per page */}
               </div>
 
               {/* Hủy bộ lọc */}
@@ -807,7 +804,13 @@ export default function Transactions() {
 
           <div style={{ display: 'flex', gap: '30px', borderBottom: '1px solid var(--border-color)', marginBottom: '20px' }}>
             {[{ k: 'all', l: t('all') }, { k: 'income', l: t('income') }, { k: 'expense', l: t('spending') }, { k: 'transfer', l: 'Chuyển tiền nội bộ' }, { k: 'recurring', l: 'Giao dịch định kỳ' }].map(tab => (
-              <div key={tab.k} onClick={() => setActiveTab(tab.k)} style={{ paddingBottom: '10px', color: activeTab === tab.k ? '#1814F3' : '#718EBF', borderBottom: activeTab === tab.k ? '3px solid #1814F3' : 'none', fontWeight: activeTab === tab.k ? '600' : '400', cursor: 'pointer' }}>{tab.l}</div>
+              <div key={tab.k} onClick={() => {
+                setActiveTab(tab.k);
+                setCurrentCursor(null);
+                setRegularPage(1);
+                setTransferPage(1);
+                setRecurringPage(1);
+              }} style={{ paddingBottom: '10px', color: activeTab === tab.k ? '#1814F3' : '#718EBF', borderBottom: activeTab === tab.k ? '3px solid #1814F3' : 'none', fontWeight: activeTab === tab.k ? '600' : '400', cursor: 'pointer' }}>{tab.l}</div>
             ))}
           </div>
 
@@ -826,7 +829,7 @@ export default function Transactions() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredTransfers.length > 0 ? filteredTransfers.map((tx: any) => (
+                  {filteredTransfers.length > 0 ? filteredTransfers.slice((transferPage - 1) * 10, transferPage * 10).map((tx: any) => (
                     <tr key={tx.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                       <td style={{ padding: '14px 8px', fontWeight: 600 }}>Chuyển tiền nội bộ</td>
                       <td style={{ padding: '14px 8px', fontWeight: 500, color: '#1814F3' }}>{tx.from_wallet_name}</td>
@@ -859,7 +862,7 @@ export default function Transactions() {
                   </tr>
                 </thead>
                 <tbody>
-                  {recurringTransactions.length > 0 ? recurringTransactions.map((tx: any) => (
+                  {recurringTransactions.length > 0 ? recurringTransactions.slice((recurringPage - 1) * 10, recurringPage * 10).map((tx: any) => (
                     <tr key={tx.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                       <td style={{ padding: '14px 8px', fontWeight: 600 }}>{tx.title || tx.description || tx.name}</td>
                       <td style={{ padding: '14px 8px', color: tx.type === 'income' ? '#16DBCC' : '#FE5C73', fontWeight: '600' }}>
@@ -919,12 +922,17 @@ export default function Transactions() {
               </table>
             )}
 
-            {/* PHÂN TRANG */}
+            {/* PHÂN TRANG CHO GIAO DỊCH THƯỜNG */}
             {activeTab !== 'transfer' && activeTab !== 'recurring' && (nextCursor || prevCursor) && (
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '24px' }}>
                 <button
                   disabled={!prevCursor}
-                  onClick={() => prevCursor && setCurrentCursor(prevCursor)}
+                  onClick={() => {
+                    if (prevCursor) {
+                      setCurrentCursor(prevCursor);
+                      setRegularPage(p => Math.max(1, p - 1));
+                    }
+                  }}
                   style={{
                     padding: '10px 20px',
                     borderRadius: '12px',
@@ -939,11 +947,16 @@ export default function Transactions() {
                   {t('previous')}
                 </button>
                 <span style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: '500' }}>
-                  Trang giao dịch
+                  Trang {regularPage}
                 </span>
                 <button
                   disabled={!nextCursor}
-                  onClick={() => nextCursor && setCurrentCursor(nextCursor)}
+                  onClick={() => {
+                    if (nextCursor) {
+                      setCurrentCursor(nextCursor);
+                      setRegularPage(p => p + 1);
+                    }
+                  }}
                   style={{
                     padding: '10px 20px',
                     borderRadius: '12px',
@@ -951,6 +964,88 @@ export default function Transactions() {
                     color: nextCursor ? '#fff' : '#718EBF',
                     border: '1px solid var(--border-color)',
                     cursor: nextCursor ? 'pointer' : 'not-allowed',
+                    fontWeight: '600',
+                    fontSize: '14px'
+                  }}
+                >
+                  {t('next')}
+                </button>
+              </div>
+            )}
+
+            {/* PHÂN TRANG CHO CHUYỂN TIỀN NỘI BỘ */}
+            {activeTab === 'transfer' && filteredTransfers.length > 10 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '24px' }}>
+                <button
+                  disabled={transferPage === 1}
+                  onClick={() => setTransferPage(p => Math.max(1, p - 1))}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '12px',
+                    background: transferPage > 1 ? '#1814F3' : 'var(--bg-color)',
+                    color: transferPage > 1 ? '#fff' : '#718EBF',
+                    border: '1px solid var(--border-color)',
+                    cursor: transferPage > 1 ? 'pointer' : 'not-allowed',
+                    fontWeight: '600',
+                    fontSize: '14px'
+                  }}
+                >
+                  {t('previous')}
+                </button>
+                <span style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: '500' }}>
+                  Trang {transferPage} / {Math.ceil(filteredTransfers.length / 10)}
+                </span>
+                <button
+                  disabled={transferPage >= Math.ceil(filteredTransfers.length / 10)}
+                  onClick={() => setTransferPage(p => p + 1)}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '12px',
+                    background: transferPage < Math.ceil(filteredTransfers.length / 10) ? '#1814F3' : 'var(--bg-color)',
+                    color: transferPage < Math.ceil(filteredTransfers.length / 10) ? '#fff' : '#718EBF',
+                    border: '1px solid var(--border-color)',
+                    cursor: transferPage < Math.ceil(filteredTransfers.length / 10) ? 'pointer' : 'not-allowed',
+                    fontWeight: '600',
+                    fontSize: '14px'
+                  }}
+                >
+                  {t('next')}
+                </button>
+              </div>
+            )}
+
+            {/* PHÂN TRANG CHO GIAO DỊCH ĐỊNH KỲ */}
+            {activeTab === 'recurring' && recurringTransactions.length > 10 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '24px' }}>
+                <button
+                  disabled={recurringPage === 1}
+                  onClick={() => setRecurringPage(p => Math.max(1, p - 1))}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '12px',
+                    background: recurringPage > 1 ? '#1814F3' : 'var(--bg-color)',
+                    color: recurringPage > 1 ? '#fff' : '#718EBF',
+                    border: '1px solid var(--border-color)',
+                    cursor: recurringPage > 1 ? 'pointer' : 'not-allowed',
+                    fontWeight: '600',
+                    fontSize: '14px'
+                  }}
+                >
+                  {t('previous')}
+                </button>
+                <span style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: '500' }}>
+                  Trang {recurringPage} / {Math.ceil(recurringTransactions.length / 10)}
+                </span>
+                <button
+                  disabled={recurringPage >= Math.ceil(recurringTransactions.length / 10)}
+                  onClick={() => setRecurringPage(p => p + 1)}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '12px',
+                    background: recurringPage < Math.ceil(recurringTransactions.length / 10) ? '#1814F3' : 'var(--bg-color)',
+                    color: recurringPage < Math.ceil(recurringTransactions.length / 10) ? '#fff' : '#718EBF',
+                    border: '1px solid var(--border-color)',
+                    cursor: recurringPage < Math.ceil(recurringTransactions.length / 10) ? 'pointer' : 'not-allowed',
                     fontWeight: '600',
                     fontSize: '14px'
                   }}
