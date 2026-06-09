@@ -1,14 +1,75 @@
 "use client";
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import Sidebar from './components/Sidebar';
 import { useAppContext } from './context/AppContext';
 import { useLanguage } from './lib/translations';
+import { budgetApi } from './lib/api';
 
 export default function Dashboard() {
   const { isLoggedIn, wallets, transactions, isLoadingWallets, userData } = useAppContext();
   const { t } = useLanguage();
   const [showWalletBalance, setShowWalletBalance] = useState(true);
+  const [budgetsList, setBudgetsList] = useState<any[]>([]);
+  const [isLoadingBudget, setIsLoadingBudget] = useState(false);
+
+  const now = useMemo(() => new Date(), []);
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      setIsLoadingBudget(true);
+      budgetApi.getAll(currentMonth, currentYear)
+        .then(res => {
+          setBudgetsList(res.data || []);
+        })
+        .catch(err => {
+          console.error("Error fetching budgets on dashboard:", err);
+        })
+        .finally(() => {
+          setIsLoadingBudget(false);
+        });
+    }
+  }, [isLoggedIn, currentMonth, currentYear]);
+
+  const handleCopyBudgets = async () => {
+    const fromMonth = currentMonth === 1 ? 12 : currentMonth - 1;
+    const fromYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+
+    if (window.confirm(`Bạn có muốn sao chép toàn bộ hạn mức ngân sách từ tháng ${fromMonth}/${fromYear} sang tháng ${currentMonth}/${currentYear} không?`)) {
+      setIsLoadingBudget(true);
+      try {
+        const res = await budgetApi.copy({
+          from_month: fromMonth,
+          from_year: fromYear,
+          to_month: currentMonth,
+          to_year: currentYear
+        });
+        alert(`Sao chép thành công! Đã sao chép ${res.data?.length || 0} mục hạn mức.`);
+        const budgetsRes = await budgetApi.getAll(currentMonth, currentYear);
+        setBudgetsList(budgetsRes.data || []);
+      } catch (error: any) {
+        alert(error.message || 'Không tìm thấy ngân sách nguồn để sao chép!');
+      } finally {
+        setIsLoadingBudget(false);
+      }
+    }
+  };
+
+  // Calculate overall budget stats
+  const overallBudget = budgetsList.find(b => b.category_id === null);
+  const categoryBudgets = budgetsList.filter(b => b.category_id !== null);
+
+  const totalLimit = overallBudget 
+    ? parseFloat(overallBudget.limit_amount) 
+    : categoryBudgets.reduce((sum, b) => sum + parseFloat(b.limit_amount), 0);
+
+  const totalUsed = overallBudget 
+    ? parseFloat(overallBudget.used_amount) 
+    : categoryBudgets.reduce((sum, b) => sum + parseFloat(b.used_amount), 0);
+
+  const totalPct = totalLimit > 0 ? Math.round((totalUsed / totalLimit) * 100) : 0;
 
   // Tính toán số liệu từ dữ liệu thật
   const totalBalance = wallets.reduce((sum, w) => sum + parseFloat(w.available_balance || 0), 0);
@@ -128,9 +189,98 @@ export default function Dashboard() {
             </div>
 
             <div className="col-1" style={{flex:1}}>
-              <div className="section-header"><h2 className="section-title">{t('budget')}</h2></div>
-              <div className="transactions-card" style={{height:'auto', display: 'flex', flexDirection: 'column', justifyContent: 'center', minHeight: '150px'}}>
-                  <p style={{ textAlign: 'center', color: '#718EBF' }}>{t('developing_budget')}</p>
+              <div className="section-header" style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                <h2 className="section-title">{t('budget')}</h2>
+                {isLoggedIn && budgetsList.length > 0 && (
+                  <Link href="/budget" style={{fontSize:'13px', color:'#1814F3', fontWeight:'600', textDecoration:'none'}}>
+                    {t('details') || 'Chi tiết'}
+                  </Link>
+                )}
+              </div>
+              <div className="transactions-card" style={{height:'auto', minHeight: '150px', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '20px'}}>
+                {isLoadingBudget ? (
+                  <div style={{ textAlign: 'center', color: '#718EBF' }}>{t('loading')}</div>
+                ) : !isLoggedIn ? (
+                  <div style={{ textAlign: 'center', color: '#718EBF' }}>
+                    <p style={{marginBottom: '10px'}}>{t('please_login')}</p>
+                    <Link href="/login" style={{textDecoration:'none',color:'#fff',background:'#343C6A',padding:'6px 12px',borderRadius:'15px',fontWeight:'bold', fontSize:'13px'}}>{t('login')}</Link>
+                  </div>
+                ) : budgetsList.length === 0 ? (
+                  <div style={{ textAlign: 'center', color: '#718EBF' }}>
+                    <p style={{fontSize: '14px', margin: 0}}>{t('no_budget_set') || 'Chưa thiết lập ngân sách tháng này'}</p>
+                    <div style={{display:'flex', gap:'8px', justifyContent:'center', marginTop:'12px', flexWrap:'wrap'}}>
+                      <Link href="/budget" style={{
+                        display: 'inline-block',
+                        padding: '8px 16px',
+                        background: '#1814F3',
+                        color: '#fff',
+                        borderRadius: '10px',
+                        textDecoration: 'none',
+                        fontWeight: '600',
+                        fontSize: '13px'
+                      }}>
+                        {t('set_budget')}
+                      </Link>
+                      <button 
+                        onClick={handleCopyBudgets}
+                        disabled={isLoadingBudget}
+                        style={{
+                          padding: '8px 16px',
+                          background: 'transparent',
+                          color: '#1814F3',
+                          borderRadius: '10px',
+                          border: '1px solid #1814F3',
+                          fontWeight: '600',
+                          fontSize: '13px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {t('copy_from_previous_month')}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{display:'flex', flexDirection:'column', gap:'12px', width:'100%'}}>
+                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+                      <span style={{fontWeight:'700', color:'var(--text-main)', fontSize:'15px'}}>
+                        {overallBudget ? t('total_monthly_budget') : (t('category_budgets') || 'Ngân sách danh mục')}
+                      </span>
+                      <span style={{fontSize:'14px', fontWeight:'700', color: totalPct >= 100 ? '#FE5C73' : totalPct >= 80 ? '#FF9800' : '#16DBCC'}}>
+                        {totalPct}%
+                      </span>
+                    </div>
+                    
+                    {/* Progress Bar Container */}
+                    <div style={{width:'100%', height:'12px', background:'var(--bg-color)', borderRadius:'6px', overflow:'hidden'}}>
+                      <div style={{
+                        width: `${Math.min(totalPct, 100)}%`,
+                        height: '100%',
+                        background: totalPct >= 100 ? '#FE5C73' : totalPct >= 80 ? '#FF9800' : '#16DBCC',
+                        borderRadius: '6px',
+                        transition: 'width 0.6s ease-in-out'
+                      }}></div>
+                    </div>
+                    
+                    <div style={{display:'flex', justifyContent:'space-between', fontSize:'13px', color:'#718EBF'}}>
+                      <div>
+                        <span style={{fontWeight:'600', color:'var(--text-main)'}}>{formatCurrency(totalUsed)}</span>
+                        <span> / {formatCurrency(totalLimit)}</span>
+                      </div>
+                    </div>
+
+                    <div style={{fontSize:'12px', marginTop:'2px'}}>
+                      {totalUsed > totalLimit ? (
+                        <span style={{color:'#FE5C73', fontWeight:'600'}}>
+                          🚨 {t('over_budget') || 'Vượt ngân sách!'} ({formatCurrency(totalUsed - totalLimit)})
+                        </span>
+                      ) : (
+                        <span style={{color:'#16DBCC', fontWeight:'600'}}>
+                          ✓ {t('remaining_label') || 'Còn lại:'} {formatCurrency(totalLimit - totalUsed)}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
