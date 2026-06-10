@@ -19,6 +19,7 @@
   --success: #41D4A8;
   --danger: #FF4B4A;
   --font-family: 'Inter', sans-serif;
+  --accent-gradient: linear-gradient(135deg, #343C6A 0%, #1814F3 100%);
 }
 
 body.dark-theme {

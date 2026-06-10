@@ -286,3 +286,23 @@ export const notificationApi = {
   delete: (id: string) => apiFetch(`/notifications/${id}`, { method: 'DELETE' }),
 };
 
+// --- REPORT APIs ---
+export const reportApi = {
+  getSummary: (startDate: string, endDate: string, walletId?: string) => {
+    let url = `/reports/summary?start_date=${startDate}&end_date=${endDate}`;
+    if (walletId) url += `&wallet_id=${walletId}`;
+    return apiFetch(url);
+  },
+  getCategories: (month: number, year: number, type?: string) => {
+    let url = `/reports/categories?month=${month}&year=${year}`;
+    if (type) url += `&type=${type}`;
+    return apiFetch(url);
+  },
+  getTrends: (startDate: string, endDate: string, groupBy?: 'day' | 'month') => {
+    let url = `/reports/trends?start_date=${startDate}&end_date=${endDate}`;
+    if (groupBy) url += `&group_by=${groupBy}`;
+    return apiFetch(url);
+  }
+};
+
+

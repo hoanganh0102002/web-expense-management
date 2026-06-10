@@ -22,6 +22,290 @@ const parseIcon = (iconName: string) => {
   return iconMap[iconName] || iconName;
 };
 
+// Component Biểu đồ tròn Doughnut SVG cao cấp thiết kế hiện đại (Smartwatch Dial & Premium Grid Legend)
+const BudgetDoughnutChart = ({ data }: { data: { name: string; value: number; color: string; icon: string }[] }) => {
+  const [hoveredIndex, setHoveredIndex] = React.useState<number | null>(null);
+  
+  const activeItems = React.useMemo(() => data.filter(item => item.value > 0), [data]);
+  const total = React.useMemo(() => activeItems.reduce((sum, item) => sum + item.value, 0), [activeItems]);
+  
+  if (total === 0) {
+    return (
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        height: '240px', 
+        color: '#718EBF', 
+        background: 'rgba(255, 255, 255, 0.01)', 
+        borderRadius: '24px', 
+        border: '2px dashed var(--border-color)',
+        padding: '20px'
+      }}>
+        <span style={{ fontSize: '48px', marginBottom: '14px', filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.1))' }}>📊</span>
+        <span style={{ fontSize: '15px', fontWeight: '750', color: 'var(--text-main)' }}>Chưa phát sinh chi tiêu trong tháng này</span>
+        <span style={{ fontSize: '12px', color: '#718EBF', marginTop: '6px', textAlign: 'center', maxWidth: '300px', lineHeight: '1.5' }}>
+          Biểu đồ phân tích sẽ tự động hiển thị ngay khi bạn có giao dịch chi tiêu được hoàn tất trong tháng.
+        </span>
+      </div>
+    );
+  }
+
+  // Cấu hình SVG
+  const radius = 72;
+  const strokeWidth = 16;
+  const center = 100;
+  const circumference = 2 * Math.PI * radius;
+
+  // Tính toán góc vẽ cho phân khúc bo tròn có khoảng cách (gap)
+  const gapDegrees = activeItems.length > 1 ? 6 : 0; // Khoảng cách giữa các phần (độ)
+  const totalGapsAngle = activeItems.length * gapDegrees;
+  const availableAngle = 360 - totalGapsAngle;
+
+  let accumulatedAngle = 0;
+
+  return (
+    <div style={{ 
+      display: 'flex', 
+      flexDirection: 'column',
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      gap: '35px', 
+      padding: '10px 0', 
+      width: '100%',
+      maxWidth: '680px', 
+      margin: '0 auto',
+    }}>
+      {/* Khung chứa SVG kèm hiệu ứng phát sáng chuyển màu theo danh mục */}
+      <div style={{ 
+        position: 'relative', 
+        width: '210px', 
+        height: '210px', 
+        flexShrink: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: '50%',
+        boxShadow: hoveredIndex !== null 
+          ? `0 20px 50px -15px ${activeItems[hoveredIndex]?.color}25` 
+          : '0 20px 40px -20px rgba(0,0,0,0.15)',
+        background: hoveredIndex !== null 
+          ? `radial-gradient(circle, ${activeItems[hoveredIndex]?.color}15 0%, rgba(255,255,255,0) 70%)` 
+          : 'radial-gradient(circle, var(--border-color)06 0%, rgba(255,255,255,0) 70%)',
+        transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)'
+      }}>
+        {/* Glow blur hiệu ứng Neon phía sau */}
+        {hoveredIndex !== null && (
+          <div style={{
+            position: 'absolute',
+            width: '150px',
+            height: '150px',
+            borderRadius: '50%',
+            background: activeItems[hoveredIndex].color,
+            filter: 'blur(35px)',
+            opacity: 0.25,
+            zIndex: 1,
+            animation: 'bdg-fadeIn 0.3s ease',
+            pointerEvents: 'none'
+          }} />
+        )}
+
+        <svg width="200" height="200" viewBox="0 0 200 200" style={{ width: '200px', height: '200px', fill: 'none', display: 'block', transform: 'rotate(-90deg)', zIndex: 2 }}>
+          {/* Vòng nền xám nhạt phía dưới */}
+          <circle
+            cx={center}
+            cy={center}
+            r={radius}
+            fill="none"
+            stroke="var(--border-color)"
+            strokeWidth={strokeWidth - 6}
+            style={{ opacity: 0.12 }}
+          />
+
+          {activeItems.map((item, idx) => {
+            const percentage = (item.value / total) * 100;
+            const sweepAngle = (item.value / total) * availableAngle;
+            
+            // Độ dài nét vẽ và khoảng trống nét đứt
+            const strokeDashLength = (sweepAngle / 360) * circumference;
+            const strokeSpaceLength = circumference - strokeDashLength;
+            
+            // Góc xoay bắt đầu của phân khúc (gồm cả các khoảng gap tích lũy)
+            const rotation = accumulatedAngle;
+            accumulatedAngle += sweepAngle + gapDegrees;
+            
+            const isHovered = hoveredIndex !== null && activeItems[hoveredIndex]?.name === item.name;
+
+            return (
+              <circle
+                key={idx}
+                cx={center}
+                cy={center}
+                r={radius}
+                fill="none"
+                stroke={item.color}
+                strokeWidth={isHovered ? strokeWidth + 4 : strokeWidth}
+                strokeDasharray={`${strokeDashLength} ${strokeSpaceLength}`}
+                strokeDashoffset={0}
+                strokeLinecap="round" // Định dạng bo tròn 2 đầu phân khúc cực sang
+                transform={`rotate(${rotation} ${center} ${center})`}
+                onMouseEnter={() => setHoveredIndex(idx)}
+                onMouseLeave={() => setHoveredIndex(null)}
+                style={{
+                  transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                  cursor: 'pointer',
+                }}
+              />
+            );
+          })}
+        </svg>
+
+        {/* Cửa sổ hiển thị thông số ở tâm hình tròn - dạng mặt đồng hồ thông minh */}
+        <div style={{
+          position: 'absolute',
+          zIndex: 3,
+          textAlign: 'center',
+          pointerEvents: 'none',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          {hoveredIndex !== null ? (
+            <div style={{ animation: 'bdg-slideUp 0.25s cubic-bezier(0.18, 0.89, 0.32, 1.28)' }}>
+              <div style={{ 
+                width: '42px', 
+                height: '42px', 
+                borderRadius: '50%', 
+                background: `${activeItems[hoveredIndex].color}18`, 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                fontSize: '22px', 
+                margin: '0 auto 6px auto',
+                border: `1px solid ${activeItems[hoveredIndex].color}30`
+              }}>
+                {activeItems[hoveredIndex].icon}
+              </div>
+              <div style={{ 
+                fontSize: '11px', 
+                color: '#718EBF', 
+                fontWeight: '700', 
+                textTransform: 'uppercase', 
+                letterSpacing: '0.8px',
+                maxWidth: '120px',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis'
+              }}>
+                {activeItems[hoveredIndex].name}
+              </div>
+              <div style={{ fontSize: '20px', fontWeight: '850', color: 'var(--text-main)', marginTop: '2px' }}>
+                {Math.round((activeItems[hoveredIndex].value / total) * 100)}%
+              </div>
+            </div>
+          ) : (
+            <div style={{ animation: 'bdg-fadeIn 0.3s ease' }}>
+              <span style={{ fontSize: '24px', display: 'block', marginBottom: '2px' }}>💰</span>
+              <div style={{ fontSize: '10px', color: '#718EBF', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>TỔNG CHI</div>
+              <div style={{ fontSize: '18px', fontWeight: '850', color: 'var(--text-main)', marginTop: '1px' }}>
+                {Math.round(total).toLocaleString('vi-VN')}đ
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Grid danh sách chú thích 2 cột cực gọn và sang trọng */}
+      <div style={{ 
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+        gap: '12px',
+        width: '100%',
+        maxHeight: '200px',
+        overflowY: 'auto',
+        padding: '2px 4px',
+        scrollbarWidth: 'none'
+      }}>
+        {activeItems.map((item, idx) => {
+          const percentage = Math.round((item.value / total) * 100);
+          const isHovered = hoveredIndex === idx;
+          return (
+            <div
+              key={idx}
+              onMouseEnter={() => setHoveredIndex(idx)}
+              onMouseLeave={() => setHoveredIndex(null)}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                padding: '10px 14px',
+                borderRadius: '16px',
+                background: isHovered ? `${item.color}0c` : 'var(--bg-color)',
+                borderTop: isHovered ? `1px solid ${item.color}40` : '1px solid var(--border-color)',
+                borderRight: isHovered ? `1px solid ${item.color}40` : '1px solid var(--border-color)',
+                borderBottom: isHovered ? `1px solid ${item.color}40` : '1px solid var(--border-color)',
+                borderLeft: `4px solid ${item.color}`,
+                cursor: 'pointer',
+                transform: isHovered ? 'scale(1.03) translateY(-1px)' : 'scale(1) translateY(0)',
+                boxShadow: isHovered ? `0 8px 20px -6px ${item.color}20` : 'none',
+                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
+              }}
+            >
+              {/* Icon hình tròn nhỏ */}
+              <div style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                background: `${item.color}15`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '15px',
+                flexShrink: 0
+              }}>
+                {item.icon}
+              </div>
+
+              {/* Tên và số tiền */}
+              <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+                <span style={{ 
+                  fontSize: '12px', 
+                  fontWeight: '700', 
+                  color: 'var(--text-main)',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis'
+                }}>
+                  {item.name}
+                </span>
+                <span style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-main)', marginTop: '2px', opacity: 0.9 }}>
+                  {Math.round(item.value).toLocaleString('vi-VN')}đ
+                </span>
+              </div>
+
+              {/* Phần trăm */}
+              <span style={{ 
+                fontSize: '11px', 
+                fontWeight: '850', 
+                color: item.color, 
+                background: `${item.color}12`, 
+                padding: '2px 6px', 
+                borderRadius: '8px',
+                alignSelf: 'center',
+                flexShrink: 0
+              }}>
+                {percentage}%
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
 export default function Budget() {
   const { isLoggedIn, userData, categories } = useAppContext();
   const { t } = useLanguage();
@@ -558,6 +842,29 @@ export default function Budget() {
               </div>
             </div>
           </div>
+
+          {/* BIỂU ĐỒ TRÒN CƠ CẤU CHI TIÊU */}
+          {!isLoading && categoryBudgets.length > 0 && (
+            <div className="bdg-card-animate" style={{
+              background: 'var(--card-bg)',
+              borderRadius: '24px',
+              padding: '28px',
+              border: '1px solid var(--border-color)',
+              marginBottom: '24px',
+              boxShadow: '0 8px 24px rgba(0,0,0,0.02)',
+              animationDelay: '0.4s'
+            }}>
+              <h3 style={{ color: 'var(--text-main)', fontSize: '16px', fontWeight: '700', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0 }}>
+                <span>📊</span> Cơ cấu chi tiêu theo ngân sách danh mục
+              </h3>
+              <BudgetDoughnutChart data={categoryBudgets.map(b => ({
+                name: b.category?.name || 'Danh mục khác',
+                value: Math.abs(parseFloat(b.used_amount)),
+                color: b.category?.color || '#FF6384',
+                icon: parseIcon(b.category?.icon || 'grid')
+              }))} />
+            </div>
+          )}
 
           {/* LƯỚI NGÂN SÁCH DANH MỤC */}
           {isLoading ? (
