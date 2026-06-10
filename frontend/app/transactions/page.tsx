@@ -223,6 +223,8 @@ export default function Transactions() {
   const [isEditRecurringModalOpen, setIsEditRecurringModalOpen] = useState(false);
   const [editingRecurringTx, setEditingRecurringTx] = useState<any>(null);
   const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
+  const [isRuleDetailModalOpen, setIsRuleDetailModalOpen] = useState(false);
+  const [viewingRuleTx, setViewingRuleTx] = useState<any>(null);
 
   // States for search and advanced filters
   const [searchTerm, setSearchTerm] = useState('');
@@ -300,20 +302,21 @@ export default function Transactions() {
     };
 
     // Apply clean text search
-    if (parsed.cleanSearch) {
+    if (activeTab === 'recurring_history') {
+      params.search = 'Giao dịch định kỳ tự động tạo từ quy tắc';
+    } else if (parsed.cleanSearch) {
       params.search = parsed.cleanSearch;
     } else if (debouncedSearch && Object.keys(parsed).length === 0) {
       params.search = debouncedSearch;
     }
 
-    // Apply parsed or manual filters
     const finalStartDate = parsed.startDate || startDate;
     const finalEndDate = parsed.endDate || endDate;
     const finalWalletId = parsed.wallet_id || selectedWallet;
     const finalCategoryId = parsed.category_id || selectedCategory;
     const finalMinAmount = parsed.minAmount || minAmount;
     const finalMaxAmount = parsed.maxAmount || maxAmount;
-    const finalType = parsed.type || (activeTab !== 'all' && activeTab !== 'transfer' ? activeTab : undefined);
+    const finalType = parsed.type || (activeTab !== 'all' && activeTab !== 'transfer' && activeTab !== 'recurring_history' ? activeTab : undefined);
 
     if (finalStartDate) params.start_date = finalStartDate;
     if (finalEndDate) params.end_date = finalEndDate;
@@ -867,8 +870,8 @@ export default function Transactions() {
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: '30px', borderBottom: '1px solid var(--border-color)', marginBottom: '20px' }}>
-            {[{ k: 'all', l: t('all') }, { k: 'income', l: t('income') }, { k: 'expense', l: t('spending') }, { k: 'transfer', l: 'Chuyển tiền nội bộ' }, { k: 'recurring', l: 'Giao dịch định kỳ' }].map(tab => (
+          <div style={{ display: 'flex', gap: '30px', borderBottom: '1px solid var(--border-color)', marginBottom: '20px', overflowX: 'auto', whiteSpace: 'nowrap' }}>
+            {[{ k: 'all', l: t('all') }, { k: 'income', l: t('income') }, { k: 'expense', l: t('spending') }, { k: 'transfer', l: 'Chuyển tiền nội bộ' }, { k: 'recurring', l: 'Quy tắc định kỳ' }, { k: 'recurring_history', l: 'Lịch sử định kỳ' }].map(tab => (
               <div key={tab.k} onClick={() => {
                 setActiveTab(tab.k);
                 setCurrentCursor(null);
@@ -963,6 +966,24 @@ export default function Transactions() {
                         <div style={{ display: 'flex', gap: '8px' }}>
                           <button
                             onClick={() => {
+                              setViewingRuleTx(tx);
+                              setIsRuleDetailModalOpen(true);
+                            }}
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: '8px',
+                              background: '#F0F5FF',
+                              color: '#1814F3',
+                              border: 'none',
+                              cursor: 'pointer',
+                              fontSize: '13px',
+                              fontWeight: '600'
+                            }}
+                          >
+                            Chi tiết
+                          </button>
+                          <button
+                            onClick={() => {
                               setEditingRecurringTx({
                                 id: tx.id,
                                 title: tx.title || tx.description || tx.name || '',
@@ -1029,9 +1050,16 @@ export default function Transactions() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.length > 0 ? filtered.map((tx) => (
+                  {filtered.length > 0 ? filtered.map((tx: any) => (
                     <tr key={tx.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                      <td style={{ padding: '14px 8px', fontWeight: 600 }}>{tx.title}</td>
+                      <td style={{ padding: '14px 8px', fontWeight: 600 }}>
+                        {tx.title}
+                        {tx.source_type === 'recurring' && (
+                          <span style={{ marginLeft: '8px', padding: '2px 8px', background: '#E7EDFF', color: '#1814F3', fontSize: '11px', borderRadius: '12px', fontWeight: '500' }}>
+                            Tự động
+                          </span>
+                        )}
+                      </td>
                       <td style={{ padding: '14px 8px' }}>{tx.category?.name || '-'}</td>
                       <td style={{ padding: '14px 8px' }}>
                         <div style={{ fontWeight: '500' }}>{new Date(tx.transaction_date).toLocaleDateString('vi-VN')}</div>
@@ -1399,7 +1427,78 @@ export default function Transactions() {
           </div>
         </div>
       )}
+      {/* RULE DETAIL MODAL */}
+      {isRuleDetailModalOpen && viewingRuleTx && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }} onClick={() => setIsRuleDetailModalOpen(false)}>
+          <div style={{ background: 'var(--card-bg)', width: '100%', maxWidth: '500px', borderRadius: '24px', padding: '30px', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
+              <h2 style={{ margin: 0, fontSize: '22px', color: 'var(--text-main)', fontWeight: '700' }}>Chi tiết Quy tắc định kỳ</h2>
+              <button onClick={() => setIsRuleDetailModalOpen(false)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#718EBF' }}>&times;</button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', color: 'var(--text-main)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                <span style={{ color: '#718EBF', fontWeight: '500' }}>Tên giao dịch</span>
+                <span style={{ fontWeight: '600' }}>{viewingRuleTx.title || viewingRuleTx.description || viewingRuleTx.name}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                <span style={{ color: '#718EBF', fontWeight: '500' }}>Số tiền</span>
+                <span style={{ fontWeight: '600', color: viewingRuleTx.type === 'income' ? '#16DBCC' : '#FE5C73' }}>
+                  {viewingRuleTx.type === 'income' ? '+' : '-'}{Number(viewingRuleTx.amount).toLocaleString('vi-VN')}₫
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                <span style={{ color: '#718EBF', fontWeight: '500' }}>Loại</span>
+                <span style={{ fontWeight: '600' }}>{viewingRuleTx.type === 'income' ? 'Thu nhập' : 'Chi tiêu'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                <span style={{ color: '#718EBF', fontWeight: '500' }}>Ví</span>
+                <span style={{ fontWeight: '600' }}>{viewingRuleTx.wallet?.name || viewingRuleTx.wallet?.wallet_name || '-'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                <span style={{ color: '#718EBF', fontWeight: '500' }}>Danh mục</span>
+                <span style={{ fontWeight: '600' }}>{viewingRuleTx.category?.name || '-'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                <span style={{ color: '#718EBF', fontWeight: '500' }}>Tần suất lặp lại</span>
+                <span style={{ fontWeight: '600' }}>
+                  {viewingRuleTx.frequency === 'daily' ? 'Hàng ngày' : viewingRuleTx.frequency === 'weekly' ? 'Hàng tuần' : viewingRuleTx.frequency === 'yearly' ? 'Hàng năm' : 'Hàng tháng'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                <span style={{ color: '#718EBF', fontWeight: '500' }}>Trạng thái</span>
+                <span style={{ fontWeight: '600', color: viewingRuleTx.is_active ? '#1814F3' : '#FE5C73' }}>
+                  {viewingRuleTx.is_active ? 'Đang hoạt động' : 'Đã tạm dừng'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                <span style={{ color: '#718EBF', fontWeight: '500' }}>Ngày bắt đầu</span>
+                <span style={{ fontWeight: '600' }}>{viewingRuleTx.start_date ? new Date(viewingRuleTx.start_date).toLocaleDateString('vi-VN') : '-'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                <span style={{ color: '#718EBF', fontWeight: '500' }}>Lần chạy tiếp theo</span>
+                <span style={{ fontWeight: '600' }}>{viewingRuleTx.next_run_at ? new Date(viewingRuleTx.next_run_at).toLocaleDateString('vi-VN') : '-'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                <span style={{ color: '#718EBF', fontWeight: '500' }}>Ngày kết thúc</span>
+                <span style={{ fontWeight: '600' }}>{viewingRuleTx.end_at ? new Date(viewingRuleTx.end_at).toLocaleDateString('vi-VN') : 'Không giới hạn'}</span>
+              </div>
+              {viewingRuleTx.notes && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                  <span style={{ color: '#718EBF', fontWeight: '500' }}>Ghi chú</span>
+                  <div style={{ padding: '12px', background: 'var(--bg-color)', borderRadius: '12px', fontSize: '14px', fontStyle: 'italic' }}>
+                    {viewingRuleTx.notes}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '25px' }}>
+              <button style={{ padding: '12px 30px', background: '#1814F3', color: '#fff', borderRadius: '12px', border: 'none', cursor: 'pointer', fontWeight: '600', fontSize: '15px' }} onClick={() => setIsRuleDetailModalOpen(false)}>Đóng</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
-
 }
