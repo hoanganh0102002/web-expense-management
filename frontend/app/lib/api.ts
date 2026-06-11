@@ -284,6 +284,11 @@ export const notificationApi = {
   read: (id: string) => apiFetch(`/notifications/${id}/read`, { method: 'POST' }),
   readAll: () => apiFetch('/notifications/read-all', { method: 'POST' }),
   delete: (id: string) => apiFetch(`/notifications/${id}`, { method: 'DELETE' }),
+  getPreferences: () => apiFetch('/notifications/preferences'),
+  updatePreferences: (data: any) => apiFetch('/notifications/preferences', {
+    method: 'POST',
+    body: JSON.stringify(data)
+  }),
 };
 
 // --- REPORT APIs ---
