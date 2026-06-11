@@ -53,7 +53,10 @@ export default function Notifications() {
 
   const handleMarkAsRead = async (id: string) => {
     try {
-      await notificationApi.read(id);
+      // Bỏ qua gọi API nếu đây là thông báo test cục bộ (không phải UUID)
+      if (id.includes('-')) {
+        await notificationApi.read(id);
+      }
       setNotificationsList(prev => prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n));
     } catch (e) {
       console.error("Lỗi khi đánh dấu đã đọc:", e);
@@ -72,7 +75,9 @@ export default function Notifications() {
   const handleDeleteNotification = async (id: string) => {
     if (window.confirm("Bạn có chắc chắn muốn xóa thông báo này?")) {
       try {
-        await notificationApi.delete(id);
+        if (id.includes('-')) {
+          await notificationApi.delete(id);
+        }
         setNotificationsList(prev => prev.filter(n => n.id !== id));
       } catch (e) {
         console.error("Lỗi khi xóa thông báo:", e);
@@ -181,7 +186,9 @@ export default function Notifications() {
                     background: 'var(--card-bg)',
                     borderRadius:'16px',
                     padding:'20px',
-                    border:`1px solid ${isRead ? 'var(--border-color)' : tc[type].b}`,
+                    borderTop:`1px solid ${isRead ? 'var(--border-color)' : tc[type].b}`,
+                    borderRight:`1px solid ${isRead ? 'var(--border-color)' : tc[type].b}`,
+                    borderBottom:`1px solid ${isRead ? 'var(--border-color)' : tc[type].b}`,
                     borderLeft:`4px solid ${tc[type].b}`,
                     display:'flex',
                     alignItems:'center',
