@@ -173,9 +173,9 @@ export default function Categories() {
             </div>
 
             {/* Notification Icon */}
-            <div style={{background: '#F5F7FA', width: '45px', height: '45px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffb300', cursor: 'pointer', fontSize: '20px'}}>
+            <Link href="/notifications" style={{background: '#F5F7FA', width: '45px', height: '45px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffb300', cursor: 'pointer', fontSize: '20px', textDecoration: 'none'}}>
               🔔
-            </div>
+            </Link>
 
             {/* User Profile */}
             <div className="nav-actions">

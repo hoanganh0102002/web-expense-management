@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Sidebar from '../components/Sidebar';
 import { useAppContext } from '../context/AppContext';
 import { useLanguage } from '../lib/translations';
-import { apiFetch } from '../lib/api';
+import { apiFetch, budgetApi, transactionApi } from '../lib/api';
 
 const parseIcon = (iconName: string) => {
   const iconMap: Record<string, string> = {
@@ -513,6 +513,52 @@ export default function Transactions() {
 
       await createTransaction(formData);
 
+      // --- Kiểm tra cảnh báo ngân sách (Frontend) ---
+      if (newTx.type === 'expense') {
+        try {
+          const tDate = new Date(newTx.transaction_date);
+          const tMonth = tDate.getMonth() + 1;
+          const tYear = tDate.getFullYear();
+          const budgetRes = await budgetApi.getAll(tMonth, tYear);
+          const budgets = budgetRes.data || [];
+
+          if (budgets.length > 0) {
+            const pad = (n: number) => n.toString().padStart(2, '0');
+            const totalDays = new Date(tYear, tMonth, 0).getDate();
+            const start_date = `${tYear}-${pad(tMonth)}-01`;
+            const end_date = `${tYear}-${pad(tMonth)}-${pad(totalDays)}`;
+            const transRes = await transactionApi.getAll({ start_date, end_date, per_page: 1000 });
+            const allTrans = transRes.data?.data || transRes.data || [];
+
+            const targetBudgets = budgets.filter((b: any) => 
+               b.category_id === null || b.category_id === newTx.category_id
+            );
+
+            for (const b of targetBudgets) {
+              const limit = parseFloat(b.limit_amount);
+              if (limit > 0) {
+                let used = 0;
+                if (b.category_id === null) {
+                   used = allTrans.filter((t: any) => t.type === 'expense').reduce((sum: number, t: any) => sum + Math.abs(parseFloat(t.amount_in_user_currency || t.amount || 0)), 0);
+                } else {
+                   used = allTrans.filter((t: any) => t.type === 'expense' && t.category_id === b.category_id).reduce((sum: number, t: any) => sum + Math.abs(parseFloat(t.amount_in_user_currency || t.amount || 0)), 0);
+                }
+                
+                const percent = (used / limit) * 100;
+                if (percent >= 100) {
+                  alert(`⚠️ CẢNH BÁO: Bạn đã vượt quá 100% hạn mức ngân sách ${b.category?.name ? 'cho danh mục ' + b.category.name : 'tổng'} tháng ${tMonth}/${tYear}!`);
+                } else if (percent >= 80) {
+                  alert(`⚡ LƯU Ý: Bạn đã dùng hết ${Math.round(percent)}% hạn mức ngân sách ${b.category?.name ? 'cho danh mục ' + b.category.name : 'tổng'} tháng ${tMonth}/${tYear}!`);
+                }
+              }
+            }
+          }
+        } catch (e) {
+          console.error("Lỗi khi tính toán cảnh báo ngân sách:", e);
+        }
+      }
+      // ----------------------------------------------
+
       // 2. Nếu có chọn định kỳ thì tạo thêm rule để hệ thống tự động chạy các lần sau
       if (newTx.is_recurring) {
         await apiFetch('/recurring-rules', {
@@ -526,8 +572,8 @@ export default function Transactions() {
             wallet_id: newTx.wallet_id,
             category_id: newTx.category_id || null,
             frequency: newTx.frequency,
-            start_date: newTx.transaction_date.split('T')[0],
-            end_date: newTx.end_date || null,
+            next_run_at: newTx.transaction_date.split('T')[0],
+            end_at: newTx.end_date || null,
             notes: newTx.notes
           })
         });
@@ -601,8 +647,8 @@ export default function Transactions() {
           wallet_id: editingRecurringTx.wallet_id,
           category_id: editingRecurringTx.category_id || null,
           frequency: editingRecurringTx.frequency,
-          start_date: editingRecurringTx.start_date,
-          end_date: editingRecurringTx.end_date || null,
+          next_run_at: editingRecurringTx.start_date,
+          end_at: editingRecurringTx.end_date || null,
           notes: editingRecurringTx.notes
         })
       });
@@ -659,6 +705,9 @@ export default function Transactions() {
             <button style={{ background: '#1814F3', color: '#fff', padding: '10px 20px', borderRadius: '24px', fontWeight: '600', border: 'none', cursor: 'pointer', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={handleAdd}>
               {t('add_transaction')}
             </button>
+            <Link href="/notifications" style={{background: '#F5F7FA', width: '45px', height: '45px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffb300', cursor: 'pointer', fontSize: '20px', textDecoration: 'none'}}>
+              🔔
+            </Link>
             {isLoggedIn ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                 <span style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '15px' }}>
@@ -993,7 +1042,7 @@ export default function Transactions() {
                                 category_id: tx.category_id || '',
                                 frequency: tx.frequency || 'monthly',
                                 start_date: tx.start_date ? tx.start_date.split('T')[0] : (tx.next_run_at ? tx.next_run_at.split('T')[0] : getLocalDateTime().split('T')[0]),
-                                end_date: tx.end_date ? tx.end_date.split('T')[0] : '',
+                                end_date: tx.end_at ? tx.end_at.split('T')[0] : '',
                                 notes: tx.notes || ''
                               });
                               setIsEditRecurringModalOpen(true);
@@ -1430,7 +1479,7 @@ export default function Transactions() {
       {/* RULE DETAIL MODAL */}
       {isRuleDetailModalOpen && viewingRuleTx && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }} onClick={() => setIsRuleDetailModalOpen(false)}>
-          <div style={{ background: 'var(--card-bg)', width: '100%', maxWidth: '500px', borderRadius: '24px', padding: '30px', boxShadow: '0 20px 40px rgba(0,0,0,0.1)', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+          <div style={{ background: 'var(--card-bg)', backdropFilter: 'blur(30px)', WebkitBackdropFilter: 'blur(30px)', width: '100%', maxWidth: '500px', borderRadius: '24px', padding: '30px', boxShadow: '0 20px 40px rgba(0,0,0,0.5)', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
               <h2 style={{ margin: 0, fontSize: '22px', color: 'var(--text-main)', fontWeight: '700' }}>Chi tiết Quy tắc định kỳ</h2>
               <button onClick={() => setIsRuleDetailModalOpen(false)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#718EBF' }}>&times;</button>

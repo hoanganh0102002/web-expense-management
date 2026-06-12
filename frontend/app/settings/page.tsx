@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import Sidebar from '../components/Sidebar';
-import { authApi } from '../lib/api';
+import { authApi, notificationApi } from '../lib/api';
 import { useAppContext } from '../context/AppContext';
 import { useLanguage } from '../lib/translations';
 import { useTheme } from '../context/ThemeContext';
@@ -66,6 +66,10 @@ export default function Settings() {
   const [currency, setCurrency] = useState('VNĐ (₫)');
   const [timezone, setTimezone] = useState('(GMT+07:00) Bangkok, Hanoi, Jakarta');
   const [language, setLanguage] = useState('Tiếng Việt');
+  const [emailReminder, setEmailReminder] = useState(false);
+  const [budgetAlert, setBudgetAlert] = useState(false);
+  const [recurringAlert, setRecurringAlert] = useState(false);
+  const [notificationFrequency, setNotificationFrequency] = useState('daily');
   const [isUpdating, setIsUpdating] = useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
 
@@ -76,6 +80,16 @@ export default function Settings() {
       setCurrency(userData.preference?.currency || 'VNĐ (₫)');
       setTimezone(userData.preference?.timezone || '(GMT+07:00) Bangkok, Hanoi, Jakarta');
       setLanguage(userData.preference?.language === 'en' ? 'English' : 'Tiếng Việt');
+      
+      // Fetch notification preferences from API
+      notificationApi.getPreferences().then(res => {
+        if (res.data) {
+          setEmailReminder(res.data.daily_reminder_enabled ?? false);
+          setBudgetAlert(res.data.budget_alert_enabled ?? true);
+          setRecurringAlert(res.data.recurring_alert_enabled ?? true);
+          setNotificationFrequency(res.data.notification_frequency || (res.data.weekly_summary_enabled ? 'weekly' : 'daily'));
+        }
+      }).catch(err => console.error("Lỗi lấy cài đặt thông báo:", err));
     }
   }, [userData]);
 
@@ -149,9 +163,9 @@ export default function Settings() {
           <h1 className="page-title" style={{ color: 'var(--text-main)', fontWeight: '800' }}>{t('settings_customize')}</h1>
           <div className="nav-actions" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
             {/* Notification Icon */}
-            <div style={{background: '#F5F7FA', width: '45px', height: '45px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffb300', cursor: 'pointer', fontSize: '20px'}}>
+            <Link href="/notifications" style={{background: '#F5F7FA', width: '45px', height: '45px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffb300', cursor: 'pointer', fontSize: '20px', textDecoration: 'none'}}>
               🔔
-            </div>
+            </Link>
             {isLoggedIn ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                 <span style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '15px' }}>{displayName}</span>
@@ -318,6 +332,96 @@ export default function Settings() {
                     onClick={toggleTheme}
                     style={{ width: '56px', height: '30px', borderRadius: '15px', background: theme === 'dark' ? '#1814F3' : 'var(--border-color)', position: 'relative', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>
                     <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '4px', left: theme === 'dark' ? '30px' : '4px', transition: '0.3s', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}></div>
+                  </div>
+                </div>
+
+                <div style={{ marginTop: '30px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
+                  <h3 style={{ color: 'var(--text-main)', marginBottom: '20px', fontSize: '18px' }}>Cài đặt thông báo</h3>
+                  
+                  <div style={{ padding: '32px', background: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <div>
+                      <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '8px', fontSize: '17px' }}>Email nhắc nhở chi tiêu</div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '350px' }}>Nhận email nhắc nhở vào cuối ngày nếu bạn chưa nhập chi tiêu.</div>
+                    </div>
+                    <div 
+                      onClick={async () => {
+                        const val = !emailReminder;
+                        setEmailReminder(val);
+                        try {
+                          await notificationApi.updatePreferences({ daily_reminder_enabled: val });
+                        } catch (err) {
+                          console.error("Lỗi cập nhật email reminder:", err);
+                          setEmailReminder(!val);
+                          alert("Không thể lưu cài đặt. Vui lòng thử lại!");
+                        }
+                      }}
+                      style={{ width: '56px', height: '30px', borderRadius: '15px', background: emailReminder ? '#1814F3' : 'var(--border-color)', position: 'relative', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>
+                      <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '4px', left: emailReminder ? '30px' : '4px', transition: '0.3s', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}></div>
+                    </div>
+                  </div>
+
+                  <div style={{ padding: '32px', background: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <div>
+                      <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '8px', fontSize: '17px' }}>Cảnh báo vượt ngân sách</div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '350px' }}>Nhận cảnh báo qua email và ứng dụng khi đạt 80% hoặc vượt 100% ngân sách.</div>
+                    </div>
+                    <div 
+                      onClick={async () => {
+                        const val = !budgetAlert;
+                        setBudgetAlert(val);
+                        try {
+                          await notificationApi.updatePreferences({ budget_alert_enabled: val });
+                        } catch (err) {
+                          setBudgetAlert(!val);
+                          alert("Không thể lưu cài đặt. Vui lòng thử lại!");
+                        }
+                      }}
+                      style={{ width: '56px', height: '30px', borderRadius: '15px', background: budgetAlert ? '#1814F3' : 'var(--border-color)', position: 'relative', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>
+                      <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '4px', left: budgetAlert ? '30px' : '4px', transition: '0.3s', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}></div>
+                    </div>
+                  </div>
+
+                  <div style={{ padding: '32px', background: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                    <div>
+                      <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '8px', fontSize: '17px' }}>Thông báo giao dịch định kỳ</div>
+                      <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '350px' }}>Nhận thông báo trong ứng dụng khi hệ thống tự động tạo giao dịch định kỳ.</div>
+                    </div>
+                    <div 
+                      onClick={async () => {
+                        const val = !recurringAlert;
+                        setRecurringAlert(val);
+                        try {
+                          await notificationApi.updatePreferences({ recurring_alert_enabled: val });
+                        } catch (err) {
+                          setRecurringAlert(!val);
+                          alert("Không thể lưu cài đặt. Vui lòng thử lại!");
+                        }
+                      }}
+                      style={{ width: '56px', height: '30px', borderRadius: '15px', background: recurringAlert ? '#1814F3' : 'var(--border-color)', position: 'relative', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>
+                      <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '4px', left: recurringAlert ? '30px' : '4px', transition: '0.3s', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}></div>
+                    </div>
+                  </div>
+
+                  <div style={{ padding: '32px', background: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px solid var(--border-color)', marginBottom: '20px' }}>
+                    <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '8px', fontSize: '17px' }}>Tần suất nhận báo cáo tổng hợp</div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '15px' }}>Chọn mức độ thường xuyên bạn muốn nhận email tóm tắt chi tiêu.</div>
+                    <select 
+                      value={notificationFrequency}
+                      onChange={async (e) => {
+                        const val = e.target.value;
+                        setNotificationFrequency(val);
+                        try {
+                          await notificationApi.updatePreferences({ notification_frequency: val });
+                        } catch (err) {
+                          alert("Không thể lưu cài đặt. Vui lòng thử lại!");
+                        }
+                      }}
+                      style={{ width: '100%', padding: '14px', border: '1px solid var(--border-color)', borderRadius: '15px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px', appearance: 'none', cursor: 'pointer' }}>
+                      <option value="daily">Hàng ngày</option>
+                      <option value="weekly">Hàng tuần</option>
+                      <option value="monthly">Hàng tháng</option>
+                      <option value="never">Không bao giờ</option>
+                    </select>
                   </div>
                 </div>
                 <button 
