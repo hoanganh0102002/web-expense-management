@@ -632,8 +632,8 @@ export default function Transactions() {
               const transRes = await transactionApi.getAll({ start_date, end_date, per_page: 1000 });
               const allTrans = transRes.data?.data || transRes.data || [];
 
-              const targetBudgets = budgets.filter((b: any) => 
-                 b.category_id === null || b.category_id === newTx.category_id
+              const targetBudgets = budgets.filter((b: any) =>
+                b.category_id === null || b.category_id === newTx.category_id
               );
 
               for (const b of targetBudgets) {
@@ -641,22 +641,22 @@ export default function Transactions() {
                 if (limit > 0) {
                   let used = 0;
                   if (b.category_id === null) {
-                     used = allTrans.filter((t: any) => t.type === 'expense').reduce((sum: number, t: any) => sum + Math.abs(parseFloat(t.amount_in_user_currency || t.amount || 0)), 0);
+                    used = allTrans.filter((t: any) => t.type === 'expense').reduce((sum: number, t: any) => sum + Math.abs(parseFloat(t.amount_in_user_currency || t.amount || 0)), 0);
                   } else {
-                     used = allTrans.filter((t: any) => t.type === 'expense' && t.category_id === b.category_id).reduce((sum: number, t: any) => sum + Math.abs(parseFloat(t.amount_in_user_currency || t.amount || 0)), 0);
+                    used = allTrans.filter((t: any) => t.type === 'expense' && t.category_id === b.category_id).reduce((sum: number, t: any) => sum + Math.abs(parseFloat(t.amount_in_user_currency || t.amount || 0)), 0);
                   }
-                  
+
                   const percent = (used / limit) * 100;
                   if (percent >= 100) {
-                    alert(`⚠️ CẢNH BÁO: Bạn đã vượt quá 100% hạn mức ngân sách ${b.category?.name ? 'cho danh mục ' + b.category.name : 'tổng'} tháng ${tMonth}/${tYear}!`);
+                    alert(`⚠️ ${t('budget_warning') || 'CẢNH BÁO'}: ${b.category?.name || t('total_budget') || 'Tổng'} - ${Math.round(percent)}%!`);
                   } else if (percent >= 80) {
-                    alert(`⚡ LƯU Ý: Bạn đã dùng hết ${Math.round(percent)}% hạn mức ngân sách ${b.category?.name ? 'cho danh mục ' + b.category.name : 'tổng'} tháng ${tMonth}/${tYear}!`);
+                    alert(`⚡ ${t('budget_notice') || 'LƯU Ý'}: ${b.category?.name || t('total_budget') || 'Tổng'} - ${Math.round(percent)}%!`);
                   }
                 }
               }
             }
           } catch (e) {
-            console.error("Lỗi khi tính toán cảnh báo ngân sách:", e);
+            console.error("Error checking budget alerts:", e);
           }
         })();
       }
