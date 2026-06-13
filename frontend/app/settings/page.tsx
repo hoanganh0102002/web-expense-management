@@ -241,45 +241,6 @@ export default function Settings() {
                   );
                 })}
               </div>
-            
-            <div style={{ padding: '40px', position: 'relative' }}>
-              {/* Tabs Navigation */}
-              <div style={{ 
-                display: 'inline-flex', 
-                gap: '4px', 
-                marginBottom: '35px', 
-                background: 'rgba(255, 255, 255, 0.03)', 
-                padding: '4px', 
-                borderRadius: '12px',
-                border: '1px solid var(--border-color)'
-              }}>
-              {[
-                { k: 'profile', l: t('personal_info') },
-                { k: 'preferences', l: t('display_options') },
-                { k: 'security', l: t('security') },
-              ].map(tab => (
-                <div
-                  key={tab.k}
-                  onClick={() => setActiveTab(tab.k)}
-                  style={{
-                    padding: '10px 24px',
-                    color: activeTab === tab.k ? '#FFFFFF' : 'var(--text-muted)',
-                    background: activeTab === tab.k ? 'var(--active-blue)' : 'transparent',
-                    fontWeight: '600',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    transition: 'all 0.3s ease',
-                    borderRadius: '8px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    boxShadow: activeTab === tab.k ? '0 4px 14px rgba(99, 102, 241, 0.2)' : 'none'
-                  }}
-                >
-                  {tab.l}
-                </div>
-              ))}
-            </div>
 
             {activeTab === 'profile' && (
               <div style={{ display: 'flex', gap: '60px', alignItems: 'flex-start' }}>
@@ -379,7 +340,11 @@ export default function Settings() {
                         onChange={(e) => setCurrency(e.target.value)}
                         className="settings-select"
                       >
-                        <option>VNĐ (₫)</option><option>USD ($)</option>
+                        <option value="VND">VNĐ (₫)</option>
+                        <option value="USD">USD ($)</option>
+                        <option value="EUR">EUR (€)</option>
+                        <option value="GBP">GBP (£)</option>
+                        <option value="JPY">JPY (¥)</option>
                       </select>
                     </div>
                   </div>
@@ -389,38 +354,17 @@ export default function Settings() {
                       <select 
                         disabled={!isLoggedIn} 
                         value={language}
-                        onChange={(e) => setLanguage(e.target.value)}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setLanguage(val);
+                          changeGlobalLanguage(val === 'Tiếng Việt' ? 'vi' : 'en');
+                        }}
                         className="settings-select"
                       >
-                        <option>Tiếng Việt</option><option>English</option>
+                        <option value="Tiếng Việt">Tiếng Việt</option>
+                        <option value="English">English</option>
                       </select>
                     </div>
-                    <select 
-                      disabled={!isLoggedIn} 
-                      value={currency}
-                      onChange={(e) => setCurrency(e.target.value)}
-                      style={{ width: '100%', padding: '14px', border: '1px solid var(--border-color)', borderRadius: '15px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px', appearance: 'none' }}>
-                      <option value="VND">VNĐ (₫)</option>
-                      <option value="USD">USD ($)</option>
-                      <option value="EUR">EUR (€)</option>
-                      <option value="GBP">GBP (£)</option>
-                      <option value="JPY">JPY (¥)</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '600', fontSize: '15px' }}>{t('language_label')}</label>
-                    <select 
-                      disabled={!isLoggedIn} 
-                      value={language}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setLanguage(val);
-                        changeGlobalLanguage(val === 'Tiếng Việt' ? 'vi' : 'en');
-                      }}
-                      style={{ width: '100%', padding: '14px', border: '1px solid var(--border-color)', borderRadius: '15px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px', appearance: 'none' }}>
-                      <option value="Tiếng Việt">Tiếng Việt</option>
-                      <option value="English">English</option>
-                    </select>
                   </div>
                 </div>
                 <div className="settings-group-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '30px' }}>

@@ -598,6 +598,7 @@ export default function Transactions() {
         type: 'expense',
         wallet_id: wallets[0]?.id || '',
         category_id: '',
+        payee_id: '',
         transaction_date: getLocalDateTime(),
         notes: '',
         attachment: null,
@@ -651,40 +652,6 @@ export default function Transactions() {
                   } else if (percent >= 80) {
                     alert(`⚡ LƯU Ý: Bạn đã dùng hết ${Math.round(percent)}% hạn mức ngân sách ${b.category?.name ? 'cho danh mục ' + b.category.name : 'tổng'} tháng ${tMonth}/${tYear}!`);
                   }
-        try {
-          const tDate = new Date(newTx.transaction_date);
-          const tMonth = tDate.getMonth() + 1;
-          const tYear = tDate.getFullYear();
-          const budgetRes = await budgetApi.getAll(tMonth, tYear);
-          const budgets = budgetRes.data || [];
-
-          if (budgets.length > 0) {
-            const pad = (n: number) => n.toString().padStart(2, '0');
-            const totalDays = new Date(tYear, tMonth, 0).getDate();
-            const start_date = `${tYear}-${pad(tMonth)}-01`;
-            const end_date = `${tYear}-${pad(tMonth)}-${pad(totalDays)}`;
-            const transRes = await transactionApi.getAll({ start_date, end_date, per_page: 1000 });
-            const allTrans = transRes.data?.data || transRes.data || [];
-
-            const targetBudgets = budgets.filter((b: any) =>
-              b.category_id === null || b.category_id === newTx.category_id
-            );
-
-            for (const b of targetBudgets) {
-              const limit = parseFloat(b.limit_amount);
-              if (limit > 0) {
-                let used = 0;
-                if (b.category_id === null) {
-                  used = allTrans.filter((t: any) => t.type === 'expense').reduce((sum: number, t: any) => sum + Math.abs(parseFloat(t.amount_in_user_currency || t.amount || 0)), 0);
-                } else {
-                  used = allTrans.filter((t: any) => t.type === 'expense' && t.category_id === b.category_id).reduce((sum: number, t: any) => sum + Math.abs(parseFloat(t.amount_in_user_currency || t.amount || 0)), 0);
-                }
-
-                const percent = (used / limit) * 100;
-                if (percent >= 100) {
-                  alert(`⚠️ CẢNH BÁO: Bạn đã vượt quá 100% hạn mức ngân sách ${b.category?.name ? 'cho danh mục ' + b.category.name : 'tổng'} tháng ${tMonth}/${tYear}!`);
-                } else if (percent >= 80) {
-                  alert(`⚡ LƯU Ý: Bạn đã dùng hết ${Math.round(percent)}% hạn mức ngân sách ${b.category?.name ? 'cho danh mục ' + b.category.name : 'tổng'} tháng ${tMonth}/${tYear}!`);
                 }
               }
             }
@@ -1999,6 +1966,10 @@ export default function Transactions() {
               >
                 {isSubmittingEdit ? 'Đang lưu...' : 'Lưu thay đổi'}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Payee Selection Modal */}
       {isPayeeModalOpen && (
