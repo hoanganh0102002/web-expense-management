@@ -8,8 +8,8 @@ import { useLanguage } from '../lib/translations';
 import { useTheme } from '../context/ThemeContext';
 
 export default function Settings() {
-  const { isLoggedIn, userData, logout, logoutAll } = useAppContext();
-  const { t } = useLanguage();
+  const { isLoggedIn, userData, logout, logoutAll, updateUserPreference, updateUserProfile } = useAppContext();
+  const { t, setLanguage: changeGlobalLanguage } = useLanguage();
   const { theme, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState('profile');
 
@@ -63,7 +63,7 @@ export default function Settings() {
 
   // State for Profile
   const [fullName, setFullName] = useState('');
-  const [currency, setCurrency] = useState('VNĐ (₫)');
+  const [currency, setCurrency] = useState('VND');
   const [timezone, setTimezone] = useState('(GMT+07:00) Bangkok, Hanoi, Jakarta');
   const [language, setLanguage] = useState('Tiếng Việt');
   const [emailReminder, setEmailReminder] = useState(false);
@@ -77,7 +77,7 @@ export default function Settings() {
   React.useEffect(() => {
     if (userData) {
       setFullName(userData.profile?.full_name || userData.full_name || '');
-      setCurrency(userData.preference?.currency || 'VNĐ (₫)');
+      setCurrency(userData.preference?.currency || 'VND');
       setTimezone(userData.preference?.timezone || '(GMT+07:00) Bangkok, Hanoi, Jakarta');
       setLanguage(userData.preference?.language === 'en' ? 'English' : 'Tiếng Việt');
       
@@ -98,21 +98,16 @@ export default function Settings() {
     try {
       const payload = fieldSet === 'profile' 
         ? { full_name: fullName }
-        : { currency, timezone, language: language === 'Tiếng Việt' ? 'vi' : 'en' };
+        : { currency, timezone, language: language === 'Tiếng Việt' ? 'vi' : 'en', theme };
       
-      const response = await authApi.updateProfile(payload);
+      await authApi.updateProfile(payload);
       
-      // Update local userData
-      const updatedUser = { ...userData };
       if (fieldSet === 'profile') {
-        updatedUser.profile = { ...updatedUser.profile, full_name: fullName };
+        updateUserProfile({ full_name: fullName });
       } else {
-        updatedUser.preference = { ...updatedUser.preference, ...payload };
-        localStorage.setItem('app_lang', payload.language as string);
+        updateUserPreference(payload);
       }
-      localStorage.setItem('user_data', JSON.stringify(updatedUser));
       alert(t('update_success'));
-      window.location.reload(); // Refresh to update all components
     } catch (err: any) {
       alert(t('error_prefix') + err.message);
     } finally {
@@ -182,7 +177,7 @@ export default function Settings() {
 
         <div className="content-area">
           <div style={{ 
-            background: 'var(--card-bg)', 
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.04) 0%, rgba(99, 102, 241, 0) 50%), var(--card-bg)', 
             borderRadius: '32px', 
             padding: '0', 
             boxShadow: '0 20px 50px rgba(0,0,0,0.3)', 
@@ -246,6 +241,45 @@ export default function Settings() {
                   );
                 })}
               </div>
+            
+            <div style={{ padding: '40px', position: 'relative' }}>
+              {/* Tabs Navigation */}
+              <div style={{ 
+                display: 'inline-flex', 
+                gap: '4px', 
+                marginBottom: '35px', 
+                background: 'rgba(255, 255, 255, 0.03)', 
+                padding: '4px', 
+                borderRadius: '12px',
+                border: '1px solid var(--border-color)'
+              }}>
+              {[
+                { k: 'profile', l: t('personal_info') },
+                { k: 'preferences', l: t('display_options') },
+                { k: 'security', l: t('security') },
+              ].map(tab => (
+                <div
+                  key={tab.k}
+                  onClick={() => setActiveTab(tab.k)}
+                  style={{
+                    padding: '10px 24px',
+                    color: activeTab === tab.k ? '#FFFFFF' : 'var(--text-muted)',
+                    background: activeTab === tab.k ? 'var(--active-blue)' : 'transparent',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    transition: 'all 0.3s ease',
+                    borderRadius: '8px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: activeTab === tab.k ? '0 4px 14px rgba(99, 102, 241, 0.2)' : 'none'
+                  }}
+                >
+                  {tab.l}
+                </div>
+              ))}
+            </div>
 
             {activeTab === 'profile' && (
               <div style={{ display: 'flex', gap: '60px', alignItems: 'flex-start' }}>
@@ -361,6 +395,32 @@ export default function Settings() {
                         <option>Tiếng Việt</option><option>English</option>
                       </select>
                     </div>
+                    <select 
+                      disabled={!isLoggedIn} 
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value)}
+                      style={{ width: '100%', padding: '14px', border: '1px solid var(--border-color)', borderRadius: '15px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px', appearance: 'none' }}>
+                      <option value="VND">VNĐ (₫)</option>
+                      <option value="USD">USD ($)</option>
+                      <option value="EUR">EUR (€)</option>
+                      <option value="GBP">GBP (£)</option>
+                      <option value="JPY">JPY (¥)</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '600', fontSize: '15px' }}>{t('language_label')}</label>
+                    <select 
+                      disabled={!isLoggedIn} 
+                      value={language}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setLanguage(val);
+                        changeGlobalLanguage(val === 'Tiếng Việt' ? 'vi' : 'en');
+                      }}
+                      style={{ width: '100%', padding: '14px', border: '1px solid var(--border-color)', borderRadius: '15px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px', appearance: 'none' }}>
+                      <option value="Tiếng Việt">Tiếng Việt</option>
+                      <option value="English">English</option>
+                    </select>
                   </div>
                 </div>
                 <div className="settings-group-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '30px' }}>

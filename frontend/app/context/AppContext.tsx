@@ -8,6 +8,8 @@ type AppContextType = {
   login: (data?: any) => void;
   logout: () => Promise<void>;
   logoutAll: () => Promise<void>;
+  updateUserPreference: (pref: any) => void;
+  updateUserProfile: (profile: any) => void;
   transactions: any[];
   isLoadingTransactions: boolean;
   fetchTransactions: (params?: any) => Promise<any>;
@@ -66,6 +68,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       window.removeEventListener('auth-unauthorized', handleUnauthorized);
     };
   }, []);
+
+  const updateUserPreference = (pref: any) => {
+    setUserData((prev: any) => {
+      if (!prev) return null;
+      const updated = {
+        ...prev,
+        preference: {
+          ...(prev.preference || {}),
+          ...pref
+        }
+      };
+      localStorage.setItem('user_data', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const updateUserProfile = (profile: any) => {
+    setUserData((prev: any) => {
+      if (!prev) return null;
+      const updated = {
+        ...prev,
+        profile: {
+          ...(prev.profile || {}),
+          ...profile
+        }
+      };
+      localStorage.setItem('user_data', JSON.stringify(updated));
+      return updated;
+    });
+  };
 
   const fetchTransactions = async (params: any = {}) => {
     if (!localStorage.getItem('access_token')) return;
@@ -211,7 +243,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AppContext.Provider value={{ 
-      isLoggedIn, userData, login, logout, logoutAll, 
+      isLoggedIn, userData, login, logout, logoutAll, updateUserPreference, updateUserProfile,
       transactions, isLoadingTransactions, fetchTransactions, createTransaction, deleteTransaction,
       wallets, isLoadingWallets, fetchWallets, createWallet, updateWallet, deleteWallet,
       categories, isLoadingCategories, fetchCategories, createCategory, updateCategory, deleteCategory

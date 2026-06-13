@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect, createContext, useContext } from 'react';
+import { useAppContext } from '../context/AppContext';
+import { authApi } from './api';
 
 const translations: Record<string, Record<string, string>> = {
   vi: {
@@ -231,6 +233,76 @@ const translations: Record<string, Record<string, string>> = {
     education: "Giáo dục",
     bills: "Hóa đơn",
     rent: "Tiền thuê",
+
+    // Budget Extra
+    budget_no_expenses: "Chưa phát sinh chi tiêu trong tháng này",
+    budget_no_expenses_desc: "Biểu đồ phân tích sẽ tự động hiển thị ngay khi bạn có giao dịch chi tiêu được hoàn tất trong tháng.",
+    total_spending_label: "TỔNG CHI",
+    month_label: "Tháng",
+    year_label: "Năm",
+    month_1: "Tháng 1",
+    month_2: "Tháng 2",
+    month_3: "Tháng 3",
+    month_4: "Tháng 4",
+    month_5: "Tháng 5",
+    month_6: "Tháng 6",
+    month_7: "Tháng 7",
+    month_8: "Tháng 8",
+    month_9: "Tháng 9",
+    month_10: "Tháng 10",
+    month_11: "Tháng 11",
+    month_12: "Tháng 12",
+    other_category: "Danh mục khác",
+    total_monthly_budget_title: "TỔNG NGÂN SÁCH THÁNG",
+    total_category_budget_title: "TỔNG NGÂN SÁCH CÁC DANH MỤC",
+    edit_limit: "✏️ Sửa hạn mức",
+    delete_total_limit: "Xóa hạn mức tổng",
+    over_limit_by: "⚠️ Vượt",
+    equal_to_last_month: "~ Bằng tháng trước",
+    remaining: "Còn lại",
+    all_budget_used: "Đã dùng hết ngân sách",
+    current_available_balance: "Số dư khả dụng hiện tại",
+    avg_per_day: "Trung bình/ngày",
+    based_on_passed_days: "Tính trên {days} ngày đã qua",
+    month_end_forecast: "Dự báo cuối tháng",
+    projected_over_budget: "⚠️ Dự kiến vượt hạn mức",
+    projected_within_budget: "Dự kiến chi hết tháng",
+    category_limits_count: "Số danh mục hạn mức",
+    categories_unit: "danh mục",
+    out_of_total_categories: "Từ tổng số {total} nhóm chi tiêu",
+    spending_structure_by_category: "Cơ cấu chi tiêu theo ngân sách danh mục",
+    click_to_view_tx: "Bấm để xem chi tiết giao dịch",
+    edit_label: "✏️ Sửa",
+    delete_label: "🗑️ Xóa",
+    transactions_in_month: "Giao dịch trong tháng",
+    loading_transactions: "Đang tải giao dịch...",
+    no_transactions_found_budget: "Không có giao dịch nào.",
+    no_budget_setup: "Chưa thiết lập ngân sách tháng này",
+    no_budget_desc: "Thiết lập ngân sách giúp bạn kiểm soát việc chi tiêu tốt hơn, tối ưu hóa tiền tích lũy và nhanh chóng đạt được các cột mốc tự do tài chính.",
+    set_new_budget: "➕ Đặt ngân sách mới",
+    past_months_budget_history: "Lịch sử ngân sách các tháng trước",
+    item_unit: "mục",
+    over_budget_alert: "🚨 Đã vượt ngân sách",
+    no_past_budgets: "Không tìm thấy ngân sách của các tháng trước.",
+    edit_budget_limit: "Chỉnh sửa hạn mức ngân sách",
+    setup_budget_limit: "Thiết lập ngân sách hạn mức",
+    apply_to_category: "Áp dụng cho danh mục",
+    overall_budget_option: "Ngân sách chung (Toàn bộ chi tiêu)",
+    limit_amount_label: "Số tiền hạn mức (đ)",
+    limit_amount_placeholder: "VD: 5000000",
+    saving_label: "Đang lưu...",
+    save_budget_btn: "Lưu ngân sách",
+    invalid_limit_msg: "Vui lòng nhập số tiền hạn mức hợp lệ!",
+    save_budget_success: "Lưu hạn mức ngân sách thành công!",
+    save_budget_error: "Lỗi khi lưu hạn mức ngân sách",
+    delete_budget_confirm_title: "Xóa ngân sách",
+    delete_budget_confirm_msg: "Bạn có chắc chắn muốn xóa ngân sách này?",
+    delete_budget_success: "Đã xóa ngân sách thành công!",
+    delete_budget_error: "Lỗi khi xóa ngân sách",
+    copy_budget_confirm_title: "Sao chép ngân sách",
+    copy_budget_confirm_msg: "Bạn có muốn sao chép toàn bộ hạn mức ngân sách từ tháng {from} sang tháng {to} không?",
+    copy_budget_success: "Sao chép thành công! Đã sao chép {count} mục hạn mức.",
+    copy_budget_error: "Không tìm thấy ngân sách nguồn để sao chép!",
 
     // Notifications Page
     notification_center: "Trung tâm thông báo",
@@ -511,6 +583,76 @@ const translations: Record<string, Record<string, string>> = {
     bills: "Bills",
     rent: "Rent",
 
+    // Budget Extra
+    budget_no_expenses: "No expenses recorded this month",
+    budget_no_expenses_desc: "Spending charts will automatically appear as soon as you complete transactions this month.",
+    total_spending_label: "TOTAL SPEND",
+    month_label: "Month",
+    year_label: "Year",
+    month_1: "January",
+    month_2: "February",
+    month_3: "March",
+    month_4: "April",
+    month_5: "May",
+    month_6: "June",
+    month_7: "July",
+    month_8: "August",
+    month_9: "September",
+    month_10: "October",
+    month_11: "November",
+    month_12: "December",
+    other_category: "Other category",
+    total_monthly_budget_title: "TOTAL MONTHLY BUDGET",
+    total_category_budget_title: "TOTAL CATEGORY BUDGETS",
+    edit_limit: "✏️ Edit Limit",
+    delete_total_limit: "Delete Total Limit",
+    over_limit_by: "⚠️ Over by",
+    equal_to_last_month: "~ Same as last month",
+    remaining: "Remaining",
+    all_budget_used: "All budget spent",
+    current_available_balance: "Current available balance",
+    avg_per_day: "Daily Average",
+    based_on_passed_days: "Based on {days} passed days",
+    month_end_forecast: "Month-end Forecast",
+    projected_over_budget: "⚠️ Projected to exceed limit",
+    projected_within_budget: "Projected to stay within budget",
+    category_limits_count: "Category Limits Set",
+    categories_unit: "categories",
+    out_of_total_categories: "Out of {total} spending groups",
+    spending_structure_by_category: "Spending Structure by Category Budgets",
+    click_to_view_tx: "Click to view transaction details",
+    edit_label: "✏️ Edit",
+    delete_label: "🗑️ Delete",
+    transactions_in_month: "Transactions this month",
+    loading_transactions: "Loading transactions...",
+    no_transactions_found_budget: "No transactions found.",
+    no_budget_setup: "No budget setup for this month",
+    no_budget_desc: "Setting up a budget helps you control spending better, optimize savings, and reach financial freedom milestones faster.",
+    set_new_budget: "➕ Set New Budget",
+    past_months_budget_history: "Past Months' Budget History",
+    item_unit: "items",
+    over_budget_alert: "🚨 Over Budget",
+    no_past_budgets: "No past budget history found.",
+    edit_budget_limit: "Edit Budget Limit",
+    setup_budget_limit: "Setup Budget Limit",
+    apply_to_category: "Apply to Category",
+    overall_budget_option: "Overall Budget (All spending)",
+    limit_amount_label: "Limit Amount",
+    limit_amount_placeholder: "e.g. 5000000",
+    saving_label: "Saving...",
+    save_budget_btn: "Save Budget",
+    invalid_limit_msg: "Please enter a valid limit amount!",
+    save_budget_success: "Budget limit saved successfully!",
+    save_budget_error: "Error saving budget limit",
+    delete_budget_confirm_title: "Delete Budget",
+    delete_budget_confirm_msg: "Are you sure you want to delete this budget?",
+    delete_budget_success: "Budget deleted successfully!",
+    delete_budget_error: "Error deleting budget",
+    copy_budget_confirm_title: "Copy Budget",
+    copy_budget_confirm_msg: "Do you want to copy all budget limits from month {from} to month {to}?",
+    copy_budget_success: "Copied successfully! Copied {count} budget limits.",
+    copy_budget_error: "Source budget not found to copy!",
+
     // Notifications Page
     notification_center: "Notification Center",
     create_notification: "+ Create Notification",
@@ -565,19 +707,61 @@ const translations: Record<string, Record<string, string>> = {
   }
 };
 
+export const getCategoryTranslationKey = (name: string): string => {
+  if (!name) return '';
+  const normalized = name.toLowerCase().trim();
+  switch (normalized) {
+    case 'ăn uống':
+    case 'food':
+      return 'food';
+    case 'di chuyển':
+    case 'transport':
+    case 'transportation':
+      return 'transport';
+    case 'mua sắm':
+    case 'shopping':
+      return 'shopping';
+    case 'giải trí':
+    case 'entertainment':
+      return 'entertainment';
+    case 'y tế':
+    case 'health':
+    case 'medical':
+      return 'health';
+    case 'giáo dục':
+    case 'education':
+      return 'education';
+    case 'hóa đơn':
+    case 'bills':
+    case 'bill':
+      return 'bills';
+    case 'tiền thuê':
+    case 'rent':
+      return 'rent';
+    case 'khác':
+    case 'other':
+      return 'other';
+    default:
+      return '';
+  }
+};
+
 type Language = 'vi' | 'en';
 
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
   t: (key: string) => string;
+  tCategory: (name: string) => string;
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguage] = useState<Language>('vi');
+  const { userData, isLoggedIn, updateUserPreference } = useAppContext();
 
+  // 1. Initial language load from localStorage
   useEffect(() => {
     const savedLang = localStorage.getItem('app_lang') as Language;
     if (savedLang && (savedLang === 'vi' || savedLang === 'en')) {
@@ -585,17 +769,43 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  const handleSetLanguage = (lang: Language) => {
+  // 2. Synchronize language with backend user preference when logged in
+  useEffect(() => {
+    if (isLoggedIn && userData?.preference?.language) {
+      const userLang = userData.preference.language as Language;
+      if (userLang && (userLang === 'vi' || userLang === 'en') && userLang !== language) {
+        setLanguage(userLang);
+        localStorage.setItem('app_lang', userLang);
+      }
+    }
+  }, [userData, isLoggedIn]);
+
+  const handleSetLanguage = async (lang: Language) => {
     setLanguage(lang);
     localStorage.setItem('app_lang', lang);
+
+    // Sync language update to backend if logged in
+    if (isLoggedIn && userData) {
+      try {
+        await authApi.updateProfile({ language: lang });
+        updateUserPreference({ language: lang });
+      } catch (err) {
+        console.error("Lỗi đồng bộ ngôn ngữ lên server:", err);
+      }
+    }
   };
 
   const t = (key: string): string => {
     return translations[language]?.[key] || translations['vi']?.[key] || key;
   };
 
+  const tCategory = (name: string): string => {
+    const key = getCategoryTranslationKey(name);
+    return key ? t(key) : name;
+  };
+
   return (
-    <LanguageContext.Provider value={{ language, setLanguage: handleSetLanguage, t }}>
+    <LanguageContext.Provider value={{ language, setLanguage: handleSetLanguage, t, tCategory }}>
       {children}
     </LanguageContext.Provider>
   );

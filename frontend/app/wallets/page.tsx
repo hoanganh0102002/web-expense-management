@@ -183,6 +183,18 @@ const renderWalletIcon = (iconName: string, size = 22, style = {}) => {
   }
 };
 
+const formatWalletCurrency = (amount: number | string, currencyCode: string = 'VND') => {
+  const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+  if (isNaN(numericAmount)) return '0';
+  let locale = 'vi-VN';
+  if (currencyCode === 'USD') locale = 'en-US';
+  else if (currencyCode === 'EUR') locale = 'de-DE';
+  else if (currencyCode === 'GBP') locale = 'en-GB';
+  else if (currencyCode === 'JPY') locale = 'ja-JP';
+  
+  return new Intl.NumberFormat(locale, { style: 'currency', currency: currencyCode }).format(numericAmount);
+};
+
 // ==========================================
 // MAIN COMPONENT
 // ==========================================
@@ -204,6 +216,7 @@ export default function Wallets() {
   const [balance, setBalance] = useState('');
   const [color, setColor] = useState('linear-gradient(135deg, #3A3FBD, #2E33A8)');
   const [icon, setIcon] = useState('wallet');
+  const [walletCurrency, setWalletCurrency] = useState('VND');
 
   // Internal Transfer states
   const [transferFrom, setTransferFrom] = useState('');
@@ -276,7 +289,7 @@ export default function Wallets() {
       return;
     }
     try {
-      await createWallet({ name, type, available_balance: balance, color, icon });
+      await createWallet({ name, type, available_balance: balance, color, icon, currency_code: walletCurrency });
       setShowModal(null);
       resetForm();
     } catch (err) {
@@ -287,7 +300,7 @@ export default function Wallets() {
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await updateWallet(selectedWallet.id, { name, type, color, icon });
+      await updateWallet(selectedWallet.id, { name, type, color, icon, currency_code: walletCurrency });
       setShowModal(null);
       resetForm();
     } catch (err) {
@@ -311,6 +324,7 @@ export default function Wallets() {
     setBalance('');
     setColor('linear-gradient(135deg, #3A3FBD, #2E33A8)');
     setIcon('wallet');
+    setWalletCurrency('VND');
     setSelectedWallet(null);
   };
 
@@ -321,6 +335,7 @@ export default function Wallets() {
     setBalance(wallet.available_balance ? String(wallet.available_balance) : '0');
     setColor(wallet.color || 'linear-gradient(135deg, #3A3FBD, #2E33A8)');
     setIcon(wallet.icon || 'wallet');
+    setWalletCurrency(wallet.currency_code || 'VND');
     setShowModal('edit');
   };
 
@@ -439,7 +454,7 @@ export default function Wallets() {
                       <div>
                         <div className="wallet-label" style={{ color: muteColor }}>{t('balance_label')}</div>
                         <div className="wallet-balance">
-                          {showWalletBalance ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(w.available_balance || 0) : '******'}
+                          {showWalletBalance ? formatWalletCurrency(w.available_balance || 0, w.currency_code) : '******'}
                         </div>
                       </div>
                       <div className="wallet-icon-wrapper" style={{ background: iconBg, color: txtColor }}>
@@ -522,7 +537,7 @@ export default function Wallets() {
               <div>
                 <div className="wallet-label" style={{ color: getMutedContrastColor(color), letterSpacing: '0.5px' }}>{t('initial_balance')}</div>
                 <div style={{ fontSize: '26px', fontWeight: '800' }}>
-                  {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(balance) || 0)}
+                  {formatWalletCurrency(Number(balance) || 0, walletCurrency)}
                 </div>
               </div>
             </div>
@@ -580,6 +595,22 @@ export default function Wallets() {
                     </small>
                   </div>
                 )}
+              </div>
+
+              {/* Wallet Currency */}
+              <div style={{ marginBottom: '20px' }}>
+                <label className="form-group-label">Đơn vị tiền tệ</label>
+                <select 
+                  value={walletCurrency} 
+                  onChange={(e) => setWalletCurrency(e.target.value)}
+                  style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}
+                >
+                  <option value="VND">VNĐ (₫)</option>
+                  <option value="USD">USD ($)</option>
+                  <option value="EUR">EUR (€)</option>
+                  <option value="GBP">GBP (£)</option>
+                  <option value="JPY">JPY (¥)</option>
+                </select>
               </div>
 
               {/* Wallet Type */}
@@ -800,7 +831,7 @@ export default function Wallets() {
                     </div>
                     <div style={{ fontWeight: '700', color: tx.type === 'expense' ? '#FF6B6B' : '#4CD964' }}>
                       {tx.type === 'expense' ? '-' : '+'}
-                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(tx.amount || 0)}
+                      {formatWalletCurrency(tx.amount || 0, historyWallet?.currency_code || 'VND')}
                     </div>
                   </div>
                 ))}

@@ -190,6 +190,18 @@ export default function Transactions() {
     fetchWallets
   } = useAppContext();
   const { t } = useLanguage();
+  const formatCurrency = (amount: number | string) => {
+    const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    if (isNaN(numericAmount)) return '0';
+    const currencyCode = userData?.preference?.currency || 'VND';
+    let locale = 'vi-VN';
+    if (currencyCode === 'USD') locale = 'en-US';
+    else if (currencyCode === 'EUR') locale = 'de-DE';
+    else if (currencyCode === 'GBP') locale = 'en-GB';
+    else if (currencyCode === 'JPY') locale = 'ja-JP';
+
+    return new Intl.NumberFormat(locale, { style: 'currency', currency: currencyCode }).format(numericAmount);
+  };
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -219,6 +231,7 @@ export default function Transactions() {
     type: 'expense',
     wallet_id: '',
     category_id: '',
+    payee_id: '',
     transaction_date: getLocalDateTime(),
     notes: '',
     attachment: null as File | null,
@@ -226,6 +239,53 @@ export default function Transactions() {
     frequency: 'monthly',
     end_date: ''
   });
+
+  const [payees, setPayees] = useState<any[]>([]);
+  const [isPayeeModalOpen, setIsPayeeModalOpen] = useState(false);
+  const [payeeSearchTerm, setPayeeSearchTerm] = useState('');
+
+  useEffect(() => {
+    if (isPayeeModalOpen) {
+      const fetchPayees = async () => {
+        try {
+          console.log("Fetching payees from /payees API...");
+          const res = await apiFetch('/payees');
+          console.log("Payees API response:", res);
+          
+          // Handle different API response structures robustly
+          let payeesArray = [];
+          if (Array.isArray(res)) {
+            payeesArray = res;
+          } else if (res?.data && Array.isArray(res.data)) {
+            payeesArray = res.data;
+          } else if (res?.data?.data && Array.isArray(res.data.data)) {
+            payeesArray = res.data.data;
+          }
+          
+          // Nếu danh sách rỗng (chưa có dữ liệu từ backend), tự động thêm dữ liệu mẫu để test UI
+          if (payeesArray.length === 0) {
+            console.log("Payees list is empty. Using mock data for testing.");
+            payeesArray = [
+              { id: 'mock-uuid-1', payee_name: 'Nguyễn Văn A (Dữ liệu mẫu)', identifier: '0901234567' },
+              { id: 'mock-uuid-2', payee_name: 'Trần Thị B (Dữ liệu mẫu)', identifier: '0987654321' },
+              { id: 'mock-uuid-3', payee_name: 'Lê Văn C (Dữ liệu mẫu)', identifier: 'levanc@example.com' }
+            ];
+          }
+          
+          console.log("Parsed payees array:", payeesArray);
+          setPayees(payeesArray);
+        } catch (e: any) {
+          console.error("Lỗi khi lấy danh sách người hưởng thụ:", e);
+          alert("Lỗi khi tải danh sách người thụ hưởng: " + (e.message || e));
+        }
+      };
+      
+      const token = localStorage.getItem('access_token');
+      if (typeof window !== 'undefined' && token) {
+        fetchPayees();
+      }
+    }
+  }, [isPayeeModalOpen]);
 
   const [activeTab, setActiveTab] = useState('all');
 
@@ -317,7 +377,7 @@ export default function Transactions() {
 
     // Apply clean text search
     if (activeTab === 'recurring_history') {
-      params.search = 'Giao dịch định kỳ tự động tạo từ quy tắc';
+      params.per_page = 500; // Lấy nhiều để filter client-side
     } else if (parsed.cleanSearch) {
       params.search = parsed.cleanSearch;
     } else if (debouncedSearch && Object.keys(parsed).length === 0) {
@@ -495,7 +555,7 @@ export default function Transactions() {
       // Gửi thẳng POST vì API chỉ nhận POST hoặc DELETE (Bỏ _method: 'PUT' để Laravel không tự ép thành PUT)
       await apiFetch(`/recurring-rules/${tx.id}`, {
         method: 'POST',
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           is_active: !tx.is_active
         })
       });
@@ -507,20 +567,21 @@ export default function Transactions() {
   };
 
   const submitAdd = async () => {
-    if (!newTx.title || !newTx.amount || !newTx.wallet_id) {
+    if (!newTx.title || !newTx.amount || !newTx.wallet_id || !newTx.category_id) {
       alert(t('please_fill_all_required_fields') || 'Vui lòng điền các trường bắt buộc');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // 1. Luôn tạo giao dịch thực tế cho lần này
+      // 1. Luôn tạo giao dịch thực tế để hiển thị ngay lập tức
       const formData = new FormData();
       formData.append('title', newTx.title);
       formData.append('amount', newTx.amount);
       formData.append('type', newTx.type);
       formData.append('wallet_id', newTx.wallet_id);
       if (newTx.category_id) formData.append('category_id', newTx.category_id);
+      if (newTx.payee_id) formData.append('payee_id', newTx.payee_id);
       formData.append('transaction_date', new Date(newTx.transaction_date).toISOString());
       if (newTx.notes) formData.append('notes', newTx.notes);
       if (newTx.attachment) formData.append('attachment', newTx.attachment);
@@ -590,6 +651,40 @@ export default function Transactions() {
                   } else if (percent >= 80) {
                     alert(`⚡ LƯU Ý: Bạn đã dùng hết ${Math.round(percent)}% hạn mức ngân sách ${b.category?.name ? 'cho danh mục ' + b.category.name : 'tổng'} tháng ${tMonth}/${tYear}!`);
                   }
+        try {
+          const tDate = new Date(newTx.transaction_date);
+          const tMonth = tDate.getMonth() + 1;
+          const tYear = tDate.getFullYear();
+          const budgetRes = await budgetApi.getAll(tMonth, tYear);
+          const budgets = budgetRes.data || [];
+
+          if (budgets.length > 0) {
+            const pad = (n: number) => n.toString().padStart(2, '0');
+            const totalDays = new Date(tYear, tMonth, 0).getDate();
+            const start_date = `${tYear}-${pad(tMonth)}-01`;
+            const end_date = `${tYear}-${pad(tMonth)}-${pad(totalDays)}`;
+            const transRes = await transactionApi.getAll({ start_date, end_date, per_page: 1000 });
+            const allTrans = transRes.data?.data || transRes.data || [];
+
+            const targetBudgets = budgets.filter((b: any) =>
+              b.category_id === null || b.category_id === newTx.category_id
+            );
+
+            for (const b of targetBudgets) {
+              const limit = parseFloat(b.limit_amount);
+              if (limit > 0) {
+                let used = 0;
+                if (b.category_id === null) {
+                  used = allTrans.filter((t: any) => t.type === 'expense').reduce((sum: number, t: any) => sum + Math.abs(parseFloat(t.amount_in_user_currency || t.amount || 0)), 0);
+                } else {
+                  used = allTrans.filter((t: any) => t.type === 'expense' && t.category_id === b.category_id).reduce((sum: number, t: any) => sum + Math.abs(parseFloat(t.amount_in_user_currency || t.amount || 0)), 0);
+                }
+
+                const percent = (used / limit) * 100;
+                if (percent >= 100) {
+                  alert(`⚠️ CẢNH BÁO: Bạn đã vượt quá 100% hạn mức ngân sách ${b.category?.name ? 'cho danh mục ' + b.category.name : 'tổng'} tháng ${tMonth}/${tYear}!`);
+                } else if (percent >= 80) {
+                  alert(`⚡ LƯU Ý: Bạn đã dùng hết ${Math.round(percent)}% hạn mức ngân sách ${b.category?.name ? 'cho danh mục ' + b.category.name : 'tổng'} tháng ${tMonth}/${tYear}!`);
                 }
               }
             }
@@ -598,10 +693,10 @@ export default function Transactions() {
           }
         })();
       }
-      // ----------------------------------------------
 
-      // 2. Nếu có chọn định kỳ thì tạo thêm rule để hệ thống tự động chạy các lần sau
       if (newTx.is_recurring) {
+        // 2. Nếu có chọn định kỳ thì tạo THÊM rule để hệ thống tự động chạy cho các lần tiếp theo
+
         await apiFetch('/recurring-rules', {
           method: 'POST',
           body: JSON.stringify({
@@ -612,13 +707,14 @@ export default function Transactions() {
             type: newTx.type,
             wallet_id: newTx.wallet_id,
             category_id: newTx.category_id || null,
+            payee_id: newTx.payee_id || null,
             frequency: newTx.frequency,
-            next_run_at: newTx.transaction_date.split('T')[0],
+            next_run_at: new Date(newTx.transaction_date).toISOString(),
             end_at: newTx.end_date || null,
             notes: newTx.notes
           })
         });
-        
+
         if (activeTab === 'recurring') {
           setIsLoadingRecurring(true);
           apiFetch('/recurring-rules')
@@ -626,6 +722,24 @@ export default function Transactions() {
             .finally(() => setIsLoadingRecurring(false));
         }
       }
+
+      setNewTx({
+        title: '',
+        amount: '',
+        type: 'expense',
+        wallet_id: wallets[0]?.id || '',
+        category_id: '',
+        payee_id: '',
+        transaction_date: getLocalDateTime(),
+        notes: '',
+        attachment: null,
+        is_recurring: false,
+        frequency: 'monthly',
+        end_date: ''
+      });
+      setIsModalOpen(false);
+      setCurrentCursor(null);
+      loadFilteredTransactions(null);
     } catch (error: any) {
       alert(error.message || 'Lỗi khi thêm giao dịch');
     } finally {
@@ -695,7 +809,7 @@ export default function Transactions() {
   };
 
   const submitEditRecurringRule = async () => {
-    if (!editingRecurringTx.title || !editingRecurringTx.amount || !editingRecurringTx.wallet_id) {
+    if (!editingRecurringTx.title || !editingRecurringTx.amount || !editingRecurringTx.wallet_id || !editingRecurringTx.category_id) {
       alert('Vui lòng điền các trường bắt buộc');
       return;
     }
@@ -710,7 +824,7 @@ export default function Transactions() {
           wallet_id: editingRecurringTx.wallet_id,
           category_id: editingRecurringTx.category_id || null,
           frequency: editingRecurringTx.frequency,
-          next_run_at: editingRecurringTx.start_date,
+          next_run_at: new Date(editingRecurringTx.start_date).toISOString(),
           end_at: editingRecurringTx.end_date || null,
           notes: editingRecurringTx.notes
         })
@@ -726,7 +840,10 @@ export default function Transactions() {
     }
   };
 
-  const filtered = transactions;
+  let filtered = transactions;
+  if (activeTab === 'recurring_history') {
+    filtered = filtered.filter((tx: any) => tx.source_type === 'recurring');
+  }
 
   return (
     <div className="dashboard-container">
@@ -768,7 +885,7 @@ export default function Transactions() {
             <button style={{ background: '#1814F3', color: '#fff', padding: '10px 20px', borderRadius: '24px', fontWeight: '600', border: 'none', cursor: 'pointer', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={handleAdd}>
               {t('add_transaction')}
             </button>
-            <Link href="/notifications" style={{background: '#F5F7FA', width: '45px', height: '45px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffb300', cursor: 'pointer', fontSize: '20px', textDecoration: 'none'}}>
+            <Link href="/notifications" style={{ background: '#F5F7FA', width: '45px', height: '45px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffb300', cursor: 'pointer', fontSize: '20px', textDecoration: 'none' }}>
               🔔
             </Link>
             {isLoggedIn ? (
@@ -816,12 +933,12 @@ export default function Transactions() {
               )}
               {smartFilters.minAmount && (
                 <span style={{ background: '#E7EDFF', color: '#1814F3', padding: '2px 8px', borderRadius: '6px', fontWeight: '500' }}>
-                  Số tiền ≥ {Math.round(Number(smartFilters.minAmount)).toLocaleString('vi-VN')}₫
+                  Số tiền ≥ {formatCurrency(Number(smartFilters.minAmount))}
                 </span>
               )}
               {smartFilters.maxAmount && (
                 <span style={{ background: '#E7EDFF', color: '#1814F3', padding: '2px 8px', borderRadius: '6px', fontWeight: '500' }}>
-                  Số tiền ≤ {Math.round(Number(smartFilters.maxAmount)).toLocaleString('vi-VN')}₫
+                  Số tiền ≤ {formatCurrency(Number(smartFilters.maxAmount))}
                 </span>
               )}
               {smartFilters.startDate && (
@@ -1019,7 +1136,7 @@ export default function Transactions() {
                         <div style={{ fontSize: '12px', color: '#718EBF' }}>{new Date(tx.date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</div>
                       </td>
                       <td style={{ padding: '14px 8px', color: '#8F9BB3', fontWeight: '600' }}>
-                        {Math.round(Number(tx.amount)).toLocaleString('vi-VN')}₫
+                        {formatCurrency(tx.amount || 0)}
                       </td>
                     </tr>
                   )) : (
@@ -1047,23 +1164,24 @@ export default function Transactions() {
                     <tr key={tx.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                       <td style={{ padding: '14px 8px', fontWeight: 600 }}>{tx.title || tx.description || tx.name}</td>
                       <td style={{ padding: '14px 8px', color: tx.type === 'income' ? '#16DBCC' : '#FE5C73', fontWeight: '600' }}>
-                        {tx.type === 'income' ? '+' : '-'}{Number(tx.amount).toLocaleString('vi-VN')}₫
+                        {tx.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(Number(tx.amount)))}
                       </td>
                       <td style={{ padding: '14px 8px' }}>{tx.type === 'income' ? (t('income') || 'Thu nhập') : (t('spending') || 'Chi tiêu')}</td>
-                      <td style={{ padding: '14px 8px' }}>{tx.frequency || 'Hàng tháng'}</td>
+                      <td style={{ padding: '14px 8px' }}>{tx.frequency === 'daily' ? 'Hàng ngày' : tx.frequency === 'weekly' ? 'Hàng tuần' : tx.frequency === 'yearly' ? 'Hàng năm' : 'Hàng tháng'}</td>
                       <td style={{ padding: '14px 8px' }}>
                         <div style={{ fontWeight: '500' }}>{tx.next_run_at ? new Date(tx.next_run_at).toLocaleDateString('vi-VN') : '-'}</div>
+                        {tx.next_run_at && <div style={{ fontSize: '12px', color: '#718EBF' }}>{new Date(tx.next_run_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>}
                       </td>
                       <td style={{ padding: '14px 8px' }}>
-                        <button 
+                        <button
                           onClick={() => toggleRecurringRule(tx)}
-                          style={{ 
-                            padding: '6px 10px', 
-                            borderRadius: '8px', 
-                            fontSize: '12px', 
+                          style={{
+                            padding: '6px 10px',
+                            borderRadius: '8px',
+                            fontSize: '12px',
                             border: 'none',
                             cursor: 'pointer',
-                            background: tx.is_active ? '#E7EDFF' : '#FFE2E5', 
+                            background: tx.is_active ? '#E7EDFF' : '#FFE2E5',
                             color: tx.is_active ? '#1814F3' : '#FE5C73',
                             fontWeight: '600',
                             transition: 'all 0.2s ease'
@@ -1104,7 +1222,7 @@ export default function Transactions() {
                                 wallet_id: tx.wallet_id || (wallets.length > 0 ? wallets[0].id : ''),
                                 category_id: tx.category_id || '',
                                 frequency: tx.frequency || 'monthly',
-                                start_date: tx.start_date ? tx.start_date.split('T')[0] : (tx.next_run_at ? tx.next_run_at.split('T')[0] : getLocalDateTime().split('T')[0]),
+                                start_date: tx.start_date ? new Date(new Date(tx.start_date).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : (tx.next_run_at ? new Date(new Date(tx.next_run_at).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : getLocalDateTime()),
                                 end_date: tx.end_at ? tx.end_at.split('T')[0] : '',
                                 notes: tx.notes || ''
                               });
@@ -1125,21 +1243,21 @@ export default function Transactions() {
                           </button>
                           <button
                             onClick={() => handleDeleteRecurringRule(tx.id)}
-                          style={{
-                            padding: '6px 12px',
-                            borderRadius: '8px',
-                            background: 'transparent',
-                            color: '#FE5C73',
-                            border: '1px solid #FFE2E5',
-                            cursor: 'pointer',
-                            fontSize: '13px',
-                            fontWeight: '600'
-                          }}
-                          onMouseOver={(e) => e.currentTarget.style.background = '#FFE2E5'}
-                          onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
-                        >
-                          Xóa
-                        </button>
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: '8px',
+                              background: 'transparent',
+                              color: '#FE5C73',
+                              border: '1px solid #FFE2E5',
+                              cursor: 'pointer',
+                              fontSize: '13px',
+                              fontWeight: '600'
+                            }}
+                            onMouseOver={(e) => e.currentTarget.style.background = '#FFE2E5'}
+                            onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                          >
+                            Xóa
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -1178,7 +1296,7 @@ export default function Transactions() {
                         <div style={{ fontSize: '12px', color: '#718EBF' }}>{new Date(tx.transaction_date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</div>
                       </td>
                       <td style={{ padding: '14px 8px', color: tx.type === 'income' ? '#16DBCC' : '#FE5C73', fontWeight: '600' }}>
-                        {tx.type === 'income' ? '+' : '-'}{Math.round(Number(tx.amount)).toLocaleString('vi-VN')}₫
+                        {tx.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0)))}
                       </td>
                       <td style={{ padding: '14px 8px' }}>
                         <div style={{ display: 'flex', gap: '8px' }}>
@@ -1401,11 +1519,11 @@ export default function Transactions() {
             <h2 style={{ color: 'var(--text-main)', marginBottom: '24px', fontSize: '22px', fontWeight: '700' }}>{t('add_new_transaction')}</h2>
 
             <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <input 
-                type="checkbox" 
-                id="is_recurring" 
-                checked={newTx.is_recurring} 
-                onChange={e => setNewTx({ ...newTx, is_recurring: e.target.checked })} 
+              <input
+                type="checkbox"
+                id="is_recurring"
+                checked={newTx.is_recurring}
+                onChange={e => setNewTx({ ...newTx, is_recurring: e.target.checked })}
                 style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#1814F3' }}
               />
               <label htmlFor="is_recurring" style={{ color: 'var(--text-main)', fontSize: '15px', fontWeight: '500', cursor: 'pointer' }}>
@@ -1417,9 +1535,9 @@ export default function Transactions() {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
                 <div>
                   <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Tần suất lặp lại *</label>
-                  <select 
-                    value={newTx.frequency} 
-                    onChange={e => setNewTx({ ...newTx, frequency: e.target.value })} 
+                  <select
+                    value={newTx.frequency}
+                    onChange={e => setNewTx({ ...newTx, frequency: e.target.value })}
                     style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}
                   >
                     <option value="daily">Hàng ngày</option>
@@ -1464,7 +1582,7 @@ export default function Transactions() {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
               <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>{t('categories')}</label>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>{t('categories')} *</label>
                 <select value={newTx.category_id} onChange={e => setNewTx({ ...newTx, category_id: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}>
                   <option value="">{t('select_category') || 'Chọn danh mục'}</option>
                   {flatCategories.map(c => <option key={c.id} value={c.id}>{c.displayName}</option>)}
@@ -1473,6 +1591,17 @@ export default function Transactions() {
               <div>
                 <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>{t('date_label')} *</label>
                 <input type="datetime-local" value={newTx.transaction_date} onChange={e => setNewTx({ ...newTx, transaction_date: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }} />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Người hưởng thụ / Người trả</label>
+              <div
+                onClick={() => setIsPayeeModalOpen(true)}
+                style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              >
+                <span>{newTx.payee_id ? payees.find(p => p.id === newTx.payee_id)?.payee_name || 'Đã chọn' : 'Chọn người thụ hưởng (Tùy chọn)'}</span>
+                <span style={{ color: '#718EBF', fontSize: '12px' }}>▼</span>
               </div>
             </div>
 
@@ -1569,7 +1698,7 @@ export default function Transactions() {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
               <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Danh mục</label>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Danh mục *</label>
                 <select value={editingRecurringTx.category_id} onChange={e => setEditingRecurringTx({ ...editingRecurringTx, category_id: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}>
                   <option value="">Chọn danh mục</option>
                   {flatCategories.map(c => <option key={c.id} value={c.id}>{c.displayName}</option>)}
@@ -1577,7 +1706,7 @@ export default function Transactions() {
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Ngày bắt đầu *</label>
-                <input type="date" value={editingRecurringTx.start_date} onChange={e => setEditingRecurringTx({ ...editingRecurringTx, start_date: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }} />
+                <input type="datetime-local" value={editingRecurringTx.start_date} onChange={e => setEditingRecurringTx({ ...editingRecurringTx, start_date: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }} />
               </div>
             </div>
 
@@ -1621,7 +1750,7 @@ export default function Transactions() {
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                 <span style={{ color: '#718EBF', fontWeight: '500' }}>Số tiền</span>
                 <span style={{ fontWeight: '600', color: viewingRuleTx.type === 'income' ? '#16DBCC' : '#FE5C73' }}>
-                  {viewingRuleTx.type === 'income' ? '+' : '-'}{Number(viewingRuleTx.amount).toLocaleString('vi-VN')}₫
+                  {viewingRuleTx.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(Number(viewingRuleTx.amount)))}
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
@@ -1654,7 +1783,10 @@ export default function Transactions() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                 <span style={{ color: '#718EBF', fontWeight: '500' }}>Lần chạy tiếp theo</span>
-                <span style={{ fontWeight: '600' }}>{viewingRuleTx.next_run_at ? new Date(viewingRuleTx.next_run_at).toLocaleDateString('vi-VN') : '-'}</span>
+                <span style={{ fontWeight: '600', textAlign: 'right' }}>
+                  <div>{viewingRuleTx.next_run_at ? new Date(viewingRuleTx.next_run_at).toLocaleDateString('vi-VN') : '-'}</div>
+                  {viewingRuleTx.next_run_at && <div style={{ fontSize: '13px', color: '#718EBF', marginTop: '4px' }}>{new Date(viewingRuleTx.next_run_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>}
+                </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                 <span style={{ color: '#718EBF', fontWeight: '500' }}>Ngày kết thúc</span>
@@ -1867,6 +1999,69 @@ export default function Transactions() {
               >
                 {isSubmittingEdit ? 'Đang lưu...' : 'Lưu thay đổi'}
               </button>
+
+      {/* Payee Selection Modal */}
+      {isPayeeModalOpen && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center', zIndex: 10000
+        }} onClick={() => setIsPayeeModalOpen(false)}>
+          <div style={{
+            background: 'var(--bg-color)', width: '100%', maxWidth: '500px', height: '80vh', borderTopLeftRadius: '24px', borderTopRightRadius: '24px',
+            display: 'flex', flexDirection: 'column', overflow: 'hidden'
+          }} onClick={e => e.stopPropagation()}>
+            <div style={{ padding: '20px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>Chọn người thụ hưởng</h3>
+              <button onClick={() => setIsPayeeModalOpen(false)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#718EBF' }}>&times;</button>
+            </div>
+
+            <div style={{ padding: '15px' }}>
+              <div style={{ position: 'relative' }}>
+                <span style={{ position: 'absolute', left: '15px', top: '50%', transform: 'translateY(-50%)', color: '#718EBF' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+                </span>
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm người thụ hưởng..."
+                  value={payeeSearchTerm}
+                  onChange={e => setPayeeSearchTerm(e.target.value)}
+                  style={{ width: '100%', padding: '12px 15px 12px 42px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--hover-bg)', fontSize: '15px', outline: 'none', color: 'var(--text-main)' }}
+                />
+              </div>
+            </div>
+
+            <div style={{ flex: 1, overflowY: 'auto', padding: '0 15px 15px' }}>
+              {payees.filter(p => p.payee_name?.toLowerCase().includes(payeeSearchTerm.toLowerCase()) || p.identifier?.toLowerCase().includes(payeeSearchTerm.toLowerCase())).map(p => (
+                <div
+                  key={p.id}
+                  onClick={() => {
+                    setNewTx({ ...newTx, payee_id: p.id });
+                    setIsPayeeModalOpen(false);
+                  }}
+                  style={{ display: 'flex', alignItems: 'center', padding: '15px 0', borderBottom: '1px solid var(--border-color)', cursor: 'pointer' }}
+                >
+                  <div style={{ width: '48px', height: '48px', borderRadius: '50%', background: '#E8E8FF', display: 'flex', alignItems: 'center', justifyContent: 'center', marginRight: '15px', color: '#4A46FF' }}>
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="20" width="20" height="2" />
+                      <path d="M4 20V10" />
+                      <path d="M20 20V10" />
+                      <path d="M12 2L2 10h20L12 2z" />
+                      <path d="M8 10v10" />
+                      <path d="M12 10v10" />
+                      <path d="M16 10v10" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: '600', fontSize: '15px', color: 'var(--text-main)', marginBottom: '4px' }}>{p.payee_name || p.name}</div>
+                    <div style={{ fontSize: '13px', color: '#718EBF', textTransform: 'uppercase' }}>{p.identifier || 'Người dùng'}</div>
+                  </div>
+                </div>
+              ))}
+              {payees.filter(p => p.payee_name?.toLowerCase().includes(payeeSearchTerm.toLowerCase()) || p.identifier?.toLowerCase().includes(payeeSearchTerm.toLowerCase())).length === 0 && (
+                <div style={{ textAlign: 'center', padding: '30px', color: '#718EBF' }}>
+                  Không tìm thấy người thụ hưởng phù hợp
+                </div>
+              )}
             </div>
           </div>
         </div>

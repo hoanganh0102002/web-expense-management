@@ -280,7 +280,7 @@ export default function Dashboard() {
 
         txList.forEach((tx: any) => {
           if (tx.type !== 'expense') return;
-          const amt = Math.abs(parseFloat(tx.amount || 0));
+          const amt = Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0));
           if (amt === 0) return;
           
           const catId = tx.category_id || 'other';
@@ -475,6 +475,17 @@ export default function Dashboard() {
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+  const formatCurrency = (amount: number | string) => {
+    const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    if (isNaN(numericAmount)) return '0';
+    const currencyCode = userData?.preference?.currency || 'VND';
+    let locale = 'vi-VN';
+    if (currencyCode === 'USD') locale = 'en-US';
+    else if (currencyCode === 'EUR') locale = 'de-DE';
+    else if (currencyCode === 'GBP') locale = 'en-GB';
+    else if (currencyCode === 'JPY') locale = 'ja-JP';
+    
+    return new Intl.NumberFormat(locale, { style: 'currency', currency: currencyCode }).format(numericAmount);
   };
 
   const displayName = userData?.profile?.full_name || userData?.full_name || userData?.name || t('new_user');
@@ -654,12 +665,12 @@ export default function Dashboard() {
           <div className="balance-overview">
             <div className="balance-item">
               <div className="balance-label">{t('total_income')}</div>
-              <div className="balance-val">{isLoggedIn ? formatCurrency(displayIncome) : "0₫"}</div>
+              <div className="balance-val">{isLoggedIn ? formatCurrency(displayIncome) : formatCurrency(0)}</div>
             </div>
             <div className="balance-divider"></div>
             <div className="balance-item">
               <div className="balance-label">{t('total_expense')}</div>
-              <div className="balance-val">{isLoggedIn ? formatCurrency(displayExpense) : "0₫"}</div>
+              <div className="balance-val">{isLoggedIn ? formatCurrency(displayExpense) : formatCurrency(0)}</div>
               {isLoggedIn && (
                 <div style={{ 
                   display: 'flex', 
@@ -693,13 +704,13 @@ export default function Dashboard() {
             <div className="balance-item">
               <div className="balance-label">{t('net_balance')}</div>
               <div className="balance-val" style={{color: isLoggedIn && displayNet >= 0 ? '#16DBCC' : '#FE5C73'}}>
-                {isLoggedIn ? formatCurrency(displayNet) : "0₫"}
+                {isLoggedIn ? formatCurrency(displayNet) : formatCurrency(0)}
               </div>
             </div>
             <div className="balance-divider"></div>
             <div className="balance-item">
               <div className="balance-label">{t('total_wallet_balance')}</div>
-              <div className="balance-val">{isLoggedIn ? formatCurrency(totalBalance) : "0₫"}</div>
+              <div className="balance-val">{isLoggedIn ? formatCurrency(totalBalance) : formatCurrency(0)}</div>
             </div>
           </div>
 
