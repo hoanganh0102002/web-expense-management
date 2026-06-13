@@ -22,12 +22,26 @@ const parseIcon = (iconName: string) => {
   return iconMap[iconName] || iconName;
 };
 
-// Component Biểu đồ tròn Doughnut SVG cao cấp thiết kế hiện đại (Smartwatch Dial & Premium Grid Legend)
 const BudgetDoughnutChart = ({ data }: { data: { name: string; value: number; color: string; icon: string }[] }) => {
   const [hoveredIndex, setHoveredIndex] = React.useState<number | null>(null);
+  const { userData } = useAppContext();
+  const { t } = useLanguage();
   
   const activeItems = React.useMemo(() => data.filter(item => item.value > 0), [data]);
   const total = React.useMemo(() => activeItems.reduce((sum, item) => sum + item.value, 0), [activeItems]);
+
+  const formatCurrency = (amount: number | string) => {
+    const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    if (isNaN(numericAmount)) return '0';
+    const currencyCode = userData?.preference?.currency || 'VND';
+    let locale = 'vi-VN';
+    if (currencyCode === 'USD') locale = 'en-US';
+    else if (currencyCode === 'EUR') locale = 'de-DE';
+    else if (currencyCode === 'GBP') locale = 'en-GB';
+    else if (currencyCode === 'JPY') locale = 'ja-JP';
+    
+    return new Intl.NumberFormat(locale, { style: 'currency', currency: currencyCode }).format(numericAmount);
+  };
   
   if (total === 0) {
     return (
@@ -44,9 +58,9 @@ const BudgetDoughnutChart = ({ data }: { data: { name: string; value: number; co
         padding: '20px'
       }}>
         <span style={{ fontSize: '48px', marginBottom: '14px', filter: 'drop-shadow(0 8px 16px rgba(0,0,0,0.1))' }}>📊</span>
-        <span style={{ fontSize: '15px', fontWeight: '750', color: 'var(--text-main)' }}>Chưa phát sinh chi tiêu trong tháng này</span>
+        <span style={{ fontSize: '15px', fontWeight: '750', color: 'var(--text-main)' }}>{t('budget_no_expenses')}</span>
         <span style={{ fontSize: '12px', color: '#718EBF', marginTop: '6px', textAlign: 'center', maxWidth: '300px', lineHeight: '1.5' }}>
-          Biểu đồ phân tích sẽ tự động hiển thị ngay khi bạn có giao dịch chi tiêu được hoàn tất trong tháng.
+          {t('budget_no_expenses_desc')}
         </span>
       </div>
     );
@@ -208,9 +222,9 @@ const BudgetDoughnutChart = ({ data }: { data: { name: string; value: number; co
           ) : (
             <div style={{ animation: 'bdg-fadeIn 0.3s ease' }}>
               <span style={{ fontSize: '24px', display: 'block', marginBottom: '2px' }}>💰</span>
-              <div style={{ fontSize: '10px', color: '#718EBF', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>TỔNG CHI</div>
+              <div style={{ fontSize: '10px', color: '#718EBF', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '1px' }}>{t('total_spending_label')}</div>
               <div style={{ fontSize: '18px', fontWeight: '850', color: 'var(--text-main)', marginTop: '1px' }}>
-                {Math.round(total).toLocaleString('vi-VN')}đ
+                {formatCurrency(total)}
               </div>
             </div>
           )}
@@ -281,7 +295,7 @@ const BudgetDoughnutChart = ({ data }: { data: { name: string; value: number; co
                   {item.name}
                 </span>
                 <span style={{ fontSize: '12px', fontWeight: '800', color: 'var(--text-main)', marginTop: '2px', opacity: 0.9 }}>
-                  {Math.round(item.value).toLocaleString('vi-VN')}đ
+                  {formatCurrency(item.value)}
                 </span>
               </div>
 
@@ -308,7 +322,7 @@ const BudgetDoughnutChart = ({ data }: { data: { name: string; value: number; co
 
 export default function Budget() {
   const { isLoggedIn, userData, categories } = useAppContext();
-  const { t } = useLanguage();
+  const { t, language, tCategory } = useLanguage();
   
   const now = new Date();
   const [month, setMonth] = useState<number>(now.getMonth() + 1);
@@ -547,7 +561,7 @@ export default function Budget() {
       let result: any[] = [];
       cats.forEach(cat => {
         const emoji = parseIcon(cat.icon || '');
-        result.push({ ...cat, displayName: prefix + emoji + ' ' + cat.name });
+        result.push({ ...cat, displayName: prefix + emoji + ' ' + tCategory(cat.name) });
         if (cat.children && cat.children.length > 0) {
           result = [...result, ...flatten(cat.children, prefix + '— ')];
         }
@@ -585,7 +599,19 @@ export default function Budget() {
     : categoryBudgets.reduce((sum, b) => sum + Math.abs(parseFloat(b.used_amount)), 0);
 
   const totalPct = totalLimit > 0 ? Math.round((totalUsed / totalLimit) * 100) : 0;
-  const fmt = (n: number) => Math.round(n).toLocaleString('vi-VN') + '₫';
+  const formatCurrency = (amount: number | string) => {
+    const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    if (isNaN(numericAmount)) return '0';
+    const currencyCode = userData?.preference?.currency || 'VND';
+    let locale = 'vi-VN';
+    if (currencyCode === 'USD') locale = 'en-US';
+    else if (currencyCode === 'EUR') locale = 'de-DE';
+    else if (currencyCode === 'GBP') locale = 'en-GB';
+    else if (currencyCode === 'JPY') locale = 'ja-JP';
+    
+    return new Intl.NumberFormat(locale, { style: 'currency', currency: currencyCode }).format(numericAmount);
+  };
+  const fmt = (n: number) => formatCurrency(n);
 
   // Calculate total days in month
   const totalDaysInMonth = new Date(year, month, 0).getDate();
@@ -625,7 +651,7 @@ export default function Budget() {
   // Create or update budget
   const handleSaveBudget = async () => {
     if (!limitAmount || parseFloat(limitAmount) <= 0) {
-      showToast('Vui lòng nhập số tiền hạn mức hợp lệ!', 'error');
+      showToast(t('invalid_limit_msg'), 'error');
       return;
     }
 
@@ -640,10 +666,10 @@ export default function Budget() {
       setIsModalOpen(false);
       setSelectedCategory('');
       setLimitAmount('');
-      showToast('Lưu hạn mức ngân sách thành công!', 'success');
+      showToast(t('save_budget_success'), 'success');
       await fetchBudgets();
     } catch (error: any) {
-      showToast(error.message || 'Lỗi khi lưu hạn mức ngân sách', 'error');
+      showToast(error.message || t('save_budget_error'), 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -651,13 +677,13 @@ export default function Budget() {
 
   // Delete budget
   const handleDeleteBudget = async (id: string) => {
-    showConfirm('Xóa ngân sách', 'Bạn có chắc chắn muốn xóa ngân sách này?', async () => {
+    showConfirm(t('delete_budget_confirm_title'), t('delete_budget_confirm_msg'), async () => {
       try {
         await budgetApi.delete(id);
-        showToast('Đã xóa ngân sách thành công!', 'success');
+        showToast(t('delete_budget_success'), 'success');
         await fetchBudgets();
       } catch (error: any) {
-        showToast(error.message || 'Lỗi khi xóa ngân sách', 'error');
+        showToast(error.message || t('delete_budget_error'), 'error');
       }
     });
   };
@@ -667,7 +693,7 @@ export default function Budget() {
     const fromMonth = month === 1 ? 12 : month - 1;
     const fromYear = month === 1 ? year - 1 : year;
 
-    showConfirm('Sao chép ngân sách', `Bạn có muốn sao chép toàn bộ hạn mức ngân sách từ tháng ${fromMonth}/${fromYear} sang tháng ${month}/${year} không?`, async () => {
+    showConfirm(t('copy_budget_confirm_title'), t('copy_budget_confirm_msg').replace('{from}', `${fromMonth}/${fromYear}`).replace('{to}', `${month}/${year}`), async () => {
       setIsLoading(true);
       try {
         const res = await budgetApi.copy({
@@ -676,10 +702,10 @@ export default function Budget() {
           to_month: month,
           to_year: year
         });
-        showToast(`Sao chép thành công! Đã sao chép ${res.data?.length || 0} mục hạn mức.`, 'success');
+        showToast(t('copy_budget_success').replace('{count}', (res.data?.length || 0).toString()), 'success');
         await fetchBudgets();
       } catch (error: any) {
-        showToast(error.message || 'Không tìm thấy ngân sách nguồn để sao chép!', 'error');
+        showToast(error.message || t('copy_budget_error'), 'error');
       } finally {
         setIsLoading(false);
       }
@@ -702,7 +728,7 @@ export default function Budget() {
                 style={{padding:'8px 12px', border:'1px solid var(--border-color)', borderRadius:'10px', background:'var(--bg-color)', color:'var(--text-main)', fontSize:'14px', fontWeight:'600'}}
               >
                 {Array.from({length:12}, (_, i) => i + 1).map(m => (
-                  <option key={m} value={m}>Tháng {m}</option>
+                  <option key={m} value={m}>{t(`month_${m}`)}</option>
                 ))}
               </select>
               <select 
@@ -711,7 +737,7 @@ export default function Budget() {
                 style={{padding:'8px 12px', border:'1px solid var(--border-color)', borderRadius:'10px', background:'var(--bg-color)', color:'var(--text-main)', fontSize:'14px', fontWeight:'600'}}
               >
                 {Array.from({length:7}, (_, i) => now.getFullYear() - 2 + i).map(y => (
-                  <option key={y} value={y}>Năm {y}</option>
+                  <option key={y} value={y}>{t('year_label')} {y}</option>
                 ))}
               </select>
             </div>
@@ -749,20 +775,22 @@ export default function Budget() {
           {/* TỔNG QUAN NGÂN SÁCH */}
           <div className="bdg-card-animate" style={{background:'linear-gradient(135deg,#1814F3,#6366F1)',borderRadius:'20px',padding:'30px',color:'#fff',marginBottom:'24px', boxShadow:'0 10px 30px rgba(24, 20, 243, 0.2)'}}>
             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px'}}>
-              <div style={{fontSize:'14px',opacity:0.85}}>{overallBudget ? 'TỔNG NGÂN SÁCH THÁNG' : 'TỔNG NGÂN SÁCH CÁC DANH MỤC'} - {month}/{year}</div>
+              <div style={{fontSize:'14px',opacity:0.85}}>
+                {overallBudget ? t('total_monthly_budget_title') : t('total_category_budget_title')} - {language === 'vi' ? `${t(`month_${month}`)}/${year}` : `${t(`month_${month}`)} ${year}`}
+              </div>
               {overallBudget && (
                 <div style={{display:'flex', gap:'8px'}}>
                   <button 
                     onClick={() => handleOpenEditModal(overallBudget)}
                     style={{background:'rgba(255,255,255,0.25)', border:'none', borderRadius:'8px', color:'#fff', padding:'4px 8px', fontSize:'11px', fontWeight:'600', cursor:'pointer'}}
                   >
-                    ✏️ Sửa hạn mức
+                    {t('edit_limit')}
                   </button>
                   <button 
                     onClick={() => handleDeleteBudget(overallBudget.id)}
                     style={{background:'rgba(255,255,255,0.15)', border:'none', borderRadius:'8px', color:'#fff', padding:'4px 8px', fontSize:'11px', fontWeight:'600', cursor:'pointer'}}
                   >
-                    Xóa hạn mức tổng
+                    {t('delete_total_limit')}
                   </button>
                 </div>
               )}
@@ -774,10 +802,10 @@ export default function Budget() {
             <div style={{display:'flex',justifyContent:'space-between',marginTop:'10px',fontSize:'13px',opacity:0.85, alignItems:'center'}}>
                 <span>{t('used_label')} {totalPct}%</span>
                 <span style={{display:'flex', alignItems:'center', gap:'8px'}}>
-                  {totalUsed > totalLimit && totalLimit > 0 && <span style={{fontWeight:'700'}}>⚠️ Vượt {fmt(totalUsed - totalLimit)}</span>}
+                  {totalUsed > totalLimit && totalLimit > 0 && <span style={{fontWeight:'700'}}>{t('over_limit_by')} {fmt(totalUsed - totalLimit)}</span>}
                   {totalPctDiff !== null && (
                     <span style={{padding:'2px 6px', background: totalPctDiff > 0 ? 'rgba(254, 92, 115, 0.25)' : 'rgba(22, 219, 204, 0.25)', color: totalPctDiff > 0 ? '#FFD2D7' : '#D1FFF9', borderRadius:'4px', fontWeight:'700', fontSize:'11px'}}>
-                      {totalPctDiff > 0 ? `↑ +${totalPctDiff}%` : totalPctDiff < 0 ? `↓ ${totalPctDiff}%` : '~ Bằng tháng trước'}
+                      {totalPctDiff > 0 ? `↑ +${totalPctDiff}%` : totalPctDiff < 0 ? `↓ ${totalPctDiff}%` : t('equal_to_last_month')}
                     </span>
                   )}
                 </span>
@@ -790,13 +818,13 @@ export default function Budget() {
             <div className="bdg-card-animate" style={{background:'var(--card-bg)', borderRadius:'16px', padding:'20px', border:'1px solid var(--border-color)', boxShadow:'0 4px 15px rgba(0,0,0,0.02)', animationDelay:'0.08s'}}>
               <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px'}}>
                 <span style={{fontSize:'20px'}}>💰</span>
-                <span style={{fontSize:'14px', color:'#718EBF', fontWeight:'600'}}>Còn lại</span>
+                <span style={{fontSize:'14px', color:'#718EBF', fontWeight:'600'}}>{t('remaining')}</span>
               </div>
               <div style={{fontSize:'20px', fontWeight:'800', color: remainingAmount === 0 && totalLimit > 0 ? '#FE5C73' : 'var(--text-main)'}}>
                 {fmt(remainingAmount)}
               </div>
               <div style={{fontSize:'12px', color:'#718EBF', marginTop:'4px'}}>
-                {isOverBudget ? 'Đã dùng hết ngân sách' : 'Số dư khả dụng hiện tại'}
+                {isOverBudget ? t('all_budget_used') : t('current_available_balance')}
               </div>
             </div>
 
@@ -804,13 +832,13 @@ export default function Budget() {
             <div className="bdg-card-animate" style={{background:'var(--card-bg)', borderRadius:'16px', padding:'20px', border:'1px solid var(--border-color)', boxShadow:'0 4px 15px rgba(0,0,0,0.02)', animationDelay:'0.16s'}}>
               <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px'}}>
                 <span style={{fontSize:'20px'}}>📅</span>
-                <span style={{fontSize:'14px', color:'#718EBF', fontWeight:'600'}}>Trung bình/ngày</span>
+                <span style={{fontSize:'14px', color:'#718EBF', fontWeight:'600'}}>{t('avg_per_day')}</span>
               </div>
               <div style={{fontSize:'20px', fontWeight:'800', color:'var(--text-main)'}}>
                 {fmt(averagePerDay)}
               </div>
               <div style={{fontSize:'12px', color:'#718EBF', marginTop:'4px'}}>
-                Tính trên {passedDays} ngày đã qua
+                {t('based_on_passed_days').replace('{days}', passedDays.toString())}
               </div>
             </div>
 
@@ -818,13 +846,13 @@ export default function Budget() {
             <div className="bdg-card-animate" style={{background:'var(--card-bg)', borderRadius:'16px', padding:'20px', border:'1px solid var(--border-color)', boxShadow:'0 4px 15px rgba(0,0,0,0.02)', animationDelay:'0.24s'}}>
               <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px'}}>
                 <span style={{fontSize:'20px'}}>🔮</span>
-                <span style={{fontSize:'14px', color:'#718EBF', fontWeight:'600'}}>Dự báo cuối tháng</span>
+                <span style={{fontSize:'14px', color:'#718EBF', fontWeight:'600'}}>{t('month_end_forecast')}</span>
               </div>
               <div style={{fontSize:'20px', fontWeight:'800', color: projectedTotal > totalLimit && totalLimit > 0 ? '#FE5C73' : '#16DBCC'}}>
                 {fmt(projectedTotal)}
               </div>
               <div style={{fontSize:'12px', color:'#718EBF', marginTop:'4px'}}>
-                {projectedTotal > totalLimit && totalLimit > 0 ? '⚠️ Dự kiến vượt hạn mức' : 'Dự kiến chi hết tháng'}
+                {projectedTotal > totalLimit && totalLimit > 0 ? t('projected_over_budget') : t('projected_within_budget')}
               </div>
             </div>
 
@@ -832,13 +860,13 @@ export default function Budget() {
             <div className="bdg-card-animate" style={{background:'var(--card-bg)', borderRadius:'16px', padding:'20px', border:'1px solid var(--border-color)', boxShadow:'0 4px 15px rgba(0,0,0,0.02)', animationDelay:'0.32s'}}>
               <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px'}}>
                 <span style={{fontSize:'20px'}}>🔲</span>
-                <span style={{fontSize:'14px', color:'#718EBF', fontWeight:'600'}}>Số danh mục hạn mức</span>
+                <span style={{fontSize:'14px', color:'#718EBF', fontWeight:'600'}}>{t('category_limits_count')}</span>
               </div>
               <div style={{fontSize:'20px', fontWeight:'800', color:'var(--text-main)'}}>
-                {categoryBudgets.length} danh mục
+                {categoryBudgets.length} {t('categories_unit')}
               </div>
               <div style={{fontSize:'12px', color:'#718EBF', marginTop:'4px'}}>
-                Từ tổng số {categories.length} nhóm chi tiêu
+                {t('out_of_total_categories').replace('{total}', categories.length.toString())}
               </div>
             </div>
           </div>
@@ -855,10 +883,10 @@ export default function Budget() {
               animationDelay: '0.4s'
             }}>
               <h3 style={{ color: 'var(--text-main)', fontSize: '16px', fontWeight: '700', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0 }}>
-                <span>📊</span> Cơ cấu chi tiêu theo ngân sách danh mục
+                <span>📊</span> {t('spending_structure_by_category')}
               </h3>
               <BudgetDoughnutChart data={categoryBudgets.map(b => ({
-                name: b.category?.name || 'Danh mục khác',
+                name: tCategory(b.category?.name) || t('other_category'),
                 value: Math.abs(parseFloat(b.used_amount)),
                 color: b.category?.color || '#FF6384',
                 icon: parseIcon(b.category?.icon || 'grid')
@@ -875,7 +903,7 @@ export default function Budget() {
                 const limit = parseFloat(b.limit_amount);
                 const used = Math.abs(parseFloat(b.used_amount));
                 const pct = limit > 0 ? Math.round(used/limit*100) : 0;
-                const catName = b.category?.name || 'Danh mục khác';
+                const catName = tCategory(b.category?.name) || t('other_category');
                 const catIcon = parseIcon(b.category?.icon || 'grid');
                 const catColor = b.category?.color || '#FF6384';
                 
@@ -891,7 +919,7 @@ export default function Budget() {
                         <div 
                           onClick={() => handleToggleExpand(b)}
                           style={{display:'flex',alignItems:'center',gap:'12px', cursor:'pointer', flex: 1}}
-                          title="Bấm để xem chi tiết giao dịch"
+                          title={t('click_to_view_tx')}
                         >
                           <div style={{width:'45px',height:'45px',borderRadius:'12px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'22px',background:`${catColor}15`}}>{catIcon}</div>
                           <div>
@@ -915,13 +943,13 @@ export default function Budget() {
                               onClick={() => handleOpenEditModal(b)}
                               style={{background:'none', border:'none', color:'#1814F3', fontSize:'12px', fontWeight:'600', cursor:'pointer', padding:'2px 4px'}}
                             >
-                              ✏️ Sửa
+                              {t('edit_label')}
                             </button>
                             <button 
                               onClick={() => handleDeleteBudget(b.id)}
                               style={{background:'none', border:'none', color:'#FE5C73', fontSize:'12px', fontWeight:'600', cursor:'pointer', padding:'2px 4px'}}
                             >
-                              🗑️ Xóa
+                              {t('delete_label')}
                             </button>
                           </div>
                         </div>
@@ -946,17 +974,17 @@ export default function Budget() {
                     {expandedBudgetId === b.id && (
                       <div style={{marginTop:'16px', borderTop:'1px solid var(--border-color)', paddingTop:'16px', width:'100%'}}>
                         <div style={{fontWeight:'700', fontSize:'13px', color:'var(--text-main)', marginBottom:'10px'}}>
-                          Giao dịch trong tháng ({categoryTransactions.length})
+                          {t('transactions_in_month')} ({categoryTransactions.length})
                         </div>
                         {isLoadingTransactions ? (
-                          <div style={{fontSize:'12px', color:'#718EBF', textAlign:'center', padding:'10px'}}>Đang tải giao dịch...</div>
+                          <div style={{fontSize:'12px', color:'#718EBF', textAlign:'center', padding:'10px'}}>{t('loading_transactions')}</div>
                         ) : categoryTransactions.length > 0 ? (
                           <div style={{maxHeight:'160px', overflowY:'auto', display:'flex', flexDirection:'column', gap:'6px', paddingRight:'4px'}}>
                             {categoryTransactions.map((tx: any) => (
-                              <div key={tx.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 10px', background:'var(--bg-color)', borderRadius:'8px', fontSize:'12px'}}>
+                              <div key={tx.id} style={{display:'flex', justifycontent:'space-between', alignItems:'center', padding:'6px 10px', background:'var(--bg-color)', borderRadius:'8px', fontSize:'12px'}}>
                                 <div style={{display:'flex', flexDirection:'column', gap:'1px', maxWidth:'65%'}}>
                                   <span style={{fontWeight:'600', color:'var(--text-main)', textOverflow:'ellipsis', overflow:'hidden', whiteSpace:'nowrap'}}>{tx.title}</span>
-                                  <span style={{fontSize:'10px', color:'#718EBF'}}>{new Date(tx.transaction_date).toLocaleDateString('vi-VN')}</span>
+                                  <span style={{fontSize:'10px', color:'#718EBF'}}>{new Date(tx.transaction_date).toLocaleDateString(language === 'vi' ? 'vi-VN' : 'en-US')}</span>
                                 </div>
                                 <span style={{fontWeight:'700', color: tx.type === 'income' ? '#16DBCC' : '#FE5C73'}}>
                                   {tx.type === 'income' ? '+' : '-'}{fmt(parseFloat(tx.amount))}
@@ -965,7 +993,7 @@ export default function Budget() {
                             ))}
                           </div>
                         ) : (
-                          <div style={{fontSize:'12px', color:'#718EBF', textAlign:'center', padding:'10px'}}>Không có giao dịch nào.</div>
+                          <div style={{fontSize:'12px', color:'#718EBF', textAlign:'center', padding:'10px'}}>{t('no_transactions_found_budget')}</div>
                         )}
                       </div>
                     )}
@@ -1001,10 +1029,10 @@ export default function Budget() {
                 🎯
               </div>
               <h3 style={{color: 'var(--text-main)', fontSize: '20px', fontWeight: '700', marginBottom: '10px'}}>
-                Chưa thiết lập ngân sách tháng này
+                {t('no_budget_setup')}
               </h3>
               <p style={{fontSize: '14px', color: '#718EBF', maxWidth: '440px', lineHeight: '1.6', margin: '0 auto 24px'}}>
-                Thiết lập ngân sách giúp bạn kiểm soát việc chi tiêu tốt hơn, tối ưu hóa tiền tích lũy và nhanh chóng đạt được các cột mốc tự do tài chính.
+                {t('no_budget_desc')}
               </p>
               <div style={{display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap'}}>
                 <button 
@@ -1022,7 +1050,7 @@ export default function Budget() {
                     transition: 'all 0.2s'
                   }}
                 >
-                  ➕ Đặt ngân sách mới
+                  {t('set_new_budget')}
                 </button>
                 <button 
                   onClick={handleCopyBudgets}
@@ -1038,7 +1066,7 @@ export default function Budget() {
                     transition: 'all 0.2s'
                   }}
                 >
-                  📋 Sao chép từ tháng trước
+                  {t('copy_from_previous_month')}
                 </button>
               </div>
             </div>
@@ -1053,7 +1081,7 @@ export default function Budget() {
               >
                 <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
                   <span style={{fontSize:'20px'}}>📅</span>
-                  <span style={{fontWeight:'700', color:'var(--text-main)', fontSize:'16px'}}>Lịch sử ngân sách các tháng trước</span>
+                  <span style={{fontWeight:'700', color:'var(--text-main)', fontSize:'16px'}}>{t('past_months_budget_history')}</span>
                 </div>
                 <span style={{color:'#718EBF', fontSize:'20px', transition:'transform 0.3s', transform: showHistory ? 'rotate(180deg)' : 'rotate(0deg)'}}>▼</span>
               </div>
@@ -1081,7 +1109,9 @@ export default function Budget() {
                             onClick={() => { setMonth(h.month); setYear(h.year); setShowHistory(false); }}
                           >
                             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'12px'}}>
-                              <span style={{fontWeight:'700', color:'var(--text-main)', fontSize:'15px'}}>Tháng {h.month}/{h.year}</span>
+                              <span style={{fontWeight:'700', color:'var(--text-main)', fontSize:'15px'}}>
+                                {language === 'vi' ? `${t(`month_${h.month}`)}/${h.year}` : `${t(`month_${h.month}`)} ${h.year}`}
+                              </span>
                               <span style={{fontSize:'13px', fontWeight:'700', color: barColor}}>{pct}%</span>
                             </div>
                             <div style={{width:'100%', height:'10px', background:'var(--bg-color)', borderRadius:'5px', overflow:'hidden', marginBottom:'10px'}}>
@@ -1089,10 +1119,10 @@ export default function Budget() {
                             </div>
                             <div style={{display:'flex', justifyContent:'space-between', fontSize:'13px', color:'#718EBF'}}>
                               <span>{fmt(h.used)} / {fmt(h.limit)}</span>
-                              <span>{h.count} mục</span>
+                              <span>{h.count} {t('item_unit')}</span>
                             </div>
                             {pct >= 100 && (
-                              <div style={{marginTop:'6px', fontSize:'12px', color:'#FE5C73', fontWeight:'600'}}>🚨 Đã vượt ngân sách</div>
+                              <div style={{marginTop:'6px', fontSize:'12px', color:'#FE5C73', fontWeight:'600'}}>{t('over_budget_alert')}</div>
                             )}
                           </div>
                         );
@@ -1101,7 +1131,7 @@ export default function Budget() {
                   ) : (
                     <div style={{background:'var(--card-bg)', border:'1px dashed var(--border-color)', borderRadius:'16px', padding:'40px 20px', textAlign:'center', color:'#718EBF'}}>
                       <div style={{fontSize:'32px', marginBottom:'12px'}}>📭</div>
-                      <p style={{fontSize:'14px', margin:0}}>Không tìm thấy ngân sách của các tháng trước.</p>
+                      <p style={{fontSize:'14px', margin:0}}>{t('no_past_budgets')}</p>
                     </div>
                   )}
                 </div>
@@ -1116,29 +1146,29 @@ export default function Budget() {
         <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000, backdropFilter: 'blur(4px)'}}>
           <div style={{background: 'var(--card-bg)',borderRadius:'24px',padding:'30px',width:'450px',maxWidth:'95%',boxShadow:'0 10px 40px rgba(0,0,0,0.1)'}}>
              <h2 style={{color: 'var(--text-main)',marginBottom:'24px',fontSize:'20px',fontWeight:'700'}}>
-               {isEditMode ? 'Chỉnh sửa hạn mức ngân sách' : 'Thiết lập ngân sách hạn mức'}
+               {isEditMode ? t('edit_budget_limit') : t('setup_budget_limit')}
              </h2>
              
              <div style={{marginBottom:'20px'}}>
-               <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>Áp dụng cho danh mục</label>
+               <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>{t('apply_to_category')}</label>
                <select 
                  value={selectedCategory} 
                  onChange={e=>setSelectedCategory(e.target.value)} 
                  disabled={isEditMode}
                  style={{width:'100%',padding:'12px',border: '1px solid var(--border-color)',borderRadius:'12px',background: isEditMode ? 'var(--border-color)' : 'var(--bg-color)',color: 'var(--text-main)',fontSize:'15px', cursor: isEditMode ? 'not-allowed' : 'default'}}
                >
-                  <option value="">Ngân sách chung (Toàn bộ chi tiêu)</option>
+                  <option value="">{t('overall_budget_option')}</option>
                   {flatCategories.map(c => <option key={c.id} value={c.id}>{c.displayName}</option>)}
                </select>
              </div>
 
              <div style={{marginBottom:'24px'}}>
-               <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>Số tiền hạn mức (đ)</label>
+               <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>{t('limit_amount_label')}</label>
                <input 
                  type="number" 
                  value={limitAmount} 
                  onChange={e=>setLimitAmount(e.target.value)} 
-                 placeholder="VD: 5000000" 
+                 placeholder={t('limit_amount_placeholder')} 
                  style={{width:'100%',padding:'12px',border: '1px solid var(--border-color)',borderRadius:'12px',background: 'var(--bg-color)',color: 'var(--text-main)',fontSize:'15px'}} 
                />
              </div>
@@ -1150,7 +1180,7 @@ export default function Budget() {
                 onClick={handleSaveBudget} 
                 disabled={isSubmitting}
                >
-                 {isSubmitting ? 'Đang lưu...' : 'Lưu ngân sách'}
+                 {isSubmitting ? t('saving_label') : t('save_budget_btn')}
                </button>
              </div>
           </div>
@@ -1167,8 +1197,8 @@ export default function Budget() {
             </div>
             <p style={{color:'#718EBF',fontSize:'14px',lineHeight:'1.6',margin:'0 0 24px 0'}}>{confirmDialog.message}</p>
             <div style={{display:'flex',gap:'12px',justifyContent:'flex-end'}}>
-              <button onClick={closeConfirm} style={{padding:'10px 22px',background:'var(--bg-color)',color:'#718EBF',borderRadius:'12px',border:'1px solid var(--border-color)',cursor:'pointer',fontWeight:'600',fontSize:'14px',transition:'all 0.2s'}}>Hủy</button>
-              <button onClick={() => { confirmDialog.onConfirm(); closeConfirm(); }} style={{padding:'10px 22px',background:'linear-gradient(135deg,#FF6B6B,#EE5A24)',color:'#fff',borderRadius:'12px',border:'none',cursor:'pointer',fontWeight:'600',fontSize:'14px',transition:'all 0.2s'}}>Xác nhận</button>
+              <button onClick={closeConfirm} style={{padding:'10px 22px',background:'var(--bg-color)',color:'#718EBF',borderRadius:'12px',border:'1px solid var(--border-color)',cursor:'pointer',fontWeight:'600',fontSize:'14px',transition:'all 0.2s'}}>{t('cancel')}</button>
+              <button onClick={() => { confirmDialog.onConfirm(); closeConfirm(); }} style={{padding:'10px 22px',background:'linear-gradient(135deg,#FF6B6B,#EE5A24)',color:'#fff',borderRadius:'12px',border:'none',cursor:'pointer',fontWeight:'600',fontSize:'14px',transition:'all 0.2s'}}>{t('confirm')}</button>
             </div>
           </div>
         </div>
