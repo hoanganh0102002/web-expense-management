@@ -158,7 +158,7 @@ export default function Settings() {
           <h1 className="page-title" style={{ color: 'var(--text-main)', fontWeight: '800' }}>{t('settings_customize')}</h1>
           <div className="nav-actions" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
             {/* Notification Icon */}
-            <Link href="/notifications" style={{background: '#F5F7FA', width: '45px', height: '45px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffb300', cursor: 'pointer', fontSize: '20px', textDecoration: 'none'}}>
+            <Link href="/notifications" style={{background: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : '#F5F7FA', width: '45px', height: '45px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffb300', cursor: 'pointer', fontSize: '20px', textDecoration: 'none'}}>
               🔔
             </Link>
             {isLoggedIn ? (
@@ -166,11 +166,11 @@ export default function Settings() {
                 <span style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '15px' }}>{displayName}</span>
                 <div style={{ position: 'relative', width: '45px', height: '45px' }}>
                   <img src={userData?.profile?.avatar_url || userData?.avatar_url || userData?.avatar || "https://api.dicebear.com/7.x/miniavs/svg?seed=SpendWise&backgroundColor=b6e3f4"} alt="Avatar" className="avatar" style={{width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover'}}/>
-                  <div style={{ position: 'absolute', bottom: 0, right: 0, width: '12px', height: '12px', background: '#16DBCC', border: '2px solid #fff', borderRadius: '50%' }}></div>
+                  <div style={{ position: 'absolute', bottom: 0, right: 0, width: '12px', height: '12px', background: '#16DBCC', border: theme === 'dark' ? '2px solid #0f172a' : '2px solid #fff', borderRadius: '50%' }}></div>
                 </div>
               </div>
             ) : (
-              <Link href="/login" style={{ textDecoration: 'none', color: '#fff', background: '#343C6A', padding: '8px 15px', borderRadius: '20px', fontWeight: 'bold' }}>{t('login')}</Link>
+              <Link href="/login" style={{ textDecoration: 'none', color: '#fff', background: 'var(--active-blue)', padding: '8px 15px', borderRadius: '20px', fontWeight: 'bold' }}>{t('login')}</Link>
             )}
           </div>
         </nav>
@@ -186,6 +186,61 @@ export default function Settings() {
             overflow: 'hidden',
             backdropFilter: 'blur(30px)'
           }}>
+            {/* Header Accent Decor */}
+            <div style={{ height: '160px', background: 'var(--accent-gradient)', opacity: 0.1, position: 'absolute', top: 0, left: 0, right: 0 }}></div>
+            {/* Fading overlay to eliminate the sharp line */}
+            <div style={{ height: '60px', background: 'linear-gradient(to bottom, transparent, var(--card-bg))', position: 'absolute', top: '100px', left: 0, right: 0, pointerEvents: 'none' }}></div>
+            <div style={{ padding: '40px', position: 'relative', zIndex: 1 }}>
+              {/* Tabs Navigation (Modern Pill Style) */}
+              <div style={{ 
+                display: 'inline-flex', 
+                gap: '6px', 
+                background: theme === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)', 
+                padding: '6px', 
+                borderRadius: '14px',
+                border: '1px solid var(--border-color)',
+                marginBottom: '40px',
+                position: 'relative',
+                zIndex: 2
+              }}>
+                {[
+                  { k: 'profile', l: t('personal_info') },
+                  { k: 'preferences', l: t('display_options') },
+                  { k: 'security', l: t('security') },
+                ].map(tab => {
+                  const isActive = activeTab === tab.k;
+                  return (
+                    <div
+                      key={tab.k}
+                      onClick={() => setActiveTab(tab.k)}
+                      style={{
+                        padding: '10px 24px',
+                        color: isActive 
+                          ? (theme === 'dark' ? '#FFFFFF' : 'var(--active-blue)') 
+                          : (theme === 'dark' ? 'rgba(255, 255, 255, 0.5)' : 'var(--text-light)'),
+                        background: isActive 
+                          ? (theme === 'dark' ? 'rgba(99, 102, 241, 0.15)' : '#FFFFFF') 
+                          : 'transparent',
+                        borderRadius: '10px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        minWidth: '130px',
+                        boxShadow: (isActive && theme !== 'dark') ? '0 4px 12px rgba(0,0,0,0.05)' : 'none',
+                        border: isActive 
+                          ? (theme === 'dark' ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid rgba(45, 96, 255, 0.1)')
+                          : '1px solid transparent'
+                      }}
+                    >
+                      {tab.l}
+                    </div>
+                  );
+                })}
+              </div>
             
             <div style={{ padding: '40px', position: 'relative' }}>
               {/* Tabs Navigation */}
@@ -231,7 +286,7 @@ export default function Settings() {
                 {/* Avatar Section */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
                   <div style={{ position: 'relative' }}>
-                    <div style={{ width: '130px', height: '130px', borderRadius: '50%', padding: '4px', border: '2px solid #1814F3' }}>
+                    <div style={{ width: '130px', height: '130px', borderRadius: '50%', padding: '4px', border: `2px solid var(--active-blue)` }}>
                       <img
                         src={userData?.profile?.avatar_url || userData?.avatar_url || userData?.avatar || "https://api.dicebear.com/7.x/miniavs/svg?seed=SpendWise&backgroundColor=b6e3f4"}
                         alt="Profile"
@@ -248,13 +303,13 @@ export default function Settings() {
                     <button 
                       onClick={() => fileInputRef.current?.click()}
                       disabled={isUpdating}
-                      style={{ position: 'absolute', bottom: '5px', right: '5px', background: '#1814F3', border: 'none', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 10px rgba(0,0,0,0.1)', opacity: isUpdating ? 0.7 : 1 }}>
+                      style={{ position: 'absolute', bottom: '5px', right: '5px', background: 'var(--active-blue)', border: 'none', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 10px rgba(0,0,0,0.1)', opacity: isUpdating ? 0.7 : 1 }}>
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                     </button>
                   </div>
                   <div style={{ textAlign: 'center' }}>
                     <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '18px' }}>{displayName}</h3>
-                    <p style={{ margin: '4px 0 0', color: '#718EBF', fontSize: '13px' }}>{userData?.email || t('email_not_verified')}</p>
+                    <p style={{ margin: '4px 0 0', color: 'var(--text-light)', fontSize: '13px' }}>{userData?.email || t('email_not_verified')}</p>
                   </div>
                 </div>
 
@@ -271,16 +326,7 @@ export default function Settings() {
                             onChange={(e) => f.setter && f.setter(e.target.value)}
                             placeholder={isLoggedIn ? `${t('enter_placeholder')} ${f.label.toLowerCase()}...` : t('please_login')}
                             disabled={!isLoggedIn || f.disabled}
-                            style={{
-                              width: '100%',
-                              padding: '14px 18px',
-                              border: '1px solid var(--border-color)',
-                              borderRadius: '15px',
-                              background: f.disabled ? 'rgba(255, 255, 255, 0.05)' : 'var(--input-bg)',
-                              color: 'var(--text-main)',
-                              fontSize: '15px',
-                              fontWeight: '500'
-                            }}
+                            className="settings-input"
                           />
                         </div>
                       </div>
@@ -290,10 +336,32 @@ export default function Settings() {
                     <button 
                       onClick={() => handleUpdateProfile('profile')}
                       disabled={isUpdating}
-                      style={{ padding: '14px 35px', background: '#1814F3', color: '#fff', border: 'none', borderRadius: '15px', fontWeight: '700', cursor: 'pointer', fontSize: '15px', boxShadow: '0 4px 15px rgba(24, 20, 243, 0.25)', transition: 'transform 0.2s', opacity: isUpdating ? 0.7 : 1 }}>
+                      style={{ 
+                        padding: '14px 35px', 
+                        background: theme === 'dark' ? 'linear-gradient(135deg, #6366F1 0%, #4F46E5 100%)' : 'linear-gradient(135deg, #2D60FF 0%, #1814F3 100%)', 
+                        color: '#fff', 
+                        border: 'none', 
+                        borderRadius: '15px', 
+                        fontWeight: '700', 
+                        cursor: 'pointer', 
+                        fontSize: '15px', 
+                        boxShadow: theme === 'dark' ? '0 4px 15px rgba(99, 102, 241, 0.25)' : '0 4px 15px rgba(45, 96, 255, 0.25)', 
+                        transition: 'all 0.25s ease', 
+                        opacity: isUpdating ? 0.7 : 1 
+                      }}>
                       {isUpdating ? t('saving') : t('save_changes')}
                     </button>
-                    <button style={{ padding: '14px 35px', background: 'var(--bg-color)', color: '#718EBF', border: '1px solid #E6EFF5', borderRadius: '15px', fontWeight: '600', cursor: 'pointer', fontSize: '15px' }}>{t('cancel_changes')}</button>
+                    <button style={{ 
+                      padding: '14px 35px', 
+                      background: 'transparent', 
+                      color: 'var(--text-light)', 
+                      border: '1px solid var(--border-color)', 
+                      borderRadius: '15px', 
+                      fontWeight: '600', 
+                      cursor: 'pointer', 
+                      fontSize: '15px',
+                      transition: 'all 0.25s ease'
+                    }}>{t('cancel_changes')}</button>
                   </div>
                 </div>
               </div>
@@ -304,6 +372,29 @@ export default function Settings() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
                   <div>
                     <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '600', fontSize: '15px' }}>{t('currency_label')}</label>
+                    <div className="select-wrapper">
+                      <select 
+                        disabled={!isLoggedIn} 
+                        value={currency}
+                        onChange={(e) => setCurrency(e.target.value)}
+                        className="settings-select"
+                      >
+                        <option>VNĐ (₫)</option><option>USD ($)</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '600', fontSize: '15px' }}>{t('language_label')}</label>
+                    <div className="select-wrapper">
+                      <select 
+                        disabled={!isLoggedIn} 
+                        value={language}
+                        onChange={(e) => setLanguage(e.target.value)}
+                        className="settings-select"
+                      >
+                        <option>Tiếng Việt</option><option>English</option>
+                      </select>
+                    </div>
                     <select 
                       disabled={!isLoggedIn} 
                       value={currency}
@@ -332,22 +423,22 @@ export default function Settings() {
                     </select>
                   </div>
                 </div>
-                <div style={{ marginTop: '30px', padding: '32px', background: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div className="settings-group-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '30px' }}>
                   <div>
                     <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '8px', fontSize: '17px' }}>{t('dark_mode')}</div>
                     <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '280px' }}>{t('dark_mode_desc')}</div>
                   </div>
                   <div 
                     onClick={toggleTheme}
-                    style={{ width: '56px', height: '30px', borderRadius: '15px', background: theme === 'dark' ? '#1814F3' : 'var(--border-color)', position: 'relative', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>
+                    style={{ width: '56px', height: '30px', borderRadius: '15px', background: theme === 'dark' ? 'var(--active-blue)' : '#E2E8F0', position: 'relative', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>
                     <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '4px', left: theme === 'dark' ? '30px' : '4px', transition: '0.3s', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}></div>
                   </div>
                 </div>
 
-                <div style={{ marginTop: '30px', borderTop: '1px solid var(--border-color)', paddingTop: '20px' }}>
+                <div style={{ marginTop: '35px', borderTop: '1px solid var(--border-color)', paddingTop: '25px' }}>
                   <h3 style={{ color: 'var(--text-main)', marginBottom: '20px', fontSize: '18px' }}>Cài đặt thông báo</h3>
                   
-                  <div style={{ padding: '32px', background: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                  <div className="settings-group-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                       <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '8px', fontSize: '17px' }}>Email nhắc nhở chi tiêu</div>
                       <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '350px' }}>Nhận email nhắc nhở vào cuối ngày nếu bạn chưa nhập chi tiêu.</div>
@@ -364,12 +455,12 @@ export default function Settings() {
                           alert("Không thể lưu cài đặt. Vui lòng thử lại!");
                         }
                       }}
-                      style={{ width: '56px', height: '30px', borderRadius: '15px', background: emailReminder ? '#1814F3' : 'var(--border-color)', position: 'relative', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>
+                      style={{ width: '56px', height: '30px', borderRadius: '15px', background: emailReminder ? 'var(--active-blue)' : (theme === 'dark' ? 'rgba(255,255,255,0.1)' : '#E2E8F0'), position: 'relative', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>
                       <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '4px', left: emailReminder ? '30px' : '4px', transition: '0.3s', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}></div>
                     </div>
                   </div>
 
-                  <div style={{ padding: '32px', background: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                  <div className="settings-group-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                       <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '8px', fontSize: '17px' }}>Cảnh báo vượt ngân sách</div>
                       <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '350px' }}>Nhận cảnh báo qua email và ứng dụng khi đạt 80% hoặc vượt 100% ngân sách.</div>
@@ -385,12 +476,12 @@ export default function Settings() {
                           alert("Không thể lưu cài đặt. Vui lòng thử lại!");
                         }
                       }}
-                      style={{ width: '56px', height: '30px', borderRadius: '15px', background: budgetAlert ? '#1814F3' : 'var(--border-color)', position: 'relative', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>
+                      style={{ width: '56px', height: '30px', borderRadius: '15px', background: budgetAlert ? 'var(--active-blue)' : (theme === 'dark' ? 'rgba(255,255,255,0.1)' : '#E2E8F0'), position: 'relative', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>
                       <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '4px', left: budgetAlert ? '30px' : '4px', transition: '0.3s', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}></div>
                     </div>
                   </div>
 
-                  <div style={{ padding: '32px', background: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                  <div className="settings-group-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                       <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '8px', fontSize: '17px' }}>Thông báo giao dịch định kỳ</div>
                       <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '350px' }}>Nhận thông báo trong ứng dụng khi hệ thống tự động tạo giao dịch định kỳ.</div>
@@ -406,48 +497,51 @@ export default function Settings() {
                           alert("Không thể lưu cài đặt. Vui lòng thử lại!");
                         }
                       }}
-                      style={{ width: '56px', height: '30px', borderRadius: '15px', background: recurringAlert ? '#1814F3' : 'var(--border-color)', position: 'relative', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>
+                      style={{ width: '56px', height: '30px', borderRadius: '15px', background: recurringAlert ? 'var(--active-blue)' : (theme === 'dark' ? 'rgba(255,255,255,0.1)' : '#E2E8F0'), position: 'relative', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>
                       <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '4px', left: recurringAlert ? '30px' : '4px', transition: '0.3s', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}></div>
                     </div>
                   </div>
 
-                  <div style={{ padding: '32px', background: 'rgba(255,255,255,0.02)', borderRadius: '20px', border: '1px solid var(--border-color)', marginBottom: '20px' }}>
+                  <div className="settings-group-card">
                     <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '8px', fontSize: '17px' }}>Tần suất nhận báo cáo tổng hợp</div>
                     <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '15px' }}>Chọn mức độ thường xuyên bạn muốn nhận email tóm tắt chi tiêu.</div>
-                    <select 
-                      value={notificationFrequency}
-                      onChange={async (e) => {
-                        const val = e.target.value;
-                        setNotificationFrequency(val);
-                        try {
-                          await notificationApi.updatePreferences({ notification_frequency: val });
-                        } catch (err) {
-                          alert("Không thể lưu cài đặt. Vui lòng thử lại!");
-                        }
-                      }}
-                      style={{ width: '100%', padding: '14px', border: '1px solid var(--border-color)', borderRadius: '15px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px', appearance: 'none', cursor: 'pointer' }}>
-                      <option value="daily">Hàng ngày</option>
-                      <option value="weekly">Hàng tuần</option>
-                      <option value="monthly">Hàng tháng</option>
-                      <option value="never">Không bao giờ</option>
-                    </select>
+                    <div className="select-wrapper">
+                      <select 
+                        value={notificationFrequency}
+                        onChange={async (e) => {
+                          const val = e.target.value;
+                          setNotificationFrequency(val);
+                          try {
+                            await notificationApi.updatePreferences({ notification_frequency: val });
+                          } catch (err) {
+                            alert("Không thể lưu cài đặt. Vui lòng thử lại!");
+                          }
+                        }}
+                        className="settings-select"
+                      >
+                        <option value="daily">Hàng ngày</option>
+                        <option value="weekly">Hàng tuần</option>
+                        <option value="monthly">Hàng tháng</option>
+                        <option value="never">Không bao giờ</option>
+                      </select>
+                    </div>
                   </div>
                 </div>
                 <button 
                   onClick={() => handleUpdateProfile('preferences')}
                   disabled={isUpdating}
                   style={{ 
-                    marginTop: '30px', 
+                    marginTop: '20px', 
                     padding: '16px 40px', 
-                    background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)', 
+                    background: theme === 'dark' ? 'linear-gradient(135deg, #6366F1 0%, #4F46E5 100%)' : 'linear-gradient(135deg, #2D60FF 0%, #1814F3 100%)', 
                     color: '#fff', 
                     border: 'none', 
                     borderRadius: '16px', 
                     fontWeight: '700', 
                     cursor: 'pointer', 
                     fontSize: '15px', 
-                    boxShadow: '0 10px 20px -5px rgba(59, 130, 246, 0.4)',
-                    transition: 'all 0.3s',
+                    boxShadow: theme === 'dark' ? '0 10px 20px -5px rgba(99, 102, 241, 0.3)' : '0 10px 20px -5px rgba(45, 96, 255, 0.3)',
+                    transition: 'all 0.25s ease',
                     opacity: isUpdating ? 0.7 : 1 
                   }}>
                   {t('save_preferences')}
@@ -467,7 +561,7 @@ export default function Settings() {
                       disabled={!isLoggedIn} 
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
-                      style={{ width: '100%', padding: '14px', border: '1px solid var(--border-color)', borderRadius: '15px', background: 'var(--input-bg)', color: 'var(--text-main)' }} 
+                      className="settings-input"
                     />
                   </div>
                   <div>
@@ -478,7 +572,7 @@ export default function Settings() {
                       disabled={!isLoggedIn} 
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      style={{ width: '100%', padding: '14px', border: '1px solid var(--border-color)', borderRadius: '15px', background: 'var(--input-bg)', color: 'var(--text-main)' }} 
+                      className="settings-input"
                     />
                   </div>
                   <div>
@@ -489,31 +583,49 @@ export default function Settings() {
                       disabled={!isLoggedIn} 
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      style={{ width: '100%', padding: '14px', border: '1px solid var(--border-color)', borderRadius: '15px', background: 'var(--input-bg)', color: 'var(--text-main)' }} 
+                      className="settings-input"
                     />
                   </div>
                   <div style={{ display: 'flex', gap: '15px' }}>
                     <button 
                       onClick={handleChangePassword}
-                      disabled={isChangingPwd}
-                      style={{ width: 'fit-content', padding: '14px 30px', background: '#1814F3', color: '#fff', border: 'none', borderRadius: '15px', fontWeight: '700', cursor: 'pointer', marginTop: '10px', opacity: (isLoggedIn && !isChangingPwd) ? 1 : 0.5 }}>
+                      disabled={isChangingPwd || !isLoggedIn}
+                      style={{ 
+                        width: 'fit-content', 
+                        padding: '14px 30px', 
+                        background: theme === 'dark' ? 'linear-gradient(135deg, #6366F1 0%, #4F46E5 100%)' : 'linear-gradient(135deg, #2D60FF 0%, #1814F3 100%)', 
+                        color: '#fff', 
+                        border: 'none', 
+                        borderRadius: '15px', 
+                        fontWeight: '700', 
+                        cursor: 'pointer', 
+                        marginTop: '10px', 
+                        boxShadow: theme === 'dark' ? '0 4px 15px rgba(99, 102, 241, 0.25)' : '0 4px 15px rgba(45, 96, 255, 0.25)',
+                        transition: 'all 0.25s ease',
+                        opacity: (isLoggedIn && !isChangingPwd) ? 1 : 0.5 
+                      }}>
                       {isChangingPwd ? t('updating') : t('update_password')}
                     </button>
                     <button 
                       onClick={logoutAll}
-                      style={{ width: 'fit-content', padding: '14px 30px', background: '#FFE0EB', color: '#FE5C73', border: '1px solid #FE5C73', borderRadius: '15px', fontWeight: '700', cursor: 'pointer', marginTop: '10px', opacity: isLoggedIn ? 1 : 0.5 }}>
+                      disabled={!isLoggedIn}
+                      className="settings-destructive-btn"
+                      style={{ opacity: isLoggedIn ? 1 : 0.5 }}
+                    >
                       {t('revoke_all_devices')}
                     </button>
                   </div>
                 </div>
                 
-                <div style={{ marginTop: '40px', paddingTop: '30px', borderTop: '2px solid #F4F7FE' }}>
+                <div style={{ marginTop: '45px', paddingTop: '30px', borderTop: '1px solid var(--border-color)' }}>
                   <h3 style={{ color: '#FE5C73', marginBottom: '10px', fontSize: '18px' }}>{t('delete_account')}</h3>
-                  <p style={{ fontSize: '14px', color: '#718EBF', marginBottom: '20px' }}>{t('delete_account_warning')}</p>
+                  <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '20px' }}>{t('delete_account_warning')}</p>
                   <button 
                     onClick={handleDeleteAccount}
                     disabled={!isLoggedIn}
-                    style={{ padding: '12px 25px', background: '#FFE0EB', color: '#FE5C73', border: '1px solid #FE5C73', borderRadius: '12px', fontWeight: '600', cursor: 'pointer', opacity: isLoggedIn ? 1 : 0.5 }}>
+                    className="settings-destructive-btn"
+                    style={{ padding: '12px 25px', borderRadius: '12px', opacity: isLoggedIn ? 1 : 0.5 }}
+                  >
                     {t('delete_account_now')}
                   </button>
                 </div>

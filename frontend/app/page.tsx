@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Sidebar from './components/Sidebar';
 import { useAppContext } from './context/AppContext';
 import { useLanguage } from './lib/translations';
@@ -47,9 +48,12 @@ const formatDate = (dateStr: string) => {
 };
 
 export default function Dashboard() {
+  const router = useRouter();
   const { isLoggedIn, wallets, transactions, isLoadingWallets, userData, categories } = useAppContext();
   const { t } = useLanguage();
   const [showWalletBalance, setShowWalletBalance] = useState(true);
+  const [selectedWalletId, setSelectedWalletId] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [budgetsList, setBudgetsList] = useState<any[]>([]);
   const [isLoadingBudget, setIsLoadingBudget] = useState(false);
   // Statistics States
@@ -104,7 +108,7 @@ export default function Dashboard() {
           setIsLoadingBudget(false);
         });
     }
-  }, [isLoggedIn, currentMonth, currentYear]);
+  }, [isLoggedIn, currentMonth, currentYear, transactions]);
 
   // Fetch report data based on time period
   useEffect(() => {
@@ -223,7 +227,7 @@ export default function Dashboard() {
 
     // Fetch summary
     setIsLoadingSummary(true);
-    reportApi.getSummary(start_date, end_date)
+    reportApi.getSummary(start_date, end_date, selectedWalletId || undefined)
       .then(res => {
         if (res.status === 'success' && res.data) {
           setSummaryData(res.data);
@@ -234,7 +238,7 @@ export default function Dashboard() {
 
     // Fetch last period's summary for comparison
     if (last_month_start && last_month_end) {
-      reportApi.getSummary(last_month_start, last_month_end)
+      reportApi.getSummary(last_month_start, last_month_end, selectedWalletId || undefined)
         .then(res => {
           if (res.status === 'success' && res.data) {
             setLastMonthSummary(res.data);
@@ -243,13 +247,37 @@ export default function Dashboard() {
         .catch(err => console.error("Error fetching last period summary:", err));
     }
 
-    // Fetch category stats: We load transactions for the selected range and group them client-side
+    // Helper functions for date formatting in client-side calculations
+    const getLocalDateString = (isoString: string) => {
+      try {
+        const d = new Date(isoString);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      } catch (e) {
+        return isoString.substring(0, 10);
+      }
+    };
+
+    const getLocalMonthString = (isoString: string) => {
+      try {
+        const d = new Date(isoString);
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      } catch (e) {
+        return isoString.substring(0, 7);
+      }
+    };
+
+    // Fetch category and daily spending stats: We load transactions for the selected range (optionally filtered by wallet)
     setIsLoadingCategory(true);
-    transactionApi.getAll({ start_date, end_date, per_page: 1000 })
+    setIsLoadingDailyTrends(true);
+    transactionApi.getAll({ start_date, end_date, per_page: 2000, wallet_id: selectedWalletId || undefined })
       .then(res => {
         const txList = res.data?.data || res.data || [];
         const grouped: Record<string, any> = {};
         
+        // Calculate daily trends client-side
+        const dailyMap: Record<string, number> = {};
+        const monthlyMap: Record<string, number> = {};
+
         txList.forEach((tx: any) => {
           if (tx.type !== 'expense') return;
           const amt = Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0));
@@ -280,12 +308,43 @@ export default function Dashboard() {
             };
           }
           grouped[catId].amount += amt;
+
+          // Compute daily trends keys
+          const dateStr = tx.transaction_date ? tx.transaction_date.substring(0, 10) : '';
+          if (dateStr) {
+            const localDate = getLocalDateString(tx.transaction_date);
+            dailyMap[localDate] = (dailyMap[localDate] || 0) + amt;
+            
+            const localMonth = getLocalMonthString(tx.transaction_date);
+            monthlyMap[localMonth] = (monthlyMap[localMonth] || 0) + amt;
+          }
         });
         
         setCategoryData(Object.values(grouped));
+
+        // Format daily trends matching SVG expectations
+        const computedDailyTrends: any[] = [];
+        if (trendsGroupBy === 'day') {
+          Object.entries(dailyMap).forEach(([date, expense]) => {
+            computedDailyTrends.push({ date, expense });
+          });
+        } else {
+          Object.entries(monthlyMap).forEach(([monthStr, expense]) => {
+            const [year, month] = monthStr.split('-');
+            computedDailyTrends.push({
+              month: parseInt(month, 10),
+              year: parseInt(year, 10),
+              expense
+            });
+          });
+        }
+        setDailyTrendsData(computedDailyTrends);
       })
-      .catch(err => console.error("Error fetching categories statistics via transactions:", err))
-      .finally(() => setIsLoadingCategory(false));
+      .catch(err => console.error("Error fetching categories and trends via transactions:", err))
+      .finally(() => {
+        setIsLoadingCategory(false);
+        setIsLoadingDailyTrends(false);
+      });
 
     // Fetch static 6-month trends
     setIsLoadingTrends(true);
@@ -302,18 +361,7 @@ export default function Dashboard() {
       .catch(err => console.error("Error fetching trends:", err))
       .finally(() => setIsLoadingTrends(false));
 
-    // Fetch daily/monthly trends for selected period
-    setIsLoadingDailyTrends(true);
-    reportApi.getTrends(start_date, end_date, trendsGroupBy)
-      .then(res => {
-        if (res.status === 'success' && res.data) {
-          setDailyTrendsData(res.data || []);
-        }
-      })
-      .catch(err => console.error("Error fetching daily trends:", err))
-      .finally(() => setIsLoadingDailyTrends(false));
-
-  }, [isLoggedIn, timePeriod, customStartDate, customEndDate, transactions, categoriesMap]);
+  }, [isLoggedIn, timePeriod, customStartDate, customEndDate, transactions, categoriesMap, selectedWalletId]);
 
   const handleCopyBudgets = async () => {
     const fromMonth = currentMonth === 1 ? 12 : currentMonth - 1;
@@ -420,6 +468,13 @@ export default function Dashboard() {
 
 
 
+  const filteredRecentTransactions = useMemo(() => {
+    if (!selectedWalletId) return transactions;
+    return transactions.filter((tx: any) => tx.wallet_id === selectedWalletId);
+  }, [transactions, selectedWalletId]);
+
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
   const formatCurrency = (amount: number | string) => {
     const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     if (isNaN(numericAmount)) return '0';
@@ -442,13 +497,28 @@ export default function Dashboard() {
         <nav className="navbar">
           <h1 className="page-title">{t('dashboard')}</h1>
           <div className="nav-actions">
-            <div className="search-bar">
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (searchQuery.trim()) {
+                router.push(`/transactions?search=${encodeURIComponent(searchQuery.trim())}`);
+              }
+            }} className="search-bar">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="var(--text-light)">
                 <path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
               </svg>
-              <input type="text" placeholder={t('search_placeholder')} />
-            </div>
-            <button style={{background:'#1814F3',color:'#fff',padding:'10px 20px',borderRadius:'24px',fontWeight:'600',border:'none',cursor:'pointer',fontSize:'15px',display:'flex',alignItems:'center',gap:'8px',whiteSpace:'nowrap'}}>{t('add_report')}</button>
+              <input 
+                type="text" 
+                placeholder={t('search_placeholder')} 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </form>
+            <button 
+              onClick={() => router.push('/reports')}
+              style={{background:'#1814F3',color:'#fff',padding:'10px 20px',borderRadius:'24px',fontWeight:'600',border:'none',cursor:'pointer',fontSize:'15px',display:'flex',alignItems:'center',gap:'8px',whiteSpace:'nowrap'}}
+            >
+              {t('add_report')}
+            </button>
             <Link href="/notifications" style={{background: '#F5F7FA', width: '45px', height: '45px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffb300', cursor: 'pointer', fontSize: '20px', textDecoration: 'none'}}>
               🔔
             </Link>
@@ -513,49 +583,84 @@ export default function Dashboard() {
               })}
             </div>
 
-            {/* Custom Date Inputs */}
-            {timePeriod === 'custom' && (
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                flexWrap: 'wrap',
-                animation: 'fadeUpIn 0.3s ease-out'
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '12px', color: 'var(--text-light)', fontWeight: '600' }}>{t('from_date')}</span>
-                  <input
-                    type="date"
-                    value={customStartDate}
-                    onChange={(e) => setCustomStartDate(e.target.value)}
+            {/* Custom Date Inputs & Wallet Filter */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+              {timePeriod === 'custom' && (
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  flexWrap: 'wrap',
+                  animation: 'fadeUpIn 0.3s ease-out'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '12px', color: 'var(--text-light)', fontWeight: '600' }}>{t('from_date')}</span>
+                    <input
+                      type="date"
+                      value={customStartDate}
+                      onChange={(e) => setCustomStartDate(e.target.value)}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '10px',
+                        border: '1px solid var(--border-color)',
+                        fontSize: '13px',
+                        color: 'var(--text-main)',
+                        background: 'var(--bg-color)'
+                      }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '12px', color: 'var(--text-light)', fontWeight: '600' }}>{t('to_date')}</span>
+                    <input
+                      type="date"
+                      value={customEndDate}
+                      onChange={(e) => setCustomEndDate(e.target.value)}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '10px',
+                        border: '1px solid var(--border-color)',
+                        fontSize: '13px',
+                        color: 'var(--text-main)',
+                        background: 'var(--bg-color)'
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* Wallet Selector Dropdown */}
+              {isLoggedIn && wallets.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '12px', color: 'var(--text-light)', fontWeight: '600', whiteSpace: 'nowrap' }}>
+                    {t('filter_by_wallet') || 'Lọc theo ví:'}
+                  </span>
+                  <select
+                    value={selectedWalletId}
+                    onChange={(e) => setSelectedWalletId(e.target.value)}
                     style={{
-                      padding: '6px 12px',
-                      borderRadius: '10px',
+                      padding: '8px 16px',
+                      borderRadius: '12px',
                       border: '1px solid var(--border-color)',
                       fontSize: '13px',
+                      fontWeight: '600',
                       color: 'var(--text-main)',
-                      background: 'var(--bg-color)'
+                      background: 'var(--card-bg)',
+                      boxShadow: '0 2px 5px rgba(0,0,0,0.02)',
+                      cursor: 'pointer',
+                      outline: 'none',
+                      transition: 'all 0.2s ease'
                     }}
-                  />
+                  >
+                    <option value="">{t('all_wallets') || 'Tất cả ví'}</option>
+                    {wallets.map((w: any) => (
+                      <option key={w.id} value={w.id}>
+                        {w.name} ({new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(parseFloat(w.available_balance))})
+                      </option>
+                    ))}
+                  </select>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <span style={{ fontSize: '12px', color: 'var(--text-light)', fontWeight: '600' }}>{t('to_date')}</span>
-                  <input
-                    type="date"
-                    value={customEndDate}
-                    onChange={(e) => setCustomEndDate(e.target.value)}
-                    style={{
-                      padding: '6px 12px',
-                      borderRadius: '10px',
-                      border: '1px solid var(--border-color)',
-                      fontSize: '13px',
-                      color: 'var(--text-main)',
-                      background: 'var(--bg-color)'
-                    }}
-                  />
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
           <div className="balance-overview">
             <div className="balance-item">
@@ -768,8 +873,14 @@ export default function Dashboard() {
               <div className="section-header"><h2 className="section-title">{t('expense_allocation')}</h2></div>
               <div className="chart-card" style={{ display: 'flex', flexDirection: 'row', gap: '30px', alignItems: 'center', padding: '24px 30px' }}>
                 {!isLoggedIn || categoryData.length === 0 ? (
-                  <div style={{ display: 'flex', width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}>
-                    <p style={{ color: '#718EBF' }}>{isLoadingCategory ? t('loading') : t('no_data')}</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '20px 0', textAlign: 'center' }}>
+                    <span style={{ fontSize: '36px' }}>📊</span>
+                    <span style={{ color: 'var(--text-main)', fontWeight: '600', fontSize: '14px' }}>
+                      {isLoadingCategory ? t('loading') : t('no_data')}
+                    </span>
+                    <span style={{ color: 'var(--text-light)', fontSize: '11px', maxWidth: '200px' }}>
+                      {isLoadingCategory ? t('syncing_chart') : 'Chưa có chi tiêu trong khoảng thời gian này!'}
+                    </span>
                   </div>
                 ) : (
                   <>
@@ -947,8 +1058,14 @@ export default function Dashboard() {
                 overflow: 'visible'
               }}>
                 {!isLoggedIn || dailyTrendsData.length === 0 ? (
-                  <div style={{ display: 'flex', width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}>
-                    <p style={{ color: '#718EBF' }}>{isLoadingDailyTrends ? t('loading') : t('no_transaction_data')}</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '20px 0', textAlign: 'center' }}>
+                    <span style={{ fontSize: '36px' }}>📈</span>
+                    <span style={{ color: 'var(--text-main)', fontWeight: '600', fontSize: '14px' }}>
+                      {isLoadingDailyTrends ? t('loading') : t('no_transaction_data')}
+                    </span>
+                    <span style={{ color: 'var(--text-light)', fontSize: '11px', maxWidth: '300px' }}>
+                      {isLoadingDailyTrends ? t('syncing_chart') : 'Không có chi tiêu nào trong khoảng thời gian này!'}
+                    </span>
                   </div>
                 ) : (
                   (() => {
@@ -1178,7 +1295,7 @@ export default function Dashboard() {
                                 fontSize="11"
                                 fontWeight="600"
                               >
-                                Ngày {item.day}
+                                {trendsGroupBy === 'day' ? `Ngày ${item.day}` : `Tháng ${item.day}`}
                               </text>
                             );
                           })}
@@ -1226,7 +1343,7 @@ export default function Dashboard() {
                                   fontSize="10"
                                   fontWeight="500"
                                 >
-                                  Ngày {item.day}/{now.getMonth() + 1}
+                                  {trendsGroupBy === 'day' ? `Ngày ${item.label}` : `Tháng ${item.label}`}
                                 </text>
                                 {/* Tooltip text: Amount */}
                                 <text
@@ -1265,8 +1382,14 @@ export default function Dashboard() {
                 overflow: 'hidden'
               }}>
                 {!isLoggedIn || top5Categories.length === 0 ? (
-                  <div style={{ display: 'flex', width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}>
-                    <p style={{ color: '#718EBF' }}>{isLoadingCategory ? t('loading') : t('no_data')}</p>
+                  <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '20px 0', textAlign: 'center' }}>
+                    <span style={{ fontSize: '36px' }}>🏆</span>
+                    <span style={{ color: 'var(--text-main)', fontWeight: '600', fontSize: '14px' }}>
+                      {isLoadingCategory ? t('loading') : t('no_data')}
+                    </span>
+                    <span style={{ color: 'var(--text-light)', fontSize: '11px', maxWidth: '200px' }}>
+                      {isLoadingCategory ? t('syncing_chart') : 'Không có chi tiêu nào trong khoảng thời gian này!'}
+                    </span>
                   </div>
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
@@ -1371,10 +1494,14 @@ export default function Dashboard() {
                 )}
               </div>
               <div className="transactions-card">
-                {!isLoggedIn || transactions.length === 0 ? (
-                  <div style={{ padding: '20px', textAlign: 'center', color: '#718EBF' }}>{t('no_transactions')}</div>
+                {!isLoggedIn || filteredRecentTransactions.length === 0 ? (
+                  <div style={{ padding: '30px 20px', textAlign: 'center', color: '#718EBF', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '32px' }}>💸</span>
+                    <span style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '14px' }}>{t('no_transactions')}</span>
+                    <span style={{ fontSize: '12px', color: 'var(--text-light)', maxWidth: '240px' }}>Ghi chép giao dịch đầu tiên của bạn để theo dõi dòng tiền!</span>
+                  </div>
                 ) : (
-                  transactions.slice(0, 4).map((x, i) => (
+                  filteredRecentTransactions.slice(0, 4).map((x, i) => (
                     <div className="transaction-item" key={i}>
                       <div style={{width:'45px',height:'45px',borderRadius:'12px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'20px',background:'var(--bg-color)',marginRight:'15px'}}>
                         {parseIcon(x.category?.icon) || (x.type === 'expense' ? '💸' : '💰')}

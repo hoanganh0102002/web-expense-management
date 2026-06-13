@@ -417,6 +417,13 @@ export default function Budget() {
     setIsModalOpen(true);
   };
 
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setIsEditMode(false);
+    setSelectedCategory('');
+    setLimitAmount('');
+  };
+
   // States for expanding transactions under budget
   const [expandedBudgetId, setExpandedBudgetId] = useState<string | null>(null);
   const [categoryTransactions, setCategoryTransactions] = useState<any[]>([]);
@@ -442,7 +449,8 @@ export default function Budget() {
       const params: any = {
         start_date,
         end_date,
-        per_page: 50
+        per_page: 50,
+        type: 'expense'
       };
       
       if (budget.category_id) {
@@ -663,6 +671,8 @@ export default function Budget() {
         month,
         year
       });
+      handleCloseModal();
+      showToast('Lưu hạn mức ngân sách thành công!', 'success');
       setIsModalOpen(false);
       setSelectedCategory('');
       setLimitAmount('');
@@ -712,6 +722,10 @@ export default function Budget() {
     });
   };
   
+  const maxUsed = Math.max(totalUsed, prevTotalUsed, 1);
+  const prevBarHeight = (prevTotalUsed / maxUsed) * 120;
+  const currBarHeight = (totalUsed / maxUsed) * 120;
+
   return (
     <div className="dashboard-container">
       <Sidebar activeItem="budget" />
@@ -781,6 +795,12 @@ export default function Budget() {
               {overallBudget && (
                 <div style={{display:'flex', gap:'8px'}}>
                   <button 
+                    onClick={() => handleToggleExpand(overallBudget)}
+                    style={{background: expandedBudgetId === overallBudget.id ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.25)', border:'none', borderRadius:'8px', color:'#fff', padding:'4px 8px', fontSize:'11px', fontWeight:'600', cursor:'pointer'}}
+                  >
+                    {expandedBudgetId === overallBudget.id ? '▲ Đóng chi tiết' : '👁️ Xem chi tiết'}
+                  </button>
+                  <button 
                     onClick={() => handleOpenEditModal(overallBudget)}
                     style={{background:'rgba(255,255,255,0.25)', border:'none', borderRadius:'8px', color:'#fff', padding:'4px 8px', fontSize:'11px', fontWeight:'600', cursor:'pointer'}}
                   >
@@ -790,6 +810,7 @@ export default function Budget() {
                     onClick={() => handleDeleteBudget(overallBudget.id)}
                     style={{background:'rgba(255,255,255,0.15)', border:'none', borderRadius:'8px', color:'#fff', padding:'4px 8px', fontSize:'11px', fontWeight:'600', cursor:'pointer'}}
                   >
+                    Xóa
                     {t('delete_total_limit')}
                   </button>
                 </div>
@@ -810,6 +831,34 @@ export default function Budget() {
                   )}
                 </span>
             </div>
+
+            {/* Collapsible Transactions for Overall Budget */}
+            {overallBudget && expandedBudgetId === overallBudget.id && (
+              <div style={{marginTop:'20px', borderTop:'1px dashed rgba(255,255,255,0.3)', paddingTop:'20px', width:'100%'}}>
+                <div style={{fontWeight:'700', fontSize:'14px', color:'#fff', marginBottom:'12px'}}>
+                  {t('transactions_in_month')} ({categoryTransactions.length})
+                </div>
+                {isLoadingTransactions ? (
+                  <div style={{fontSize:'13px', color:'rgba(255,255,255,0.7)', textAlign:'center', padding:'10px'}}>{t('loading_transactions')}</div>
+                ) : categoryTransactions.length > 0 ? (
+                  <div style={{maxHeight:'200px', overflowY:'auto', display:'flex', flexDirection:'column', gap:'8px', paddingRight:'4px'}}>
+                    {categoryTransactions.map((tx: any) => (
+                      <div key={tx.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 14px', background:'rgba(255,255,255,0.1)', borderRadius:'12px', fontSize:'13px'}}>
+                        <div style={{display:'flex', flexDirection:'column', gap:'2px', maxWidth:'65%'}}>
+                          <span style={{fontWeight:'600', color:'#fff', textOverflow:'ellipsis', overflow:'hidden', whiteSpace:'nowrap'}}>{tx.title}</span>
+                          <span style={{fontSize:'11px', color:'rgba(255,255,255,0.7)'}}>{new Date(tx.transaction_date).toLocaleDateString('vi-VN')} • {tx.category?.name || 'Chưa phân loại'}</span>
+                        </div>
+                        <span style={{fontWeight:'800', color:'#FFD2D7'}}>
+                          -{fmt(parseFloat(tx.amount_in_user_currency || tx.amount))}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div style={{fontSize:'13px', color:'rgba(255,255,255,0.7)', textAlign:'center', padding:'10px'}}>{t('no_transactions_found_budget')}</div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* STATS GRID */}
@@ -820,10 +869,11 @@ export default function Budget() {
                 <span style={{fontSize:'20px'}}>💰</span>
                 <span style={{fontSize:'14px', color:'#718EBF', fontWeight:'600'}}>{t('remaining')}</span>
               </div>
-              <div style={{fontSize:'20px', fontWeight:'800', color: remainingAmount === 0 && totalLimit > 0 ? '#FE5C73' : 'var(--text-main)'}}>
-                {fmt(remainingAmount)}
+              <div style={{fontSize:'20px', fontWeight:'800', color: isOverBudget ? '#FE5C73' : 'var(--text-main)'}}>
+                {isOverBudget ? `Vượt -${fmt(totalUsed - totalLimit)}` : fmt(remainingAmount)}
               </div>
               <div style={{fontSize:'12px', color:'#718EBF', marginTop:'4px'}}>
+                {isOverBudget ? 'Bạn đã chi quá hạn mức!' : 'Số dư khả dụng hiện tại'}
                 {isOverBudget ? t('all_budget_used') : t('current_available_balance')}
               </div>
             </div>
@@ -871,17 +921,131 @@ export default function Budget() {
             </div>
           </div>
 
-          {/* BIỂU ĐỒ TRÒN CƠ CẤU CHI TIÊU */}
+          {/* CHARTS GRID */}
           {!isLoading && categoryBudgets.length > 0 && (
-            <div className="bdg-card-animate" style={{
-              background: 'var(--card-bg)',
-              borderRadius: '24px',
-              padding: '28px',
-              border: '1px solid var(--border-color)',
-              marginBottom: '24px',
-              boxShadow: '0 8px 24px rgba(0,0,0,0.02)',
-              animationDelay: '0.4s'
+            <div style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
+              gap: '24px',
+              marginBottom: '24px'
             }}>
+              {/* BIỂU ĐỒ TRÒN CƠ CẤU CHI TIÊU */}
+              <div className="bdg-card-animate" style={{
+                background: 'var(--card-bg)',
+                borderRadius: '24px',
+                padding: '28px',
+                border: '1px solid var(--border-color)',
+                boxShadow: '0 8px 24px rgba(0,0,0,0.02)',
+                animationDelay: '0.4s'
+              }}>
+                <h3 style={{ color: 'var(--text-main)', fontSize: '16px', fontWeight: '700', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0 }}>
+                  <span>📊</span> Cơ cấu chi tiêu theo ngân sách danh mục
+                </h3>
+                <BudgetDoughnutChart data={categoryBudgets.map(b => ({
+                  name: b.category?.name || 'Danh mục khác',
+                  value: Math.abs(parseFloat(b.used_amount)),
+                  color: b.category?.color || '#FF6384',
+                  icon: parseIcon(b.category?.icon || 'grid')
+                }))} />
+              </div>
+
+              {/* COMPARISON CARD */}
+              {(prevTotalLimit > 0 || prevTotalUsed > 0) ? (
+                <div className="bdg-card-animate" style={{
+                  background: 'var(--card-bg)',
+                  borderRadius: '24px',
+                  padding: '28px',
+                  border: '1px solid var(--border-color)',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.02)',
+                  animationDelay: '0.45s',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between'
+                }}>
+                  <div>
+                    <h3 style={{ color: 'var(--text-main)', fontSize: '16px', fontWeight: '700', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0 }}>
+                      <span>📈</span> So sánh chi tiêu với tháng trước
+                    </h3>
+                    <p style={{fontSize: '13px', color: '#718EBF', margin: '0 0 20px 0'}}>
+                      {totalDiff > 0 ? (
+                        <span>Chi tiêu tháng này <strong style={{color: '#FE5C73'}}>tăng {fmt(totalDiff)} ({totalPctDiff}%)</strong> so với tháng trước.</span>
+                      ) : totalDiff < 0 ? (
+                        <span>Chi tiêu tháng này <strong style={{color: '#16DBCC'}}>giảm {fmt(Math.abs(totalDiff))} ({Math.abs(totalPctDiff || 0)}%)</strong> so với tháng trước.</span>
+                      ) : (
+                        <span>Chi tiêu tháng này tương đương với tháng trước.</span>
+                      )}
+                    </p>
+                  </div>
+
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'flex-end',
+                    justifyContent: 'center',
+                    gap: '50px',
+                    height: '140px',
+                    paddingBottom: '20px',
+                    borderBottom: '1px solid var(--border-color)'
+                  }}>
+                    {/* Column 1: Last Month */}
+                    <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px'}}>
+                      <div style={{fontSize: '11px', fontWeight: '700', color: '#718EBF'}}>{fmt(prevTotalUsed)}</div>
+                      <div style={{
+                        width: '32px',
+                        height: `${prevBarHeight}px`,
+                        background: 'linear-gradient(to top, #718EBF, #A3AED0)',
+                        borderRadius: '6px 6px 0 0',
+                        transition: 'height 0.5s ease',
+                        boxShadow: '0 4px 10px rgba(113, 142, 191, 0.15)'
+                      }}></div>
+                      <div style={{fontSize: '11px', fontWeight: '600', color: 'var(--text-main)', textAlign: 'center'}}>
+                        Tháng {month === 1 ? 12 : month - 1}/{month === 1 ? year - 1 : year}
+                      </div>
+                    </div>
+
+                    {/* Column 2: This Month */}
+                    <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px'}}>
+                      <div style={{fontSize: '11px', fontWeight: '700', color: '#1814F3'}}>{fmt(totalUsed)}</div>
+                      <div style={{
+                        width: '32px',
+                        height: `${currBarHeight}px`,
+                        background: 'linear-gradient(to top, #1814F3, #6366F1)',
+                        borderRadius: '6px 6px 0 0',
+                        transition: 'height 0.5s ease',
+                        boxShadow: '0 4px 15px rgba(24, 20, 243, 0.25)'
+                      }}></div>
+                      <div style={{fontSize: '11px', fontWeight: '600', color: 'var(--text-main)', textAlign: 'center'}}>
+                        Tháng {month}/{year}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#718EBF', marginTop: '16px'}}>
+                    <span>Hạn mức tháng trước: <strong>{fmt(prevTotalLimit)}</strong></span>
+                    <span>Hạn mức tháng này: <strong>{fmt(totalLimit)}</strong></span>
+                  </div>
+                </div>
+              ) : (
+                <div className="bdg-card-animate" style={{
+                  background: 'var(--card-bg)',
+                  borderRadius: '24px',
+                  padding: '28px',
+                  border: '1px dashed var(--border-color)',
+                  boxShadow: '0 8px 24px rgba(0,0,0,0.02)',
+                  animationDelay: '0.45s',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  textAlign: 'center',
+                  color: '#718EBF'
+                }}>
+                  <span style={{fontSize: '32px', marginBottom: '12px'}}>📈</span>
+                  <h4 style={{color: 'var(--text-main)', margin: '0 0 6px 0', fontSize: '15px', fontWeight: '700'}}>Chưa có dữ liệu so sánh</h4>
+                  <p style={{fontSize: '12px', margin: 0, lineHeight: '1.5', maxWidth: '240px'}}>
+                    Biểu đồ so sánh chi tiêu với tháng trước sẽ hiển thị ở đây khi bạn bắt đầu ghi chép giao dịch trong tháng tiếp theo!
+                  </p>
+                </div>
+              )}
               <h3 style={{ color: 'var(--text-main)', fontSize: '16px', fontWeight: '700', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0 }}>
                 <span>📊</span> {t('spending_structure_by_category')}
               </h3>
@@ -987,7 +1151,7 @@ export default function Budget() {
                                   <span style={{fontSize:'10px', color:'#718EBF'}}>{new Date(tx.transaction_date).toLocaleDateString(language === 'vi' ? 'vi-VN' : 'en-US')}</span>
                                 </div>
                                 <span style={{fontWeight:'700', color: tx.type === 'income' ? '#16DBCC' : '#FE5C73'}}>
-                                  {tx.type === 'income' ? '+' : '-'}{fmt(parseFloat(tx.amount))}
+                                  {tx.type === 'income' ? '+' : '-'}{fmt(parseFloat(tx.amount_in_user_currency || tx.amount))}
                                 </span>
                               </div>
                             ))}
@@ -1006,24 +1170,26 @@ export default function Budget() {
               background: 'var(--card-bg)',
               border: '1px dashed var(--border-color)',
               borderRadius: '24px',
-              padding: '60px 40px',
+              padding: '50px 30px',
               textAlign: 'center',
               boxShadow: '0 8px 30px rgba(0,0,0,0.02)',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              marginTop: '20px'
+              marginTop: '20px',
+              maxWidth: '800px',
+              margin: '20px auto 0 auto'
             }}>
               <div style={{
-                width: '80px',
-                height: '80px',
+                width: '70px',
+                height: '70px',
                 borderRadius: '50%',
                 background: 'rgba(24, 20, 243, 0.08)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '40px',
+                fontSize: '36px',
                 marginBottom: '20px'
               }}>
                 🎯
@@ -1031,9 +1197,41 @@ export default function Budget() {
               <h3 style={{color: 'var(--text-main)', fontSize: '20px', fontWeight: '700', marginBottom: '10px'}}>
                 {t('no_budget_setup')}
               </h3>
+              <p style={{fontSize: '14px', color: '#718EBF', maxWidth: '500px', lineHeight: '1.6', margin: '0 auto 24px'}}>
+                Thiết lập ngân sách giúp bạn kiểm soát việc chi tiêu tốt hơn, tối ưu hóa tiền tích lũy và nhanh chóng đạt được các mục tiêu tài chính của mình.
               <p style={{fontSize: '14px', color: '#718EBF', maxWidth: '440px', lineHeight: '1.6', margin: '0 auto 24px'}}>
                 {t('no_budget_desc')}
               </p>
+              
+              {/* Onboarding Guide steps */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+                gap: '16px',
+                width: '100%',
+                marginBottom: '30px',
+                textAlign: 'left'
+              }}>
+                <div style={{padding: '16px', background: 'var(--bg-color)', borderRadius: '16px', border: '1px solid var(--border-color)'}}>
+                  <div style={{fontSize: '14px', fontWeight: '800', color: '#1814F3', marginBottom: '8px'}}>1. Đặt mục tiêu tổng</div>
+                  <div style={{fontSize: '12px', color: '#718EBF', lineHeight: '1.5'}}>
+                    Đặt ngân sách tổng cho cả tháng để giới hạn tổng chi tiêu của bạn.
+                  </div>
+                </div>
+                <div style={{padding: '16px', background: 'var(--bg-color)', borderRadius: '16px', border: '1px solid var(--border-color)'}}>
+                  <div style={{fontSize: '14px', fontWeight: '800', color: '#1814F3', marginBottom: '8px'}}>2. Chia nhỏ danh mục</div>
+                  <div style={{fontSize: '12px', color: '#718EBF', lineHeight: '1.5'}}>
+                    Phân bổ ngân sách riêng cho các nhóm như Ăn uống, Di chuyển, Mua sắm để dễ quản lý.
+                  </div>
+                </div>
+                <div style={{padding: '16px', background: 'var(--bg-color)', borderRadius: '16px', border: '1px solid var(--border-color)'}}>
+                  <div style={{fontSize: '14px', fontWeight: '800', color: '#1814F3', marginBottom: '8px'}}>3. Nhận cảnh báo chi tiêu</div>
+                  <div style={{fontSize: '12px', color: '#718EBF', lineHeight: '1.5'}}>
+                    Nhận thông báo nhắc nhở tự động khi chi tiêu của bạn chạm mức 80% hoặc vượt quá 100% hạn mức!
+                  </div>
+                </div>
+              </div>
+
               <div style={{display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap'}}>
                 <button 
                   onClick={handleOpenAddModal}
@@ -1174,7 +1372,7 @@ export default function Budget() {
              </div>
              
              <div style={{display:'flex',gap:'12px',justifyContent:'flex-end'}}>
-               <button style={{padding:'12px 24px',background: 'var(--bg-color)',color:'#718EBF',borderRadius:'12px',border: '1px solid var(--border-color)',cursor:'pointer',fontWeight:'600',fontSize:'15px'}} onClick={()=>setIsModalOpen(false)} disabled={isSubmitting}>{t('cancel')}</button>
+               <button style={{padding:'12px 24px',background: 'var(--bg-color)',color:'#718EBF',borderRadius:'12px',border: '1px solid var(--border-color)',cursor:'pointer',fontWeight:'600',fontSize:'15px'}} onClick={handleCloseModal} disabled={isSubmitting}>{t('cancel')}</button>
                <button 
                 style={{padding:'12px 24px',background:'#1814F3',color:'#fff',borderRadius:'12px',border:'none',cursor:'pointer',fontWeight:'600',fontSize:'15px', display:'flex', alignItems:'center', gap:'8px'}} 
                 onClick={handleSaveBudget} 
