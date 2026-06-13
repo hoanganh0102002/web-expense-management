@@ -257,6 +257,18 @@ export default function Reports() {
       const diffDays = Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / (1000 * 60 * 60 * 24));
       const groupBy = diffDays > 60 ? 'month' : 'day';
       const trendsRes = await reportApi.getTrends(startDate, endDate, groupBy).catch(()=>({data:[]}));
+
+      // Fetch transaction list for additional details
+      const txRes = await transactionApi.getAll({ 
+        start_date: startDate, 
+        end_date: endDate, 
+        limit: 10000,
+        category_id: selectedCategory || undefined,
+        wallet_id: selectedWallet || undefined,
+        type: selectedType || undefined
+      }).catch(() => ({ data: [] }));
+      const txData = txRes.data || txRes;
+      const txs = Array.isArray(txData) ? txData : (txData.data || []);
          
          const container = document.createElement('div');
          container.style.padding = '40px';
@@ -290,61 +302,135 @@ export default function Reports() {
                </tr>
              </tbody>
            </table>
-           <h3 style="font-family:sans-serif;margin-bottom:20px;">Biểu đồ Xu Hướng (Giao dịch theo ${groupBy === 'month' ? 'tháng' : 'ngày'})</h3>
          `;
          
-         const trends = trendsRes.data || [];
-         if (trends.length > 0) {
-            let maxVal = 1;
-            trends.forEach((t: any) => {
-               if (t.income > maxVal) maxVal = t.income;
-               if (t.expense > maxVal) maxVal = t.expense;
-            });
-            
-            let chartHtml = `
-              <div style="height:320px;background:#fff;border-radius:16px;border:1px solid #f0f0f0;box-shadow:0 4px 20px rgba(0,0,0,0.03);position:relative;width:670px;box-sizing:border-box;">
-                
-                <div style="position:absolute;top:20px;right:20px;display:flex;gap:15px;font-family:sans-serif;font-size:12px;color:#718EBF;">
-                   <div style="display:flex;align-items:center;gap:6px;"><div style="width:10px;height:10px;border-radius:50%;background:#16DBCC;"></div>Thu nhập</div>
-                   <div style="display:flex;align-items:center;gap:6px;"><div style="width:10px;height:10px;border-radius:50%;background:#FE5C73;"></div>Chi tiêu</div>
-                </div>
 
-                <div style="position:absolute;top:80px;left:30px;right:30px;border-top:1px dashed #e2e8f0;"></div>
-                <div style="position:absolute;top:130px;left:30px;right:30px;border-top:1px dashed #e2e8f0;"></div>
-                <div style="position:absolute;top:180px;left:30px;right:30px;border-top:1px dashed #e2e8f0;"></div>
-                <div style="position:absolute;top:230px;left:30px;right:30px;border-top:1px solid #e2e8f0;"></div>
-                <div style="position:absolute;top:280px;left:30px;right:30px;border-top:1px solid #e2e8f0;"></div>
-            `;
-            
-            const numBars = Math.max(trends.length, 1);
-            const barSpacing = 610 / numBars;
-            
-            trends.forEach((t: any, i: number) => {
-               const hIncome = Math.max((t.income / maxVal) * 150, 4);
-               const hExpense = Math.max((t.expense / maxVal) * 150, 4);
-               
-               let dateStr = String(i+1);
-               if (t.date) {
-                   if (groupBy === 'month') {
-                       const parts = t.date.split('-');
-                       if (parts.length >= 2) dateStr = `${parts[1]}/${parts[0]}`;
-                   } else {
-                       dateStr = t.date.slice(-2);
-                   }
-               }
-               
-               const xPos = 30 + i * barSpacing + (barSpacing / 2) - 14;
-               
-               chartHtml += `
-                   <div style="position:absolute;left:${xPos}px;bottom:90px;width:12px;height:${hIncome}px;background:#16DBCC;border-radius:6px 6px 0 0;"></div>
-                   <div style="position:absolute;left:${xPos + 16}px;bottom:90px;width:12px;height:${hExpense}px;background:#FE5C73;border-radius:6px 6px 0 0;"></div>
-                   <div style="position:absolute;left:${xPos - 16}px;bottom:25px;width:60px;text-align:center;font-size:11px;color:#343C6A;font-weight:bold;background:#F0F4FC;padding:5px 0;border-radius:12px;font-family:sans-serif;">${dateStr}</div>
-               `;
-            });
-            
-            chartHtml += '</div>';
-            html += chartHtml;
+      // --- NEW SECTIONS ---
+      // 1. Expense Allocation Donut Chart
+      const expenseTxs = txs.filter((t: any) => t.type === 'expense');
+      const categoryTotals: Record<string, number> = {};
+      let totalExpenseAmount = 0;
+      expenseTxs.forEach((t: any) => {
+         const catName = t.category?.name || t.category_name || 'Khác';
+         const amount = Number(t.amount) || 0;
+         if (!categoryTotals[catName]) categoryTotals[catName] = 0;
+         categoryTotals[catName] += amount;
+         totalExpenseAmount += amount;
+      });
+
+      const categoryData = Object.keys(categoryTotals).map(name => ({
+         name,
+         amount: categoryTotals[name],
+         percentage: totalExpenseAmount > 0 ? (categoryTotals[name] / totalExpenseAmount) * 100 : 0
+      })).sort((a, b) => b.amount - a.amount);
+
+      const colors = ['#FE5C73', '#16DBCC', '#F2C94C', '#9B51E0', '#2D9CDB', '#27AE60', '#F2994A', '#EB5757', '#BB6BD9', '#56CCF2'];
+      
+      let currentPercentage = 0;
+      let svgCircles = '';
+      const C = 2 * Math.PI * 80;
+      if (categoryData.length > 0) {
+         categoryData.forEach((c, i) => {
+            const dashValue = (c.percentage * C) / 100;
+            const gapValue = C - dashValue;
+            const dashArray = `${dashValue} ${gapValue}`;
+            const dashOffset = -(currentPercentage * C) / 100;
+            svgCircles += `<circle cx="100" cy="100" r="80" fill="transparent" stroke="${colors[i % colors.length]}" stroke-width="30" stroke-dasharray="${dashArray}" stroke-dashoffset="${dashOffset}"></circle>`;
+            currentPercentage += c.percentage;
+         });
+      } else {
+         svgCircles = `<circle cx="100" cy="100" r="80" fill="transparent" stroke="#f0f0f0" stroke-width="30"></circle>`;
       }
+
+      html += `
+        <div style="margin-top: 40px; page-break-before: auto;">
+           <h3 style="font-family:sans-serif; margin-bottom:20px; font-size:16px; color:#333; text-transform:uppercase;">PHÂN BỔ CHI TIÊU THEO DANH MỤC</h3>
+           <div style="display:flex; align-items:center; gap: 50px; margin-bottom: 40px;">
+               <div style="position:relative; width: 200px; height: 200px; display:flex; align-items:center; justify-content:center;">
+                   <svg width="200" height="200" viewBox="0 0 200 200" style="position:absolute; top:0; left:0; width: 200px; height: 200px; border-radius:50%; box-shadow: 0 4px 10px rgba(0,0,0,0.1); background: #fff;">
+                     <g transform="rotate(-90 100 100)">
+                       <circle cx="100" cy="100" r="80" fill="transparent" stroke="#f0f0f0" stroke-width="30"></circle>
+                       ${svgCircles}
+                     </g>
+                   </svg>
+                   <div style="position:relative; z-index:10; background: #fff; width: 120px; height: 120px; border-radius: 50%; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+                       <div style="font-size:12px; color:#666; font-family:sans-serif; margin-bottom:4px;">CHI TIÊU</div>
+                       <div style="font-size:14px; font-weight:bold; font-family:sans-serif;">${formatCurrency(totalExpenseAmount)}</div>
+                   </div>
+               </div>
+               <div style="flex:1; font-family:sans-serif;">
+                   ${categoryData.map((c, i) => `
+                       <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 12px; font-size:13px;">
+                           <div style="display:flex; align-items:center; gap: 10px;">
+                               <div style="width:14px; height:14px; border-radius:3px; background:${colors[i % colors.length]};"></div>
+                               <span style="color:#333; font-weight:500;">${c.name}</span>
+                           </div>
+                           <div style="color:#666;">
+                               <span>${formatCurrency(c.amount)}</span>
+                               <span style="margin-left:8px; display:inline-block; width:60px; text-align:right;">(${c.percentage.toFixed(1)}%)</span>
+                           </div>
+                       </div>
+                   `).join('')}
+                   ${categoryData.length === 0 ? '<div style="color:#999; font-size:14px;">Không có dữ liệu chi tiêu</div>' : ''}
+               </div>
+           </div>
+        </div>
+      `;
+
+      // 2. Transaction List Table
+      html += `
+        <div style="margin-top: 40px; page-break-before: auto;">
+           <h3 style="font-family:sans-serif; margin-bottom:20px; font-size:16px; color:#333; text-transform:uppercase;">DANH SÁCH GIAO DỊCH CHI TIẾT</h3>
+           <table style="width:100%; border-collapse:collapse; font-family:sans-serif; font-size:11px;">
+             <thead>
+               <tr style="background:#E6E9F4; color:#343C6A;">
+                 <th style="padding:12px 8px; text-align:left; border-bottom:2px solid #ddd;">Ngày</th>
+                 <th style="padding:12px 8px; text-align:left; border-bottom:2px solid #ddd;">Tiêu đề</th>
+                 <th style="padding:12px 8px; text-align:left; border-bottom:2px solid #ddd;">Danh mục</th>
+                 <th style="padding:12px 8px; text-align:left; border-bottom:2px solid #ddd;">Ví</th>
+                 <th style="padding:12px 8px; text-align:center; border-bottom:2px solid #ddd;">Loại</th>
+                 <th style="padding:12px 8px; text-align:right; border-bottom:2px solid #ddd;">Số tiền</th>
+                 <th style="padding:12px 8px; text-align:right; border-bottom:2px solid #ddd;">Quy đổi (VND)</th>
+               </tr>
+             </thead>
+             <tbody>
+               ${txs.map((t: any) => {
+                   let datePart = '';
+                   const rawDate = t.transaction_date || t.date || '';
+                   if (rawDate) {
+                     const d = new Date(rawDate);
+                     if (!isNaN(d.getTime())) {
+                       const pad = (n: number) => String(n).padStart(2, '0');
+                       datePart = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`;
+                     } else {
+                       datePart = rawDate;
+                     }
+                   }
+                   
+                   const note = t.title || t.description || t.note || '';
+                   const categoryName = t.category?.name || t.category_name || 'Không phân mục';
+                   const walletName = t.wallet?.name || t.wallet_name || 'Ví đã xóa';
+                   const typeStr = t.type === 'income' ? 'Thu' : 'Chi';
+                   const amount = Number(t.amount) || 0;
+                   const amountStr = new Intl.NumberFormat('vi-VN').format(amount) + ' đ';
+                   
+                   return `
+                     <tr style="page-break-inside: avoid; break-inside: avoid;">
+                       <td style="padding:10px 8px; border-bottom:1px solid #eee; color:#333;">${datePart}</td>
+                       <td style="padding:10px 8px; border-bottom:1px solid #eee; color:#333; word-break: break-word; max-width: 250px;">${note}</td>
+                       <td style="padding:10px 8px; border-bottom:1px solid #eee; color:#333;">${categoryName}</td>
+                       <td style="padding:10px 8px; border-bottom:1px solid #eee; color:#333;">${walletName}</td>
+                       <td style="padding:10px 8px; border-bottom:1px solid #eee; text-align:center; color:#333;">${typeStr}</td>
+                       <td style="padding:10px 8px; border-bottom:1px solid #eee; text-align:right; color:#333;">${amountStr}</td>
+                       <td style="padding:10px 8px; border-bottom:1px solid #eee; text-align:right; color:#333;">${amountStr}</td>
+                     </tr>
+                   `;
+               }).join('')}
+               ${txs.length === 0 ? '<tr><td colspan="7" style="padding:20px; text-align:center; color:#999; border-bottom:1px solid #eee;">Không có giao dịch nào</td></tr>' : ''}
+             </tbody>
+           </table>
+        </div>
+      `;
 
       container.innerHTML = html;
       
@@ -353,7 +439,8 @@ export default function Reports() {
         filename:     'Bao_cao_chi_tieu_' + startDate + '_' + endDate + '.pdf',
         image:        { type: 'jpeg', quality: 0.98 },
         html2canvas:  { scale: 2 },
-        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' }
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
+        pagebreak:    { mode: ['css', 'legacy'], avoid: 'tr' }
       };
       
       // @ts-ignore
