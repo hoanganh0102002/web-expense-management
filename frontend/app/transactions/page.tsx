@@ -186,17 +186,31 @@ export default function Transactions() {
     deleteTransaction,
     wallets,
     categories,
-    userData
+    userData,
+    fetchWallets
   } = useAppContext();
   const { t } = useLanguage();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // States for viewing and editing standard transactions
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [viewingTx, setViewingTx] = useState<any>(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingTx, setEditingTx] = useState<any>(null);
+
   const getLocalDateTime = () => {
     const now = new Date();
     now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
     return now.toISOString().slice(0, 16);
+  };
+
+  const toLocalDateTimeInput = (isoString: string) => {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
+    return date.toISOString().slice(0, 16);
   };
 
   const [newTx, setNewTx] = useState({
@@ -511,51 +525,78 @@ export default function Transactions() {
       if (newTx.notes) formData.append('notes', newTx.notes);
       if (newTx.attachment) formData.append('attachment', newTx.attachment);
 
-      await createTransaction(formData);
+      await transactionApi.create(formData);
 
-      // --- Kiểm tra cảnh báo ngân sách (Frontend) ---
+      // Đóng modal và reset trạng thái ngay lập tức khi tạo thành công!
+      setIsModalOpen(false);
+      setActiveTab('all');
+      setCurrentCursor(null);
+      setNewTx({
+        title: '',
+        amount: '',
+        type: 'expense',
+        wallet_id: wallets[0]?.id || '',
+        category_id: '',
+        transaction_date: getLocalDateTime(),
+        notes: '',
+        attachment: null,
+        is_recurring: false,
+        frequency: 'monthly',
+        end_date: ''
+      });
+
+      // Tải lại danh sách chạy ngầm
+      Promise.all([
+        fetchTransactions(),
+        fetchWallets(),
+        loadFilteredTransactions(null)
+      ]).catch(e => console.error("Lỗi khi tải lại dữ liệu chạy ngầm:", e));
+
+      // --- Kiểm tra cảnh báo ngân sách (Chạy ngầm) ---
       if (newTx.type === 'expense') {
-        try {
-          const tDate = new Date(newTx.transaction_date);
-          const tMonth = tDate.getMonth() + 1;
-          const tYear = tDate.getFullYear();
-          const budgetRes = await budgetApi.getAll(tMonth, tYear);
-          const budgets = budgetRes.data || [];
+        (async () => {
+          try {
+            const tDate = new Date(newTx.transaction_date);
+            const tMonth = tDate.getMonth() + 1;
+            const tYear = tDate.getFullYear();
+            const budgetRes = await budgetApi.getAll(tMonth, tYear);
+            const budgets = budgetRes.data || [];
 
-          if (budgets.length > 0) {
-            const pad = (n: number) => n.toString().padStart(2, '0');
-            const totalDays = new Date(tYear, tMonth, 0).getDate();
-            const start_date = `${tYear}-${pad(tMonth)}-01`;
-            const end_date = `${tYear}-${pad(tMonth)}-${pad(totalDays)}`;
-            const transRes = await transactionApi.getAll({ start_date, end_date, per_page: 1000 });
-            const allTrans = transRes.data?.data || transRes.data || [];
+            if (budgets.length > 0) {
+              const pad = (n: number) => n.toString().padStart(2, '0');
+              const totalDays = new Date(tYear, tMonth, 0).getDate();
+              const start_date = `${tYear}-${pad(tMonth)}-01`;
+              const end_date = `${tYear}-${pad(tMonth)}-${pad(totalDays)}`;
+              const transRes = await transactionApi.getAll({ start_date, end_date, per_page: 1000 });
+              const allTrans = transRes.data?.data || transRes.data || [];
 
-            const targetBudgets = budgets.filter((b: any) => 
-               b.category_id === null || b.category_id === newTx.category_id
-            );
+              const targetBudgets = budgets.filter((b: any) => 
+                 b.category_id === null || b.category_id === newTx.category_id
+              );
 
-            for (const b of targetBudgets) {
-              const limit = parseFloat(b.limit_amount);
-              if (limit > 0) {
-                let used = 0;
-                if (b.category_id === null) {
-                   used = allTrans.filter((t: any) => t.type === 'expense').reduce((sum: number, t: any) => sum + Math.abs(parseFloat(t.amount_in_user_currency || t.amount || 0)), 0);
-                } else {
-                   used = allTrans.filter((t: any) => t.type === 'expense' && t.category_id === b.category_id).reduce((sum: number, t: any) => sum + Math.abs(parseFloat(t.amount_in_user_currency || t.amount || 0)), 0);
-                }
-                
-                const percent = (used / limit) * 100;
-                if (percent >= 100) {
-                  alert(`⚠️ CẢNH BÁO: Bạn đã vượt quá 100% hạn mức ngân sách ${b.category?.name ? 'cho danh mục ' + b.category.name : 'tổng'} tháng ${tMonth}/${tYear}!`);
-                } else if (percent >= 80) {
-                  alert(`⚡ LƯU Ý: Bạn đã dùng hết ${Math.round(percent)}% hạn mức ngân sách ${b.category?.name ? 'cho danh mục ' + b.category.name : 'tổng'} tháng ${tMonth}/${tYear}!`);
+              for (const b of targetBudgets) {
+                const limit = parseFloat(b.limit_amount);
+                if (limit > 0) {
+                  let used = 0;
+                  if (b.category_id === null) {
+                     used = allTrans.filter((t: any) => t.type === 'expense').reduce((sum: number, t: any) => sum + Math.abs(parseFloat(t.amount_in_user_currency || t.amount || 0)), 0);
+                  } else {
+                     used = allTrans.filter((t: any) => t.type === 'expense' && t.category_id === b.category_id).reduce((sum: number, t: any) => sum + Math.abs(parseFloat(t.amount_in_user_currency || t.amount || 0)), 0);
+                  }
+                  
+                  const percent = (used / limit) * 100;
+                  if (percent >= 100) {
+                    alert(`⚠️ CẢNH BÁO: Bạn đã vượt quá 100% hạn mức ngân sách ${b.category?.name ? 'cho danh mục ' + b.category.name : 'tổng'} tháng ${tMonth}/${tYear}!`);
+                  } else if (percent >= 80) {
+                    alert(`⚡ LƯU Ý: Bạn đã dùng hết ${Math.round(percent)}% hạn mức ngân sách ${b.category?.name ? 'cho danh mục ' + b.category.name : 'tổng'} tháng ${tMonth}/${tYear}!`);
+                  }
                 }
               }
             }
+          } catch (e) {
+            console.error("Lỗi khi tính toán cảnh báo ngân sách:", e);
           }
-        } catch (e) {
-          console.error("Lỗi khi tính toán cảnh báo ngân sách:", e);
-        }
+        })();
       }
       // ----------------------------------------------
 
@@ -585,23 +626,6 @@ export default function Transactions() {
             .finally(() => setIsLoadingRecurring(false));
         }
       }
-
-      setNewTx({
-        title: '',
-        amount: '',
-        type: 'expense',
-        wallet_id: wallets[0]?.id || '',
-        category_id: '',
-        transaction_date: getLocalDateTime(),
-        notes: '',
-        attachment: null,
-        is_recurring: false,
-        frequency: 'monthly',
-        end_date: ''
-      });
-      setIsModalOpen(false);
-      setCurrentCursor(null);
-      loadFilteredTransactions(null);
     } catch (error: any) {
       alert(error.message || 'Lỗi khi thêm giao dịch');
     } finally {
@@ -617,6 +641,45 @@ export default function Transactions() {
       } catch (error: any) {
         alert(error.message || 'Lỗi khi xóa giao dịch');
       }
+    }
+  };
+
+  const submitEdit = async () => {
+    if (!editingTx.title || !editingTx.amount || !editingTx.wallet_id) {
+      alert('Vui lòng điền các trường bắt buộc');
+      return;
+    }
+
+    setIsSubmittingEdit(true);
+    try {
+      const formData = new FormData();
+      formData.append('title', editingTx.title);
+      formData.append('amount', editingTx.amount);
+      formData.append('type', editingTx.type);
+      formData.append('wallet_id', editingTx.wallet_id);
+      formData.append('category_id', editingTx.category_id || '');
+      formData.append('transaction_date', new Date(editingTx.transaction_date).toISOString());
+      formData.append('notes', editingTx.notes || '');
+
+      if (editingTx.attachment) {
+        formData.append('attachment', editingTx.attachment);
+      } else if (!editingTx.existing_attachment_url) {
+        formData.append('attachment_deleted', 'true');
+      }
+
+      await transactionApi.update(editingTx.id, formData);
+
+      setIsEditModalOpen(false);
+      setActiveTab('all');
+      await Promise.all([
+        loadFilteredTransactions(currentCursor),
+        fetchWallets()
+      ]);
+      alert('Cập nhật giao dịch thành công!');
+    } catch (error: any) {
+      alert(error.message || 'Lỗi khi cập nhật giao dịch');
+    } finally {
+      setIsSubmittingEdit(false);
     }
   };
 
@@ -1117,8 +1180,73 @@ export default function Transactions() {
                       <td style={{ padding: '14px 8px', color: tx.type === 'income' ? '#16DBCC' : '#FE5C73', fontWeight: '600' }}>
                         {tx.type === 'income' ? '+' : '-'}{Math.round(Number(tx.amount)).toLocaleString('vi-VN')}₫
                       </td>
-                      <td style={{ padding: '14px 8px', display: 'flex', gap: '8px' }}>
-                        <button style={{ border: '1px solid #FE5C73', color: '#FE5C73', background: 'transparent', padding: '5px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }} onClick={() => handleDelete(tx.id)}>{t('delete')}</button>
+                      <td style={{ padding: '14px 8px' }}>
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                          <button
+                            onClick={() => {
+                              setViewingTx(tx);
+                              setIsDetailModalOpen(true);
+                            }}
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: '8px',
+                              background: '#F0F5FF',
+                              color: '#1814F3',
+                              border: 'none',
+                              cursor: 'pointer',
+                              fontSize: '13px',
+                              fontWeight: '600'
+                            }}
+                          >
+                            Chi tiết
+                          </button>
+                          <button
+                            onClick={() => {
+                              setEditingTx({
+                                id: tx.id,
+                                title: tx.title || '',
+                                amount: tx.amount || '',
+                                type: tx.type || 'expense',
+                                wallet_id: tx.wallet_id || '',
+                                category_id: tx.category_id || '',
+                                transaction_date: toLocalDateTimeInput(tx.transaction_date),
+                                notes: tx.notes || '',
+                                attachment: null,
+                                existing_attachment_url: tx.attachment_url || tx.attachments?.[0]?.file_url || ''
+                              });
+                              setIsEditModalOpen(true);
+                            }}
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: '8px',
+                              background: '#E7EDFF',
+                              color: '#1814F3',
+                              border: 'none',
+                              cursor: 'pointer',
+                              fontSize: '13px',
+                              fontWeight: '600'
+                            }}
+                          >
+                            Sửa
+                          </button>
+                          <button
+                            onClick={() => handleDelete(tx.id)}
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: '8px',
+                              background: 'transparent',
+                              color: '#FE5C73',
+                              border: '1px solid #FFE2E5',
+                              cursor: 'pointer',
+                              fontSize: '13px',
+                              fontWeight: '600'
+                            }}
+                            onMouseOver={(e) => e.currentTarget.style.background = '#FFE2E5'}
+                            onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                          >
+                            Xóa
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   )) : (
@@ -1544,6 +1672,201 @@ export default function Transactions() {
 
             <div style={{ display: 'flex', justifyContent: 'center', marginTop: '25px' }}>
               <button style={{ padding: '12px 30px', background: '#1814F3', color: '#fff', borderRadius: '12px', border: 'none', cursor: 'pointer', fontWeight: '600', fontSize: '15px' }} onClick={() => setIsRuleDetailModalOpen(false)}>Đóng</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* TRANSACTION DETAIL MODAL */}
+      {isDetailModalOpen && viewingTx && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }} onClick={() => setIsDetailModalOpen(false)}>
+          <div style={{ background: 'var(--card-bg)', backdropFilter: 'blur(30px)', WebkitBackdropFilter: 'blur(30px)', width: '100%', maxWidth: '500px', borderRadius: '24px', padding: '30px', boxShadow: '0 20px 40px rgba(0,0,0,0.5)', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
+              <h2 style={{ margin: 0, fontSize: '22px', color: 'var(--text-main)', fontWeight: '700' }}>Chi tiết giao dịch</h2>
+              <button onClick={() => setIsDetailModalOpen(false)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#718EBF' }}>&times;</button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', color: 'var(--text-main)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                <span style={{ color: '#718EBF', fontWeight: '500' }}>Tên giao dịch</span>
+                <span style={{ fontWeight: '600' }}>{viewingTx.title}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                <span style={{ color: '#718EBF', fontWeight: '500' }}>Số tiền</span>
+                <span style={{ fontWeight: '600', color: viewingTx.type === 'income' ? '#16DBCC' : '#FE5C73' }}>
+                  {viewingTx.type === 'income' ? '+' : '-'}{Math.round(Number(viewingTx.amount)).toLocaleString('vi-VN')}₫
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                <span style={{ color: '#718EBF', fontWeight: '500' }}>Loại</span>
+                <span style={{ fontWeight: '600' }}>{viewingTx.type === 'income' ? 'Thu nhập' : 'Chi tiêu'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                <span style={{ color: '#718EBF', fontWeight: '500' }}>Ví</span>
+                <span style={{ fontWeight: '600' }}>{viewingTx.wallet?.name || viewingTx.wallet?.wallet_name || '-'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                <span style={{ color: '#718EBF', fontWeight: '500' }}>Danh mục</span>
+                <span style={{ fontWeight: '600' }}>{viewingTx.category?.name || '-'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                <span style={{ color: '#718EBF', fontWeight: '500' }}>Ngày giao dịch</span>
+                <span style={{ fontWeight: '600' }}>{new Date(viewingTx.transaction_date).toLocaleString('vi-VN')}</span>
+              </div>
+              {viewingTx.notes && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                  <span style={{ color: '#718EBF', fontWeight: '500' }}>Ghi chú</span>
+                  <div style={{ padding: '12px', background: 'var(--bg-color)', borderRadius: '12px', fontSize: '14px', fontStyle: 'italic' }}>
+                    {viewingTx.notes}
+                  </div>
+                </div>
+              )}
+              {(viewingTx.attachment_url || (viewingTx.attachments && viewingTx.attachments[0]?.file_url)) && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  <span style={{ color: '#718EBF', fontWeight: '500' }}>Ảnh hóa đơn</span>
+                  <div style={{ textAlign: 'center', background: 'var(--bg-color)', borderRadius: '12px', padding: '10px' }}>
+                    <img 
+                      src={viewingTx.attachment_url || viewingTx.attachments[0]?.file_url} 
+                      alt="Receipt" 
+                      style={{ maxWidth: '100%', maxHeight: '250px', borderRadius: '12px', objectFit: 'contain', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} 
+                    />
+                    <div style={{ marginTop: '10px' }}>
+                      <a 
+                        href={viewingTx.attachment_url || viewingTx.attachments[0]?.file_url} 
+                        target="_blank" 
+                        rel="noreferrer" 
+                        style={{ color: '#1814F3', textDecoration: 'underline', fontSize: '13px', fontWeight: '600' }}
+                      >
+                        Mở ảnh kích thước đầy đủ ↗
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: '25px' }}>
+              <button style={{ padding: '12px 30px', background: '#1814F3', color: '#fff', borderRadius: '12px', border: 'none', cursor: 'pointer', fontWeight: '600', fontSize: '15px' }} onClick={() => setIsDetailModalOpen(false)}>Đóng</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EDIT TRANSACTION MODAL */}
+      {isEditModalOpen && editingTx && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
+          <div style={{ background: 'var(--card-bg)', borderRadius: '24px', padding: '30px', width: '550px', maxWidth: '95%', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
+              <h2 style={{ margin: 0, fontSize: '22px', color: 'var(--text-main)', fontWeight: '700' }}>Chỉnh sửa giao dịch</h2>
+              <button onClick={() => setIsEditModalOpen(false)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#718EBF' }}>&times;</button>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Tên giao dịch *</label>
+                <input type="text" value={editingTx.title} onChange={e => setEditingTx({ ...editingTx, title: e.target.value })} placeholder={t('tx_name_placeholder')} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Số tiền *</label>
+                <input type="number" value={editingTx.amount} onChange={e => setEditingTx({ ...editingTx, amount: e.target.value })} placeholder={t('tx_amount_placeholder')} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }} />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Loại *</label>
+                <select value={editingTx.type} onChange={e => setEditingTx({ ...editingTx, type: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}>
+                  <option value="expense">{t('spending')}</option>
+                  <option value="income">{t('income')}</option>
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Ví *</label>
+                <select value={editingTx.wallet_id} onChange={e => setEditingTx({ ...editingTx, wallet_id: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}>
+                  {wallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Danh mục</label>
+                <select value={editingTx.category_id} onChange={e => setEditingTx({ ...editingTx, category_id: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}>
+                  <option value="">{t('select_category') || 'Chọn danh mục'}</option>
+                  {flatCategories.map(c => <option key={c.id} value={c.id}>{c.displayName}</option>)}
+                </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Ngày giao dịch *</label>
+                <input type="datetime-local" value={editingTx.transaction_date} onChange={e => setEditingTx({ ...editingTx, transaction_date: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }} />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>{t('notes')}</label>
+              <textarea value={editingTx.notes} onChange={e => setEditingTx({ ...editingTx, notes: e.target.value })} placeholder={t('notes_placeholder') || 'Thêm ghi chú...'} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px', minHeight: '80px', resize: 'vertical' }} />
+            </div>
+
+            <div style={{ marginBottom: '25px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Ảnh hóa đơn</label>
+              {editingTx.existing_attachment_url && !editingTx.attachment && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '10px', background: 'var(--bg-color)', padding: '10px', borderRadius: '12px' }}>
+                  <img src={editingTx.existing_attachment_url} alt="Current" style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '6px' }} />
+                  <span style={{ fontSize: '13px', color: '#718EBF', flex: 1 }}>Sử dụng ảnh hóa đơn hiện tại</span>
+                  <button 
+                    type="button"
+                    onClick={() => setEditingTx({ ...editingTx, existing_attachment_url: '' })}
+                    style={{ background: 'none', border: 'none', color: '#FE5C73', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}
+                  >
+                    Xóa ảnh
+                  </button>
+                </div>
+              )}
+              <div
+                onClick={() => {
+                  const input = document.getElementById('edit-file-input') as HTMLInputElement;
+                  input?.click();
+                }}
+                style={{
+                  width: '100%',
+                  padding: '20px',
+                  border: '2px dashed var(--border-color)',
+                  borderRadius: '12px',
+                  background: 'var(--bg-color)',
+                  textAlign: 'center',
+                  cursor: 'pointer',
+                  color: '#718EBF'
+                }}
+              >
+                {editingTx.attachment ? (
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
+                    <span style={{ color: '#16DBCC' }}>✓</span> {editingTx.attachment.name}
+                  </div>
+                ) : (
+                  <div>{t('click_to_upload') || 'Nhấn để tải lên ảnh hóa đơn mới'}</div>
+                )}
+              </div>
+              <input 
+                id="edit-file-input" 
+                type="file" 
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    setEditingTx({ ...editingTx, attachment: e.target.files[0] });
+                  }
+                }} 
+                accept="image/*" 
+                style={{ display: 'none' }} 
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button style={{ padding: '12px 24px', background: 'var(--bg-color)', color: '#718EBF', borderRadius: '12px', border: '1px solid var(--border-color)', cursor: 'pointer', fontWeight: '600', fontSize: '15px' }} onClick={() => setIsEditModalOpen(false)} disabled={isSubmittingEdit}>{t('cancel')}</button>
+              <button
+                style={{ padding: '12px 24px', background: '#1814F3', color: '#fff', borderRadius: '12px', border: 'none', cursor: 'pointer', fontWeight: '600', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                onClick={submitEdit}
+                disabled={isSubmittingEdit}
+              >
+                {isSubmittingEdit ? 'Đang lưu...' : 'Lưu thay đổi'}
+              </button>
             </div>
           </div>
         </div>
