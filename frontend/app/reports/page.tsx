@@ -277,8 +277,17 @@ export default function Reports() {
          container.style.width = '750px';
          container.style.boxSizing = 'border-box';
 
-         const formatCurrency = (val: number) => {
-           return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
+         const formatCurrency = (val: number | string, customCurrency?: string) => {
+            const numericAmount = typeof val === 'string' ? parseFloat(val) : val;
+            if (isNaN(numericAmount)) return '0';
+            const currencyCode = customCurrency || userData?.preference?.currency || 'VND';
+            let locale = 'vi-VN';
+            if (currencyCode === 'USD') locale = 'en-US';
+            else if (currencyCode === 'EUR') locale = 'de-DE';
+            else if (currencyCode === 'GBP') locale = 'en-GB';
+            else if (currencyCode === 'JPY') locale = 'ja-JP';
+            
+            return new Intl.NumberFormat(locale, { style: 'currency', currency: currencyCode }).format(numericAmount);
          };
 
          let html = `
@@ -390,7 +399,7 @@ export default function Reports() {
                  <th style="padding:12px 8px; text-align:left; border-bottom:2px solid #ddd;">Ví</th>
                  <th style="padding:12px 8px; text-align:center; border-bottom:2px solid #ddd;">Loại</th>
                  <th style="padding:12px 8px; text-align:right; border-bottom:2px solid #ddd;">Số tiền</th>
-                 <th style="padding:12px 8px; text-align:right; border-bottom:2px solid #ddd;">Quy đổi (VND)</th>
+                 <th style="padding:12px 8px; text-align:right; border-bottom:2px solid #ddd;">Quy đổi (${userData?.preference?.currency || 'VND'})</th>
                </tr>
              </thead>
              <tbody>
@@ -411,8 +420,12 @@ export default function Reports() {
                    const categoryName = t.category?.name || t.category_name || 'Không phân mục';
                    const walletName = t.wallet?.name || t.wallet_name || 'Ví đã xóa';
                    const typeStr = t.type === 'income' ? 'Thu' : 'Chi';
-                   const amount = Number(t.amount) || 0;
-                   const amountStr = new Intl.NumberFormat('vi-VN').format(amount) + ' đ';
+                   
+                   const originalCurrency = t.currency_code || t.wallet?.currency_code || 'VND';
+                   const origAmountStr = formatCurrency(Number(t.amount) || 0, originalCurrency);
+
+                   const convertedAmt = Number(t.amount_in_user_currency || t.amount) || 0;
+                   const convertedStr = formatCurrency(convertedAmt);
                    
                    return `
                      <tr style="page-break-inside: avoid; break-inside: avoid;">
@@ -421,8 +434,8 @@ export default function Reports() {
                        <td style="padding:10px 8px; border-bottom:1px solid #eee; color:#333;">${categoryName}</td>
                        <td style="padding:10px 8px; border-bottom:1px solid #eee; color:#333;">${walletName}</td>
                        <td style="padding:10px 8px; border-bottom:1px solid #eee; text-align:center; color:#333;">${typeStr}</td>
-                       <td style="padding:10px 8px; border-bottom:1px solid #eee; text-align:right; color:#333;">${amountStr}</td>
-                       <td style="padding:10px 8px; border-bottom:1px solid #eee; text-align:right; color:#333;">${amountStr}</td>
+                       <td style="padding:10px 8px; border-bottom:1px solid #eee; text-align:right; color:#333;">${origAmountStr}</td>
+                       <td style="padding:10px 8px; border-bottom:1px solid #eee; text-align:right; color:#333;">${convertedStr}</td>
                      </tr>
                    `;
                }).join('')}

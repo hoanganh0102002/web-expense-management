@@ -189,6 +189,18 @@ export default function Transactions() {
     userData
   } = useAppContext();
   const { t } = useLanguage();
+  const formatCurrency = (amount: number | string) => {
+    const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    if (isNaN(numericAmount)) return '0';
+    const currencyCode = userData?.preference?.currency || 'VND';
+    let locale = 'vi-VN';
+    if (currencyCode === 'USD') locale = 'en-US';
+    else if (currencyCode === 'EUR') locale = 'de-DE';
+    else if (currencyCode === 'GBP') locale = 'en-GB';
+    else if (currencyCode === 'JPY') locale = 'ja-JP';
+    
+    return new Intl.NumberFormat(locale, { style: 'currency', currency: currencyCode }).format(numericAmount);
+  };
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -753,12 +765,12 @@ export default function Transactions() {
               )}
               {smartFilters.minAmount && (
                 <span style={{ background: '#E7EDFF', color: '#1814F3', padding: '2px 8px', borderRadius: '6px', fontWeight: '500' }}>
-                  Số tiền ≥ {Math.round(Number(smartFilters.minAmount)).toLocaleString('vi-VN')}₫
+                  Số tiền ≥ {formatCurrency(Number(smartFilters.minAmount))}
                 </span>
               )}
               {smartFilters.maxAmount && (
                 <span style={{ background: '#E7EDFF', color: '#1814F3', padding: '2px 8px', borderRadius: '6px', fontWeight: '500' }}>
-                  Số tiền ≤ {Math.round(Number(smartFilters.maxAmount)).toLocaleString('vi-VN')}₫
+                  Số tiền ≤ {formatCurrency(Number(smartFilters.maxAmount))}
                 </span>
               )}
               {smartFilters.startDate && (
@@ -956,7 +968,7 @@ export default function Transactions() {
                         <div style={{ fontSize: '12px', color: '#718EBF' }}>{new Date(tx.date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</div>
                       </td>
                       <td style={{ padding: '14px 8px', color: '#8F9BB3', fontWeight: '600' }}>
-                        {Math.round(Number(tx.amount)).toLocaleString('vi-VN')}₫
+                        {formatCurrency(tx.amount || 0)}
                       </td>
                     </tr>
                   )) : (
@@ -984,7 +996,7 @@ export default function Transactions() {
                     <tr key={tx.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
                       <td style={{ padding: '14px 8px', fontWeight: 600 }}>{tx.title || tx.description || tx.name}</td>
                       <td style={{ padding: '14px 8px', color: tx.type === 'income' ? '#16DBCC' : '#FE5C73', fontWeight: '600' }}>
-                        {tx.type === 'income' ? '+' : '-'}{Number(tx.amount).toLocaleString('vi-VN')}₫
+                        {tx.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(Number(tx.amount)))}
                       </td>
                       <td style={{ padding: '14px 8px' }}>{tx.type === 'income' ? (t('income') || 'Thu nhập') : (t('spending') || 'Chi tiêu')}</td>
                       <td style={{ padding: '14px 8px' }}>{tx.frequency || 'Hàng tháng'}</td>
@@ -1115,7 +1127,7 @@ export default function Transactions() {
                         <div style={{ fontSize: '12px', color: '#718EBF' }}>{new Date(tx.transaction_date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</div>
                       </td>
                       <td style={{ padding: '14px 8px', color: tx.type === 'income' ? '#16DBCC' : '#FE5C73', fontWeight: '600' }}>
-                        {tx.type === 'income' ? '+' : '-'}{Math.round(Number(tx.amount)).toLocaleString('vi-VN')}₫
+                        {tx.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0)))}
                       </td>
                       <td style={{ padding: '14px 8px', display: 'flex', gap: '8px' }}>
                         <button style={{ border: '1px solid #FE5C73', color: '#FE5C73', background: 'transparent', padding: '5px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px' }} onClick={() => handleDelete(tx.id)}>{t('delete')}</button>
@@ -1493,7 +1505,7 @@ export default function Transactions() {
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                 <span style={{ color: '#718EBF', fontWeight: '500' }}>Số tiền</span>
                 <span style={{ fontWeight: '600', color: viewingRuleTx.type === 'income' ? '#16DBCC' : '#FE5C73' }}>
-                  {viewingRuleTx.type === 'income' ? '+' : '-'}{Number(viewingRuleTx.amount).toLocaleString('vi-VN')}₫
+                  {viewingRuleTx.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(Number(viewingRuleTx.amount)))}
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
