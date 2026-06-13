@@ -672,10 +672,6 @@ export default function Budget() {
         year
       });
       handleCloseModal();
-      showToast('Lưu hạn mức ngân sách thành công!', 'success');
-      setIsModalOpen(false);
-      setSelectedCategory('');
-      setLimitAmount('');
       showToast(t('save_budget_success'), 'success');
       await fetchBudgets();
     } catch (error: any) {
@@ -798,7 +794,7 @@ export default function Budget() {
                     onClick={() => handleToggleExpand(overallBudget)}
                     style={{background: expandedBudgetId === overallBudget.id ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.25)', border:'none', borderRadius:'8px', color:'#fff', padding:'4px 8px', fontSize:'11px', fontWeight:'600', cursor:'pointer'}}
                   >
-                    {expandedBudgetId === overallBudget.id ? '▲ Đóng chi tiết' : '👁️ Xem chi tiết'}
+                    {expandedBudgetId === overallBudget.id ? `▲ ${t('close_details')}` : `👁️ ${t('view_details')}`}
                   </button>
                   <button 
                     onClick={() => handleOpenEditModal(overallBudget)}
@@ -810,7 +806,6 @@ export default function Budget() {
                     onClick={() => handleDeleteBudget(overallBudget.id)}
                     style={{background:'rgba(255,255,255,0.15)', border:'none', borderRadius:'8px', color:'#fff', padding:'4px 8px', fontSize:'11px', fontWeight:'600', cursor:'pointer'}}
                   >
-                    Xóa
                     {t('delete_total_limit')}
                   </button>
                 </div>
@@ -870,10 +865,9 @@ export default function Budget() {
                 <span style={{fontSize:'14px', color:'#718EBF', fontWeight:'600'}}>{t('remaining')}</span>
               </div>
               <div style={{fontSize:'20px', fontWeight:'800', color: isOverBudget ? '#FE5C73' : 'var(--text-main)'}}>
-                {isOverBudget ? `Vượt -${fmt(totalUsed - totalLimit)}` : fmt(remainingAmount)}
+                {isOverBudget ? `${t('over_limit_by')} ${fmt(totalUsed - totalLimit)}` : fmt(remainingAmount)}
               </div>
               <div style={{fontSize:'12px', color:'#718EBF', marginTop:'4px'}}>
-                {isOverBudget ? 'Bạn đã chi quá hạn mức!' : 'Số dư khả dụng hiện tại'}
                 {isOverBudget ? t('all_budget_used') : t('current_available_balance')}
               </div>
             </div>
@@ -964,15 +958,15 @@ export default function Budget() {
                 }}>
                   <div>
                     <h3 style={{ color: 'var(--text-main)', fontSize: '16px', fontWeight: '700', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0 }}>
-                      <span>📈</span> So sánh chi tiêu với tháng trước
+                      <span>📈</span> {t('compare_spending_with_last_month')}
                     </h3>
                     <p style={{fontSize: '13px', color: '#718EBF', margin: '0 0 20px 0'}}>
                       {totalDiff > 0 ? (
-                        <span>Chi tiêu tháng này <strong style={{color: '#FE5C73'}}>tăng {fmt(totalDiff)} ({totalPctDiff}%)</strong> so với tháng trước.</span>
+                        <span>{t('spending_this_month')} <strong style={{color: '#FE5C73'}}>{t('increased')} {fmt(totalDiff)} ({totalPctDiff}%)</strong> {t('compared_to_last_month')}.</span>
                       ) : totalDiff < 0 ? (
-                        <span>Chi tiêu tháng này <strong style={{color: '#16DBCC'}}>giảm {fmt(Math.abs(totalDiff))} ({Math.abs(totalPctDiff || 0)}%)</strong> so với tháng trước.</span>
+                        <span>{t('spending_this_month')} <strong style={{color: '#16DBCC'}}>{t('decreased')} {fmt(Math.abs(totalDiff))} ({Math.abs(totalPctDiff || 0)}%)</strong> {t('compared_to_last_month')}.</span>
                       ) : (
-                        <span>Chi tiêu tháng này tương đương với tháng trước.</span>
+                        <span>{t('spending_equal_last_month')}</span>
                       )}
                     </p>
                   </div>
@@ -998,7 +992,7 @@ export default function Budget() {
                         boxShadow: '0 4px 10px rgba(113, 142, 191, 0.15)'
                       }}></div>
                       <div style={{fontSize: '11px', fontWeight: '600', color: 'var(--text-main)', textAlign: 'center'}}>
-                        Tháng {month === 1 ? 12 : month - 1}/{month === 1 ? year - 1 : year}
+                        {t(`month_${month === 1 ? 12 : month - 1}`)} {month === 1 ? year - 1 : year}
                       </div>
                     </div>
 
@@ -1014,14 +1008,14 @@ export default function Budget() {
                         boxShadow: '0 4px 15px rgba(24, 20, 243, 0.25)'
                       }}></div>
                       <div style={{fontSize: '11px', fontWeight: '600', color: 'var(--text-main)', textAlign: 'center'}}>
-                        Tháng {month}/{year}
+                        {t(`month_${month}`)} {year}
                       </div>
                     </div>
                   </div>
 
                   <div style={{display: 'flex', justifyContent: 'space-between', fontSize: '11px', color: '#718EBF', marginTop: '16px'}}>
-                    <span>Hạn mức tháng trước: <strong>{fmt(prevTotalLimit)}</strong></span>
-                    <span>Hạn mức tháng này: <strong>{fmt(totalLimit)}</strong></span>
+                    <span>{t('prev_month_limit')}: <strong>{fmt(prevTotalLimit)}</strong></span>
+                    <span>{t('curr_month_limit')}: <strong>{fmt(totalLimit)}</strong></span>
                   </div>
                 </div>
               ) : (
@@ -1040,12 +1034,13 @@ export default function Budget() {
                   color: '#718EBF'
                 }}>
                   <span style={{fontSize: '32px', marginBottom: '12px'}}>📈</span>
-                  <h4 style={{color: 'var(--text-main)', margin: '0 0 6px 0', fontSize: '15px', fontWeight: '700'}}>Chưa có dữ liệu so sánh</h4>
+                  <h4 style={{color: 'var(--text-main)', margin: '0 0 6px 0', fontSize: '15px', fontWeight: '700'}}>{t('no_comparison_data')}</h4>
                   <p style={{fontSize: '12px', margin: 0, lineHeight: '1.5', maxWidth: '240px'}}>
-                    Biểu đồ so sánh chi tiêu với tháng trước sẽ hiển thị ở đây khi bạn bắt đầu ghi chép giao dịch trong tháng tiếp theo!
+                    {t('no_comparison_data_desc')}
                   </p>
                 </div>
               )}
+
             </div>
           )}
 
@@ -1202,21 +1197,21 @@ export default function Budget() {
                 textAlign: 'left'
               }}>
                 <div style={{padding: '16px', background: 'var(--bg-color)', borderRadius: '16px', border: '1px solid var(--border-color)'}}>
-                  <div style={{fontSize: '14px', fontWeight: '800', color: '#1814F3', marginBottom: '8px'}}>1. Đặt mục tiêu tổng</div>
+                  <div style={{fontSize: '14px', fontWeight: '800', color: '#1814F3', marginBottom: '8px'}}>1. {t('onboard_step1_title')}</div>
                   <div style={{fontSize: '12px', color: '#718EBF', lineHeight: '1.5'}}>
-                    Đặt ngân sách tổng cho cả tháng để giới hạn tổng chi tiêu của bạn.
+                    {t('onboard_step1_desc')}
                   </div>
                 </div>
                 <div style={{padding: '16px', background: 'var(--bg-color)', borderRadius: '16px', border: '1px solid var(--border-color)'}}>
-                  <div style={{fontSize: '14px', fontWeight: '800', color: '#1814F3', marginBottom: '8px'}}>2. Chia nhỏ danh mục</div>
+                  <div style={{fontSize: '14px', fontWeight: '800', color: '#1814F3', marginBottom: '8px'}}>2. {t('onboard_step2_title')}</div>
                   <div style={{fontSize: '12px', color: '#718EBF', lineHeight: '1.5'}}>
-                    Phân bổ ngân sách riêng cho các nhóm như Ăn uống, Di chuyển, Mua sắm để dễ quản lý.
+                    {t('onboard_step2_desc')}
                   </div>
                 </div>
                 <div style={{padding: '16px', background: 'var(--bg-color)', borderRadius: '16px', border: '1px solid var(--border-color)'}}>
-                  <div style={{fontSize: '14px', fontWeight: '800', color: '#1814F3', marginBottom: '8px'}}>3. Nhận cảnh báo chi tiêu</div>
+                  <div style={{fontSize: '14px', fontWeight: '800', color: '#1814F3', marginBottom: '8px'}}>3. {t('onboard_step3_title')}</div>
                   <div style={{fontSize: '12px', color: '#718EBF', lineHeight: '1.5'}}>
-                    Nhận thông báo nhắc nhở tự động khi chi tiêu của bạn chạm mức 80% hoặc vượt quá 100% hạn mức!
+                    {t('onboard_step3_desc')}
                   </div>
                 </div>
               </div>

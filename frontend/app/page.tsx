@@ -937,46 +937,51 @@ export default function Dashboard() {
                       </svg>
                       
                       {/* Center text overlay */}
-                      <div style={{
-                        position: 'absolute',
-                        left: '50%',
-                        top: '50%',
-                        transform: 'translate(-50%, -50%)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        pointerEvents: 'none',
-                        textAlign: 'center',
-                        width: '85px',
-                      }}>
-                        <span style={{ 
-                          fontSize: '9px', 
-                          color: 'var(--text-light)', 
-                          textTransform: 'uppercase', 
-                          letterSpacing: '0.5px', 
-                          fontWeight: '700',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                          width: '100%'
-                        }}>
-                          {hoveredCategory !== null ? processedCategoryData[hoveredCategory].category_name : t('spending')}
-                        </span>
-                        <span style={{ 
-                          fontSize: '13px', 
-                          fontWeight: '800', 
-                          color: 'var(--text-main)', 
-                          width: '100%', 
-                          overflow: 'hidden', 
-                          textOverflow: 'ellipsis', 
-                          whiteSpace: 'nowrap',
-                          marginTop: '2px',
-                          transition: 'all 0.2s ease'
-                        }}>
-                          {formatCurrency(hoveredCategory !== null ? processedCategoryData[hoveredCategory].amount : totalCategoryExpense)}
-                        </span>
-                      </div>
+                      {(() => {
+                        const hoveredData = hoveredCategory !== null ? processedCategoryData[hoveredCategory as number] : null;
+                        return (
+                          <div style={{
+                            position: 'absolute',
+                            left: '50%',
+                            top: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            pointerEvents: 'none',
+                            textAlign: 'center',
+                            width: '85px',
+                          }}>
+                            <span style={{ 
+                              fontSize: '9px', 
+                              color: 'var(--text-light)', 
+                              textTransform: 'uppercase', 
+                              letterSpacing: '0.5px', 
+                              fontWeight: '700',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              width: '100%'
+                            }}>
+                              {hoveredData ? hoveredData.category_name : t('spending')}
+                            </span>
+                            <span style={{ 
+                              fontSize: '13px', 
+                              fontWeight: '800', 
+                              color: 'var(--text-main)', 
+                              width: '100%', 
+                              overflow: 'hidden', 
+                              textOverflow: 'ellipsis', 
+                              whiteSpace: 'nowrap',
+                              marginTop: '2px',
+                              transition: 'all 0.2s ease'
+                            }}>
+                              {formatCurrency(hoveredData ? hoveredData.amount : totalCategoryExpense)}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     <div style={{
@@ -1235,9 +1240,9 @@ export default function Dashboard() {
                           {/* Interaction helper line */}
                           {hoveredDailyPoint !== null && (
                             <line
-                              x1={getX(hoveredDailyPoint)}
+                              x1={getX(hoveredDailyPoint as number)}
                               y1="35"
-                              x2={getX(hoveredDailyPoint)}
+                              x2={getX(hoveredDailyPoint as number)}
                               y2="170"
                               stroke="#FF6B81"
                               strokeWidth="1.5"
@@ -1250,8 +1255,8 @@ export default function Dashboard() {
                           {/* Glowing dot for hovered day */}
                           {hoveredDailyPoint !== null && (
                             <circle
-                              cx={getX(hoveredDailyPoint)}
-                              cy={getY(processedDailyTrends[hoveredDailyPoint].expense)}
+                              cx={getX(hoveredDailyPoint as number)}
+                              cy={getY(processedDailyTrends[hoveredDailyPoint as number].expense)}
                               r="6"
                               fill="#FF6B81"
                               stroke="#fff"
@@ -1300,8 +1305,8 @@ export default function Dashboard() {
 
                           {/* Floating Tooltip inside SVG */}
                           {hoveredDailyPoint !== null && (() => {
-                            const item = processedDailyTrends[hoveredDailyPoint];
-                            const xVal = getX(hoveredDailyPoint);
+                            const item = processedDailyTrends[hoveredDailyPoint as number];
+                            const xVal = getX(hoveredDailyPoint as number);
                             const yVal = getY(item.expense);
                             
                             const tooltipWidth = 140;
