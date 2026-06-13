@@ -939,10 +939,10 @@ export default function Budget() {
                 animationDelay: '0.4s'
               }}>
                 <h3 style={{ color: 'var(--text-main)', fontSize: '16px', fontWeight: '700', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0 }}>
-                  <span>📊</span> Cơ cấu chi tiêu theo ngân sách danh mục
+                  <span>📊</span> {t('spending_structure_by_category')}
                 </h3>
                 <BudgetDoughnutChart data={categoryBudgets.map(b => ({
-                  name: b.category?.name || 'Danh mục khác',
+                  name: tCategory(b.category?.name) || t('other_category'),
                   value: Math.abs(parseFloat(b.used_amount)),
                   color: b.category?.color || '#FF6384',
                   icon: parseIcon(b.category?.icon || 'grid')
@@ -1046,15 +1046,6 @@ export default function Budget() {
                   </p>
                 </div>
               )}
-              <h3 style={{ color: 'var(--text-main)', fontSize: '16px', fontWeight: '700', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0 }}>
-                <span>📊</span> {t('spending_structure_by_category')}
-              </h3>
-              <BudgetDoughnutChart data={categoryBudgets.map(b => ({
-                name: tCategory(b.category?.name) || t('other_category'),
-                value: Math.abs(parseFloat(b.used_amount)),
-                color: b.category?.color || '#FF6384',
-                icon: parseIcon(b.category?.icon || 'grid')
-              }))} />
             </div>
           )}
 
@@ -1145,7 +1136,7 @@ export default function Budget() {
                         ) : categoryTransactions.length > 0 ? (
                           <div style={{maxHeight:'160px', overflowY:'auto', display:'flex', flexDirection:'column', gap:'6px', paddingRight:'4px'}}>
                             {categoryTransactions.map((tx: any) => (
-                              <div key={tx.id} style={{display:'flex', justifycontent:'space-between', alignItems:'center', padding:'6px 10px', background:'var(--bg-color)', borderRadius:'8px', fontSize:'12px'}}>
+                              <div key={tx.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 10px', background:'var(--bg-color)', borderRadius:'8px', fontSize:'12px'}}>
                                 <div style={{display:'flex', flexDirection:'column', gap:'1px', maxWidth:'65%'}}>
                                   <span style={{fontWeight:'600', color:'var(--text-main)', textOverflow:'ellipsis', overflow:'hidden', whiteSpace:'nowrap'}}>{tx.title}</span>
                                   <span style={{fontSize:'10px', color:'#718EBF'}}>{new Date(tx.transaction_date).toLocaleDateString(language === 'vi' ? 'vi-VN' : 'en-US')}</span>
@@ -1198,8 +1189,6 @@ export default function Budget() {
                 {t('no_budget_setup')}
               </h3>
               <p style={{fontSize: '14px', color: '#718EBF', maxWidth: '500px', lineHeight: '1.6', margin: '0 auto 24px'}}>
-                Thiết lập ngân sách giúp bạn kiểm soát việc chi tiêu tốt hơn, tối ưu hóa tiền tích lũy và nhanh chóng đạt được các mục tiêu tài chính của mình.
-              <p style={{fontSize: '14px', color: '#718EBF', maxWidth: '440px', lineHeight: '1.6', margin: '0 auto 24px'}}>
                 {t('no_budget_desc')}
               </p>
               

@@ -367,7 +367,7 @@ export default function Dashboard() {
     const fromMonth = currentMonth === 1 ? 12 : currentMonth - 1;
     const fromYear = currentMonth === 1 ? currentYear - 1 : currentYear;
 
-    if (window.confirm(`Bạn có muốn sao chép toàn bộ hạn mức ngân sách từ tháng ${fromMonth}/${fromYear} sang tháng ${currentMonth}/${currentYear} không?`)) {
+    if (window.confirm(t('copy_budget_confirm_msg').replace('{from}', `${fromMonth}/${fromYear}`).replace('{to}', `${currentMonth}/${currentYear}`))) {
       setIsLoadingBudget(true);
       try {
         const res = await budgetApi.copy({
@@ -376,11 +376,11 @@ export default function Dashboard() {
           to_month: currentMonth,
           to_year: currentYear
         });
-        alert(`Sao chép thành công! Đã sao chép ${res.data?.length || 0} mục hạn mức.`);
+        alert(t('copy_budget_success').replace('{count}', (res.data?.length || 0).toString()));
         const budgetsRes = await budgetApi.getAll(currentMonth, currentYear);
         setBudgetsList(budgetsRes.data || []);
       } catch (error: any) {
-        alert(error.message || 'Không tìm thấy ngân sách nguồn để sao chép!');
+        alert(error.message || t('copy_budget_error'));
       } finally {
         setIsLoadingBudget(false);
       }
@@ -473,8 +473,6 @@ export default function Dashboard() {
     return transactions.filter((tx: any) => tx.wallet_id === selectedWalletId);
   }, [transactions, selectedWalletId]);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
   const formatCurrency = (amount: number | string) => {
     const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     if (isNaN(numericAmount)) return '0';
@@ -654,7 +652,7 @@ export default function Dashboard() {
                     <option value="">{t('all_wallets') || 'Tất cả ví'}</option>
                     {wallets.map((w: any) => (
                       <option key={w.id} value={w.id}>
-                        {w.name} ({new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(parseFloat(w.available_balance))})
+                        {w.name} ({formatCurrency(parseFloat(w.available_balance))})
                       </option>
                     ))}
                   </select>
@@ -806,7 +804,7 @@ export default function Dashboard() {
                                   gap: '2px',
                                   alignItems: 'center'
                                 }}>
-                                  <span style={{ fontSize: '9px', opacity: 0.7, textTransform: 'uppercase' }}>Tháng {trend.label}</span>
+                                  <span style={{ fontSize: '9px', opacity: 0.7, textTransform: 'uppercase' }}>{t('month_label_prefix')} {trend.label}</span>
                                   <span style={{ color: hoveredBar.type === 'income' ? '#16DBCC' : '#FF6B81' }}>
                                     {hoveredBar.type === 'income' ? `+ ${formatCurrency(trend.income)}` : `- ${formatCurrency(trend.expense)}`}
                                   </span>
@@ -879,7 +877,7 @@ export default function Dashboard() {
                       {isLoadingCategory ? t('loading') : t('no_data')}
                     </span>
                     <span style={{ color: 'var(--text-light)', fontSize: '11px', maxWidth: '200px' }}>
-                      {isLoadingCategory ? t('syncing_chart') : 'Chưa có chi tiêu trong khoảng thời gian này!'}
+                      {isLoadingCategory ? t('syncing_chart') : t('no_spending_in_period')}
                     </span>
                   </div>
                 ) : (
@@ -1064,7 +1062,7 @@ export default function Dashboard() {
                       {isLoadingDailyTrends ? t('loading') : t('no_transaction_data')}
                     </span>
                     <span style={{ color: 'var(--text-light)', fontSize: '11px', maxWidth: '300px' }}>
-                      {isLoadingDailyTrends ? t('syncing_chart') : 'Không có chi tiêu nào trong khoảng thời gian này!'}
+                      {isLoadingDailyTrends ? t('syncing_chart') : t('no_spending_in_period')}
                     </span>
                   </div>
                 ) : (
@@ -1295,7 +1293,7 @@ export default function Dashboard() {
                                 fontSize="11"
                                 fontWeight="600"
                               >
-                                {trendsGroupBy === 'day' ? `Ngày ${item.day}` : `Tháng ${item.day}`}
+                                {trendsGroupBy === 'day' ? `${t('day_label')} ${item.day}` : `${t('month_label_prefix')} ${item.day}`}
                               </text>
                             );
                           })}
@@ -1343,7 +1341,7 @@ export default function Dashboard() {
                                   fontSize="10"
                                   fontWeight="500"
                                 >
-                                  {trendsGroupBy === 'day' ? `Ngày ${item.label}` : `Tháng ${item.label}`}
+                                  {trendsGroupBy === 'day' ? `${t('day_label')} ${item.label}` : `${t('month_label_prefix')} ${item.label}`}
                                 </text>
                                 {/* Tooltip text: Amount */}
                                 <text
@@ -1388,7 +1386,7 @@ export default function Dashboard() {
                       {isLoadingCategory ? t('loading') : t('no_data')}
                     </span>
                     <span style={{ color: 'var(--text-light)', fontSize: '11px', maxWidth: '200px' }}>
-                      {isLoadingCategory ? t('syncing_chart') : 'Không có chi tiêu nào trong khoảng thời gian này!'}
+                      {isLoadingCategory ? t('syncing_chart') : t('no_spending_in_period')}
                     </span>
                   </div>
                 ) : (
@@ -1498,7 +1496,7 @@ export default function Dashboard() {
                   <div style={{ padding: '30px 20px', textAlign: 'center', color: '#718EBF', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                     <span style={{ fontSize: '32px' }}>💸</span>
                     <span style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '14px' }}>{t('no_transactions')}</span>
-                    <span style={{ fontSize: '12px', color: 'var(--text-light)', maxWidth: '240px' }}>Ghi chép giao dịch đầu tiên của bạn để theo dõi dòng tiền!</span>
+                    <span style={{ fontSize: '12px', color: 'var(--text-light)', maxWidth: '240px' }}>{t('first_transaction_prompt')}</span>
                   </div>
                 ) : (
                   filteredRecentTransactions.slice(0, 4).map((x, i) => (
@@ -1538,7 +1536,7 @@ export default function Dashboard() {
                   </div>
                 ) : budgetsList.length === 0 ? (
                   <div style={{ textAlign: 'center', color: '#718EBF' }}>
-                    <p style={{fontSize: '14px', margin: 0}}>{t('no_budget_set') || 'Chưa thiết lập ngân sách tháng này'}</p>
+                    <p style={{fontSize: '14px', margin: 0}}>{t('no_budget_set')}</p>
                     <div style={{display:'flex', gap:'8px', justifyContent:'center', marginTop:'12px', flexWrap:'wrap'}}>
                       <Link href="/budget" style={{
                         display: 'inline-block',
@@ -1622,7 +1620,7 @@ export default function Dashboard() {
                   <button 
                     onClick={() => setShowWalletBalance(!showWalletBalance)}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#718EBF', display: 'flex', alignItems: 'center', padding: '5px' }}
-                    title={showWalletBalance ? "Ẩn số tiền" : "Hiện số tiền"}
+                    title={showWalletBalance ? t('hide_balance') : t('show_balance')}
                   >
                     {showWalletBalance ? (
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
