@@ -373,8 +373,7 @@ export default function Wallets() {
                 }
                 setShowModal('transfer');
               }}
-              className="create-wallet-btn"
-              style={{ background: '#5F63E8', display: 'flex', alignItems: 'center', gap: '8px' }}
+              className="transfer-wallet-btn"
             >
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M8 10L4 6l4-4" />
@@ -421,9 +420,9 @@ export default function Wallets() {
             <div style={{ textAlign: 'center', padding: '40px' }}>{t('loading')}</div>
           ) : wallets.length === 0 ? (
             <div className="wallets-empty-state">
-              <div style={{ fontSize: '50px', marginBottom: '20px' }}>👛</div>
-              <h3 style={{ color: '#343C6A', marginBottom: '10px' }}>{t('no_wallets')}</h3>
-              <p style={{ color: '#718EBF', marginBottom: '25px' }}>{t('no_wallets_desc')}</p>
+              <div className="empty-state-icon">👛</div>
+              <h3 className="empty-state-title">{t('no_wallets')}</h3>
+              <p className="empty-state-desc">{t('no_wallets_desc')}</p>
               <button 
                 onClick={() => {
                   if (!isLoggedIn) {
@@ -553,7 +552,6 @@ export default function Wallets() {
                   required 
                   placeholder={t('wallet_name_placeholder')}
                   className="wallet-input"
-                  style={{ border: '1px solid #E2E8F0', background: '#F5F7FA' }}
                 />
               </div>
 
@@ -568,13 +566,7 @@ export default function Wallets() {
                     placeholder="0"
                     disabled={showModal === 'edit'}
                     className="wallet-input"
-                    style={{ 
-                      paddingRight: '40px',
-                      background: showModal === 'edit' ? '#F1F5F9' : '#F5F7FA',
-                      color: showModal === 'edit' ? '#94A3B8' : '#1E293B',
-                      cursor: showModal === 'edit' ? 'not-allowed' : 'text',
-                      border: '1px solid #E2E8F0'
-                    }}
+                    style={{ paddingRight: '40px' }}
                   />
                   <span style={{ 
                     position: 'absolute', 
@@ -605,7 +597,7 @@ export default function Wallets() {
                 <select 
                   value={walletCurrency} 
                   onChange={(e) => setWalletCurrency(e.target.value)}
-                  style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px', background: '#F5F7FA', color: '#1E293B', fontSize: '15px' }}
+                  className="wallet-input"
                 >
                   <option value="VND">VNĐ (₫)</option>
                   <option value="USD">USD ($)</option>
@@ -621,7 +613,7 @@ export default function Wallets() {
                 <select 
                   value={type} 
                   onChange={(e) => setType(e.target.value)}
-                  style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px', background: '#F5F7FA', color: '#1E293B', fontSize: '15px' }}
+                  className="wallet-input"
                 >
                   <option value="cash">Tiền mặt</option>
                   <option value="bank">Tiền gửi ngân hàng</option>
@@ -652,12 +644,7 @@ export default function Wallets() {
                         key={ic.key}
                         type="button"
                         onClick={() => setIcon(ic.key)}
-                        className="icon-select-btn"
-                        style={{
-                          border: isSelected ? '2px solid #5F63E8' : '2px solid transparent',
-                          background: isSelected ? '#EEF2FF' : '#F5F7FA',
-                          color: isSelected ? '#5F63E8' : '#718EBF',
-                        }}
+                        className={`icon-select-btn ${isSelected ? 'active' : ''}`}
                       >
                         <IconComp size={22} />
                       </button>
@@ -677,12 +664,8 @@ export default function Wallets() {
                         key={col}
                         type="button"
                         onClick={() => setColor(col)}
-                        className="color-dot"
-                        style={{
-                          background: col,
-                          boxShadow: isSelected ? '0 0 0 2px #fff, 0 0 0 4px #5F63E8' : '0 2px 6px rgba(0,0,0,0.08)',
-                          transform: isSelected ? 'scale(1.1)' : 'scale(1)'
-                        }}
+                        className={`color-dot ${isSelected ? 'active' : ''}`}
+                        style={{ background: col }}
                       />
                     );
                   })}
@@ -714,31 +697,32 @@ export default function Wallets() {
       {/* TRANSFER MODAL */}
       {showModal === 'transfer' && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ background: '#16192B', borderRadius: '24px', padding: '30px', border: '1px solid #2A2D40', maxWidth: '500px', width: '100%', position: 'relative' }}>
+          <div className="modal-content wallet-premium-modal" style={{ maxWidth: '500px', position: 'relative' }}>
             <button 
               type="button" 
               onClick={() => { setShowModal(null); setTransferFrom(''); setTransferTo(''); setTransferAmount(''); }}
-              style={{ position: 'absolute', top: '15px', right: '20px', background: 'none', border: 'none', fontSize: '24px', color: '#8F9BB3', cursor: 'pointer' }}
+              className="modal-close-btn"
             >
               ×
             </button>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '30px' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5F63E8" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <div className="modal-title-left">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1814F3" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M8 10L4 6l4-4" />
                 <path d="M4 6h16" />
                 <path d="M16 14l4 4-4 4" />
                 <path d="M20 18H4" />
               </svg>
-              <h3 style={{ color: '#FFF', margin: 0, fontSize: '20px', fontWeight: '700', letterSpacing: '0.5px' }}>Chuyển tiền nội bộ</h3>
+              <h3>Chuyển tiền nội bộ</h3>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
-              <div style={{ flex: 1, position: 'relative' }}>
-                <div style={{ color: '#8F9BB3', fontSize: '12px', fontWeight: '700', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tên ví chuyển</div>
+            <div className="transfer-row">
+              <div className="transfer-col">
+                <div className="transfer-label">Tên ví chuyển</div>
                 <select 
                   value={transferFrom} 
                   onChange={e => setTransferFrom(e.target.value)}
-                  style={{ width: '100%', background: '#1C1F33', border: '1px solid #2A2D40', color: transferFrom ? '#FFF' : '#8F9BB3', padding: '14px 16px', borderRadius: '12px', outline: 'none', appearance: 'none', fontSize: '15px', fontWeight: '500' }}
+                  className="wallet-premium-input wallet-input"
+                  style={{ appearance: 'none', paddingRight: '36px' }}
                 >
                   <option value="" disabled>Chọn tên ví...</option>
                   {wallets.map(w => <option key={w.id} value={w.id}>{w.name} ({formatWalletCurrency(w.available_balance, w.currency_code)})</option>)}
@@ -746,19 +730,20 @@ export default function Wallets() {
                 <svg style={{ position: 'absolute', right: '14px', bottom: '16px', pointerEvents: 'none' }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8F9BB3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
               </div>
               
-              <div style={{ marginTop: '24px', width: '42px', height: '42px', borderRadius: '50%', background: '#5F63E8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, boxShadow: '0 4px 12px rgba(95, 99, 232, 0.3)' }}>
+              <div className="transfer-arrow-icon">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <line x1="5" y1="12" x2="19" y2="12"></line>
                   <polyline points="12 5 19 12 12 19"></polyline>
                 </svg>
               </div>
 
-              <div style={{ flex: 1, position: 'relative' }}>
-                <div style={{ color: '#8F9BB3', fontSize: '12px', fontWeight: '700', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tên ví nhận</div>
+              <div className="transfer-col">
+                <div className="transfer-label">Tên ví nhận</div>
                 <select 
                   value={transferTo} 
                   onChange={e => setTransferTo(e.target.value)}
-                  style={{ width: '100%', background: '#1C1F33', border: '1px solid #2A2D40', color: transferTo ? '#FFF' : '#8F9BB3', padding: '14px 16px', borderRadius: '12px', outline: 'none', appearance: 'none', fontSize: '15px', fontWeight: '500' }}
+                  className="wallet-premium-input wallet-input"
+                  style={{ appearance: 'none', paddingRight: '36px' }}
                 >
                   <option value="" disabled>Chọn tên ví...</option>
                   {wallets.map(w => <option key={w.id} value={w.id}>{w.name} ({formatWalletCurrency(w.available_balance, w.currency_code)})</option>)}
@@ -773,14 +758,14 @@ export default function Wallets() {
                 value={transferAmount} 
                 onChange={e => setTransferAmount(e.target.value)}
                 placeholder="Nhập số tiền..."
-                style={{ width: '100%', background: '#1C1F33', border: '1px solid #2A2D40', color: '#FFF', padding: '16px', borderRadius: '12px', outline: 'none', fontSize: '15px', fontWeight: '500' }}
+                className="wallet-premium-input wallet-input"
               />
             </div>
 
             <button 
               onClick={handleTransfer}
               disabled={isTransferring}
-              style={{ width: '100%', background: isTransferring ? '#8F9BB3' : '#5F63E8', color: '#FFF', padding: '16px', borderRadius: '14px', border: 'none', fontWeight: '700', fontSize: '16px', cursor: isTransferring ? 'not-allowed' : 'pointer', boxShadow: '0 4px 14px rgba(95, 99, 232, 0.25)' }}
+              className="wallet-premium-btn"
             >
               {isTransferring ? 'Đang xử lý...' : 'Chuyển tiền ngay'}
             </button>
@@ -791,31 +776,31 @@ export default function Wallets() {
       {/* HISTORY MODAL */}
       {showModal === 'history' && (
         <div className="modal-overlay" onClick={() => setShowModal(null)}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ background: '#16192B', borderRadius: '24px', padding: '30px', border: '1px solid #2A2D40', maxWidth: '600px', width: '100%', position: 'relative', maxHeight: '80vh', overflowY: 'auto' }}>
+          <div className="modal-content wallet-premium-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px', maxHeight: '80vh', overflowY: 'auto', position: 'relative' }}>
             <button 
               type="button" 
               onClick={() => setShowModal(null)}
-              style={{ position: 'absolute', top: '15px', right: '20px', background: 'none', border: 'none', fontSize: '24px', color: '#8F9BB3', cursor: 'pointer' }}
+              className="modal-close-btn"
             >
               ×
             </button>
-            <h3 style={{ color: '#FFF', margin: '0 0 20px 0', fontSize: '20px', fontWeight: '700' }}>
-              Lịch sử giao dịch - {historyWallet?.name}
-            </h3>
+            <div className="modal-title-left">
+              <h3>Lịch sử giao dịch - {historyWallet?.name}</h3>
+            </div>
 
             {isLoadingHistory ? (
-              <div style={{ color: '#8F9BB3', textAlign: 'center', padding: '30px' }}>Đang tải dữ liệu...</div>
+              <div style={{ color: '#718EBF', textAlign: 'center', padding: '30px', fontWeight: '600' }}>Đang tải dữ liệu...</div>
             ) : historyTransactions.length === 0 ? (
-              <div style={{ color: '#8F9BB3', textAlign: 'center', padding: '30px' }}>Chưa có giao dịch nào trong ví này.</div>
+              <div style={{ color: '#718EBF', textAlign: 'center', padding: '30px', fontWeight: '600' }}>Chưa có giao dịch nào trong ví này.</div>
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div className="history-list">
                 {historyTransactions.map((tx: any) => (
-                  <div key={tx.id} style={{ background: '#1C1F33', padding: '16px', borderRadius: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div key={tx.id} className="wallet-history-row">
                     <div>
-                      <div style={{ color: '#FFF', fontWeight: '600', marginBottom: '4px' }}>{tx.title || tx.category_name || tx.notes || 'Giao dịch'}</div>
-                      <div style={{ color: '#8F9BB3', fontSize: '12px' }}>{new Date(tx.transaction_date).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                      <div className="history-row-title">{tx.title || tx.category_name || tx.notes || 'Giao dịch'}</div>
+                      <div className="history-row-date">{new Date(tx.transaction_date).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
                     </div>
-                    <div style={{ fontWeight: '700', color: tx.type === 'expense' ? '#FF6B6B' : '#4CD964' }}>
+                    <div className={`history-row-amount ${tx.type === 'expense' ? 'expense' : 'income'}`}>
                       {tx.type === 'expense' ? '-' : '+'}
                       {formatWalletCurrency(tx.amount || 0, historyWallet?.currency_code || 'VND')}
                     </div>

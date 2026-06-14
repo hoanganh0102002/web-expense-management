@@ -6,6 +6,8 @@ import Sidebar from '../components/Sidebar';
 import { useAppContext } from '../context/AppContext';
 import { useLanguage } from '../lib/translations';
 import { reportApi, transactionApi } from '../lib/api';
+import './reports.css';
+
 
 const parseIcon = (iconName: string) => {
   const iconMap: Record<string, string> = {
@@ -23,7 +25,42 @@ const parseIcon = (iconName: string) => {
   return iconMap[iconName] || iconName;
 };
 
+const renderFormatIcon = (type: 'pdf' | 'excel' | 'csv', size: number = 26) => {
+  if (type === 'pdf') {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+        <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+        <path d="M9 15h6" />
+        <path d="M9 11h6" />
+      </svg>
+    );
+  }
+  if (type === 'excel') {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+        <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+        <path d="M8 13h2v4H8z" />
+        <path d="M14 13h2v4h-2z" />
+      </svg>
+    );
+  }
+  if (type === 'csv') {
+    return (
+      <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="#1814F3" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+        <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+        <circle cx="9" cy="14" r="1" />
+        <circle cx="15" cy="14" r="1" />
+      </svg>
+    );
+  }
+  return null;
+};
+
 export default function Reports() {
+
   const { isLoggedIn, userData, categories, wallets } = useAppContext();
   const { t } = useLanguage();
   
@@ -478,12 +515,12 @@ export default function Reports() {
       <Script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" strategy="lazyOnload" />
       <Sidebar activeItem="reports" />
       <main className="main-content" style={{background:'var(--bg-color)'}}>
-        <nav className="navbar" style={{background:'var(--card-bg)',borderBottom:'1px solid var(--border-color)',backdropFilter:'blur(10px)',position:'sticky',top:0,zIndex:10}}>
+        <nav className="navbar" style={{background:'var(--card-bg)',borderBottom:'1px solid var(--border-color)',backdropFilter:'blur(16px)',position:'sticky',top:0,zIndex:10}}>
           <h1 className="page-title" style={{color:'var(--text-main)'}}>{t('reports_export')}</h1>
           <div className="nav-actions">
             {isLoggedIn ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginLeft: '10px' }}>
-                <span style={{ fontWeight: '600', color: '#343C6A', fontSize: '15px' }}>
+                <span style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '15px' }}>
                   {userData?.profile?.full_name || userData?.full_name || userData?.name || t('new_user')}
                 </span>
                 <div style={{ position: 'relative', width: '45px', height: '45px' }}>
@@ -496,71 +533,139 @@ export default function Reports() {
             )}
           </div>
         </nav>
-        <div className="content-area">
-          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'20px',marginBottom:'24px'}}>
-            {[{title:t('export_pdf'),desc:t('export_pdf_desc'),icon:'📄',bg:'#FE5C73', onClick: handleExportPDF, loading: isExporting},
-              {title:t('export_excel'),desc:t('export_excel_desc'),icon:'📊',bg:'#16DBCC', onClick: handleExportExcel, loading: isExportingExcel},
-              {title:t('export_csv'),desc:t('export_csv_desc'),icon:'📁',bg:'#1814F3', onClick: handleExportCSV, loading: isExportingCSV}
-             ].map((x,i)=>(
-              <div key={i} style={{background: 'var(--card-bg)',borderRadius:'20px',padding:'30px',border:'1px solid var(--border-color)',textAlign:'center',cursor:'pointer',transition:'transform 0.2s'}} onMouseEnter={e=>e.currentTarget.style.transform='translateY(-4px)'} onMouseLeave={e=>e.currentTarget.style.transform='translateY(0)'}>
-                <div style={{width:'60px',height:'60px',borderRadius:'50%',background:`${x.bg}15`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'28px',margin:'0 auto 16px'}}>{x.icon}</div>
-                <h3 style={{color:'var(--text-main)',marginBottom:'8px'}}>{x.title}</h3>
-                <p style={{color:'#718EBF',fontSize:'14px',marginBottom:'16px'}}>{x.desc}</p>
-                <button onClick={x.onClick} style={{background:x.bg,color:'#fff',padding:'10px 24px',borderRadius:'12px',fontWeight:'600',border:'none',cursor:'pointer',opacity:isLoggedIn?1:0.5}} disabled={!isLoggedIn || x.loading}>{x.loading ? 'Đang xuất...' : t('download')}</button>
+        
+        <div className="content-area reports-fade-in">
+          {/* FORMATS CARD GRID */}
+          <div className="report-cards-grid">
+            {/* PDF CARD */}
+            <div className="report-card pdf" onClick={handleExportPDF}>
+              <div className="report-card-icon-wrapper" style={{ background: 'rgba(239, 68, 68, 0.08)' }}>
+                {renderFormatIcon('pdf', 28)}
               </div>
-            ))}
+              <h3 className="report-card-title">{t('export_pdf')}</h3>
+              <p className="report-card-desc">{t('export_pdf_desc')}</p>
+              <button 
+                onClick={(e) => { e.stopPropagation(); handleExportPDF(); }} 
+                className="report-download-btn pdf-btn"
+                disabled={!isLoggedIn || isExporting}
+              >
+                {isExporting ? 'Đang xuất...' : t('download')}
+              </button>
+            </div>
+
+            {/* EXCEL CARD */}
+            <div className="report-card excel" onClick={handleExportExcel}>
+              <div className="report-card-icon-wrapper" style={{ background: 'rgba(16, 185, 129, 0.08)' }}>
+                {renderFormatIcon('excel', 28)}
+              </div>
+              <h3 className="report-card-title">{t('export_excel')}</h3>
+              <p className="report-card-desc">{t('export_excel_desc')}</p>
+              <button 
+                onClick={(e) => { e.stopPropagation(); handleExportExcel(); }} 
+                className="report-download-btn excel-btn"
+                disabled={!isLoggedIn || isExportingExcel}
+              >
+                {isExportingExcel ? 'Đang xuất...' : t('download')}
+              </button>
+            </div>
+
+            {/* CSV CARD */}
+            <div className="report-card csv" onClick={handleExportCSV}>
+              <div className="report-card-icon-wrapper" style={{ background: 'rgba(24, 20, 243, 0.08)' }}>
+                {renderFormatIcon('csv', 28)}
+              </div>
+              <h3 className="report-card-title">{t('export_csv')}</h3>
+              <p className="report-card-desc">{t('export_csv_desc')}</p>
+              <button 
+                onClick={(e) => { e.stopPropagation(); handleExportCSV(); }} 
+                className="report-download-btn csv-btn"
+                disabled={!isLoggedIn || isExportingCSV}
+              >
+                {isExportingCSV ? 'Đang xuất...' : t('download')}
+              </button>
+            </div>
           </div>
-          <h2 className="section-title" style={{marginBottom:'16px'}}>{t('filter_before_export')}</h2>
-          <div style={{background: 'var(--card-bg)',borderRadius:'20px',padding:'24px',border:'1px solid var(--border-color)',marginBottom:'24px'}}>
-            <div style={{display:'grid',gridTemplateColumns:'repeat(5,1fr)',gap:'16px'}}>
-              <div><label style={{display:'block',marginBottom:'8px',color:'var(--text-main)',fontWeight:'500',fontSize:'14px'}}>{t('from_date')}</label>
-                  <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} disabled={!isLoggedIn} style={{width:'100%',padding:'10px',border:'1px solid var(--border-color)',borderRadius:'10px',background:'var(--input-bg)',color:'var(--text-main)',fontSize:'14px'}}/>
+
+          {/* FILTER SECTION */}
+          <h2 className="report-section-header">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#1814F3' }}>
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+            </svg>
+            {t('filter_before_export')}
+          </h2>
+          <div className="report-filter-box">
+            <div className="report-filter-grid">
+              <div>
+                <label className="report-filter-label">{t('from_date')}</label>
+                <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} disabled={!isLoggedIn} className="report-input"/>
               </div>
-              <div><label style={{display:'block',marginBottom:'8px',color:'var(--text-main)',fontWeight:'500',fontSize:'14px'}}>{t('to_date')}</label>
-                  <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} disabled={!isLoggedIn} style={{width:'100%',padding:'10px',border:'1px solid var(--border-color)',borderRadius:'10px',background:'var(--input-bg)',color:'var(--text-main)',fontSize:'14px'}}/>
+              <div>
+                <label className="report-filter-label">{t('to_date')}</label>
+                <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} disabled={!isLoggedIn} className="report-input"/>
               </div>
-              <div><label style={{display:'block',marginBottom:'8px',color:'var(--text-main)',fontWeight:'500',fontSize:'14px'}}>{t('category_filter')}</label>
-                  <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} disabled={!isLoggedIn} style={{width:'100%',padding:'10px',border:'1px solid var(--border-color)',borderRadius:'10px',background:'var(--input-bg)',color:'var(--text-main)',fontSize:'14px'}}>
-                    <option value="">{t('all')}</option>
-                    {categories?.map((c: any) => (
-                      <optgroup key={c.id} label={`${parseIcon(c.icon || '')} ${c.name}`.trim()}>
-                        <option value={c.id}>{`${parseIcon(c.icon || '')} ${c.name}`.trim()}</option>
-                        {c.children?.map((child: any) => (
-                          <option key={child.id} value={child.id}>-- {`${parseIcon(child.icon || '')} ${child.name}`.trim()}</option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
+              <div>
+                <label className="report-filter-label">{t('category_filter')}</label>
+                <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)} disabled={!isLoggedIn} className="report-select">
+                  <option value="">{t('all')}</option>
+                  {categories?.map((c: any) => (
+                    <optgroup key={c.id} label={`${parseIcon(c.icon || '')} ${c.name}`.trim()}>
+                      <option value={c.id}>{`${parseIcon(c.icon || '')} ${c.name}`.trim()}</option>
+                      {c.children?.map((child: any) => (
+                        <option key={child.id} value={child.id}>-- {`${parseIcon(child.icon || '')} ${child.name}`.trim()}</option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
               </div>
-              <div><label style={{display:'block',marginBottom:'8px',color:'var(--text-main)',fontWeight:'500',fontSize:'14px'}}>Ví</label>
-                  <select value={selectedWallet} onChange={e => setSelectedWallet(e.target.value)} disabled={!isLoggedIn} style={{width:'100%',padding:'10px',border:'1px solid var(--border-color)',borderRadius:'10px',background:'var(--input-bg)',color:'var(--text-main)',fontSize:'14px'}}>
-                    <option value="">{t('all')}</option>
-                    {wallets?.map((w: any) => (
-                      <option key={w.id} value={w.id}>{`${parseIcon(w.icon || '')} ${w.name}`.trim()}</option>
-                    ))}
-                  </select>
+              <div>
+                <label className="report-filter-label">Ví</label>
+                <select value={selectedWallet} onChange={e => setSelectedWallet(e.target.value)} disabled={!isLoggedIn} className="report-select">
+                  <option value="">{t('all')}</option>
+                  {wallets?.map((w: any) => (
+                    <option key={w.id} value={w.id}>{`${parseIcon(w.icon || '')} ${w.name}`.trim()}</option>
+                  ))}
+                </select>
               </div>
-              <div><label style={{display:'block',marginBottom:'8px',color:'var(--text-main)',fontWeight:'500',fontSize:'14px'}}>{t('transaction_type')}</label>
-                  <select value={selectedType} onChange={e => setSelectedType(e.target.value)} disabled={!isLoggedIn} style={{width:'100%',padding:'10px',border:'1px solid var(--border-color)',borderRadius:'10px',background:'var(--input-bg)',color:'var(--text-main)',fontSize:'14px'}}>
-                    <option value="">{t('all')}</option>
-                    <option value="income">Thu nhập</option>
-                    <option value="expense">Chi tiêu</option>
-                  </select>
+              <div>
+                <label className="report-filter-label">{t('transaction_type')}</label>
+                <select value={selectedType} onChange={e => setSelectedType(e.target.value)} disabled={!isLoggedIn} className="report-select">
+                  <option value="">{t('all')}</option>
+                  <option value="income">Thu nhập</option>
+                  <option value="expense">Chi tiêu</option>
+                </select>
               </div>
             </div>
           </div>
-          <h2 className="section-title" style={{marginBottom:'16px'}}>{t('export_history')}</h2>
-          <div style={{background: 'var(--card-bg)',borderRadius:'20px',padding:'24px',border:'1px solid var(--border-color)'}}>
+
+          {/* HISTORY SECTION */}
+          <h2 className="report-section-header">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#1814F3' }}>
+              <circle cx="12" cy="12" r="10" />
+              <polyline points="12 6 12 12 16 14" />
+            </svg>
+            {t('export_history')}
+          </h2>
+          <div className="report-history-box">
             {isLoggedIn && exportHistory.length > 0 ? exportHistory.map((f: any, i: number)=>(
-              <div key={i} style={{display:'flex',alignItems:'center',padding:'14px 0',borderBottom: '1px solid var(--border-color)'}}>
-                <span style={{fontSize:'20px',marginRight:'15px'}}>{f.type === 'excel' ? '📊' : f.type === 'csv' ? '📁' : '📄'}</span>
-                <div style={{flex:1}}><div style={{fontWeight:'600',color:'var(--text-main)'}}>{f.name}</div><div style={{fontSize:'12px',color:'#718EBF'}}>{f.date} • {f.size}</div></div>
-                <button onClick={() => handleReloadExport(f)} style={{border:'1px solid #2D60FF',color:'#2D60FF',background:'transparent',padding:'6px 16px',borderRadius:'8px',cursor:'pointer'}}>{t('reload')}</button>
+              <div key={i} className="report-history-item">
+                <div className={`report-history-icon-circle ${f.type}`}>
+                  {renderFormatIcon(f.type, 20)}
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontWeight:'700', color:'var(--text-main)', fontSize: '14.5px'}}>{f.name}</div>
+                  <div style={{fontSize:'12.5px', color:'#718EBF', fontWeight: '500', marginTop: '2px'}}>{f.date} • {f.size}</div>
+                </div>
+                <button onClick={() => handleReloadExport(f)} className="report-history-btn">{t('reload')}</button>
               </div>
-            )):<p style={{color:'#718EBF',textAlign:'center',padding:'30px'}}>{isLoggedIn ? 'Chưa có lịch sử xuất file nào.' : t('login_to_view_history')}</p>}
+            )) : (
+              <p style={{color:'#718EBF', textAlign:'center', padding:'30px', fontWeight: '600'}}>
+                {isLoggedIn ? 'Chưa có lịch sử xuất file nào.' : t('login_to_view_history')}
+              </p>
+            )}
           </div>
         </div>
       </main>
     </div>
   );
+
 }

@@ -81,12 +81,17 @@ export default function Settings() {
       setTimezone(userData.preference?.timezone || '(GMT+07:00) Bangkok, Hanoi, Jakarta');
       setLanguage(userData.preference?.language === 'en' ? 'English' : 'Tiếng Việt');
       
-      // Fetch notification preferences from API
       notificationApi.getPreferences().then(res => {
         if (res.data) {
           setEmailReminder(res.data.daily_reminder_enabled ?? false);
-          setBudgetAlert(res.data.budget_alert_enabled ?? true);
-          setRecurringAlert(res.data.recurring_alert_enabled ?? true);
+          
+          const userId = userData?.user_id || userData?.id || 'default';
+          const localBudgetAlert = localStorage.getItem(`budget_alert_enabled_${userId}`);
+          const localRecurringAlert = localStorage.getItem(`recurring_alert_enabled_${userId}`);
+          
+          setBudgetAlert(localBudgetAlert !== null ? localBudgetAlert === 'true' : (res.data.budget_alert_enabled ?? true));
+          setRecurringAlert(localRecurringAlert !== null ? localRecurringAlert === 'true' : (res.data.recurring_alert_enabled ?? true));
+          
           setNotificationFrequency(res.data.notification_frequency || (res.data.weekly_summary_enabled ? 'weekly' : 'daily'));
         }
       }).catch(err => console.error("Lỗi lấy cài đặt thông báo:", err));
@@ -415,6 +420,8 @@ export default function Settings() {
                         setBudgetAlert(val);
                         try {
                           await notificationApi.updatePreferences({ budget_alert_enabled: val });
+                          const userId = userData?.user_id || userData?.id || 'default';
+                          localStorage.setItem(`budget_alert_enabled_${userId}`, String(val));
                         } catch (err) {
                           setBudgetAlert(!val);
                           alert("Không thể lưu cài đặt. Vui lòng thử lại!");
@@ -436,6 +443,8 @@ export default function Settings() {
                         setRecurringAlert(val);
                         try {
                           await notificationApi.updatePreferences({ recurring_alert_enabled: val });
+                          const userId = userData?.user_id || userData?.id || 'default';
+                          localStorage.setItem(`recurring_alert_enabled_${userId}`, String(val));
                         } catch (err) {
                           setRecurringAlert(!val);
                           alert("Không thể lưu cài đặt. Vui lòng thử lại!");

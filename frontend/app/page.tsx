@@ -66,6 +66,8 @@ export default function Dashboard() {
   const [isLoadingCategory, setIsLoadingCategory] = useState(false);
   const [hoveredBar, setHoveredBar] = useState<{ idx: number, type: 'income' | 'expense' | null }>({ idx: -1, type: null });
   const [hoveredCategory, setHoveredCategory] = useState<number | null>(null);
+  const [allocationType, setAllocationType] = useState<'parent' | 'child'>('parent');
+  const [selectedCategoryIdx, setSelectedCategoryIdx] = useState<number>(0);
   const [dailyTrendsData, setDailyTrendsData] = useState<any[]>([]);
   const [isLoadingDailyTrends, setIsLoadingDailyTrends] = useState(false);
   const [hoveredDailyPoint, setHoveredDailyPoint] = useState<number | null>(null);
@@ -76,6 +78,11 @@ export default function Dashboard() {
   const [activeStartDate, setActiveStartDate] = useState('');
   const [activeEndDate, setActiveEndDate] = useState('');
   const [trendsGroupBy, setTrendsGroupBy] = useState<'day' | 'month'>('day');
+
+  // Reset selected category index when toggle views or data updates
+  useEffect(() => {
+    setSelectedCategoryIdx(0);
+  }, [allocationType, categoryData]);
 
   const categoriesMap = useMemo(() => {
     const map: Record<string, any> = {};
@@ -451,8 +458,23 @@ export default function Dashboard() {
   const rootCategoriesList = Object.values(rootCategoriesMap).sort((a: any, b: any) => b.amount - a.amount);
   const totalCategoryExpense = rootCategoriesList.reduce((sum, cat) => sum + cat.amount, 0);
 
+  // Compute active categories list based on allocationType
+  let activeCategoriesList: any[] = [];
+  if (allocationType === 'parent') {
+    activeCategoriesList = rootCategoriesList;
+  } else {
+    // Show child categories (where amount > 0)
+    activeCategoriesList = categoryData
+      .filter(cat => Math.abs(cat.amount) > 0)
+      .map(cat => ({
+        ...cat,
+        amount: Math.abs(cat.amount)
+      }))
+      .sort((a: any, b: any) => b.amount - a.amount);
+  }
+
   // Compute correct percentages
-  const processedCategoryData = rootCategoriesList.map((cat: any) => {
+  const processedCategoryData = activeCategoriesList.map((cat: any) => {
     const pct = totalCategoryExpense > 0 ? Math.round((cat.amount / totalCategoryExpense) * 100) : 0;
     return {
       ...cat,
@@ -460,7 +482,13 @@ export default function Dashboard() {
     };
   });
 
-  const top5Categories = processedCategoryData.slice(0, 5);
+  const top5Categories = rootCategoriesList.map((cat: any) => {
+    const pct = totalCategoryExpense > 0 ? Math.round((cat.amount / totalCategoryExpense) * 100) : 0;
+    return {
+      ...cat,
+      percentage: pct
+    };
+  }).slice(0, 5);
 
   // SVG Donut Chart Setup
   const radius = 38;
@@ -868,8 +896,57 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="col-1" style={{flex:1.2}}>
-              <div className="section-header"><h2 className="section-title">{t('expense_allocation')}</h2></div>
-              <div className="chart-card" style={{ display: 'flex', flexDirection: 'row', gap: '30px', alignItems: 'center', padding: '24px 30px' }}>
+              <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 className="section-title">{t('expense_allocation')}</h2>
+                {isLoggedIn && categoryData.length > 0 && (
+                  <div style={{
+                    display: 'flex',
+                    background: 'var(--bg-color)',
+                    padding: '3px',
+                    borderRadius: '20px',
+                    border: '1px solid var(--border-color)',
+                    alignItems: 'center'
+                  }}>
+                    <button
+                      onClick={() => setAllocationType('parent')}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '16px',
+                        border: 'none',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        background: allocationType === 'parent' ? 'var(--card-bg)' : 'transparent',
+                        color: allocationType === 'parent' ? 'var(--text-main)' : 'var(--text-light)',
+                        boxShadow: allocationType === 'parent' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                        transition: 'all 0.2s ease',
+                        outline: 'none'
+                      }}
+                    >
+                      {t('parent') || 'Cha'}
+                    </button>
+                    <button
+                      onClick={() => setAllocationType('child')}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '16px',
+                        border: 'none',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        background: allocationType === 'child' ? 'var(--card-bg)' : 'transparent',
+                        color: allocationType === 'child' ? 'var(--text-main)' : 'var(--text-light)',
+                        boxShadow: allocationType === 'child' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                        transition: 'all 0.2s ease',
+                        outline: 'none'
+                      }}
+                    >
+                      {t('child') || 'Con'}
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="chart-card" style={{ display: 'flex', flexDirection: 'row', gap: '30px', alignItems: 'center', padding: '24px 30px', minHeight: '260px' }}>
                 {!isLoggedIn || categoryData.length === 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '20px 0', textAlign: 'center' }}>
                     <span style={{ fontSize: '36px' }}>📊</span>
@@ -882,162 +959,233 @@ export default function Dashboard() {
                   </div>
                 ) : (
                   <>
-                    <div style={{
-                      position: 'relative',
-                      width: '140px',
-                      height: '140px',
-                      flexShrink: 0,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      <svg viewBox="0 0 100 100" style={{ width: '140px', height: '140px', transform: 'rotate(-90deg)', overflow: 'visible' }}>
-                        {/* Background track circle */}
-                        <circle
-                          cx="50"
-                          cy="50"
-                          r={radius}
-                          fill="transparent"
-                          stroke="var(--border-color)"
-                          strokeWidth="10"
-                          opacity="0.2"
-                        />
-                        {/* Segments */}
-                        {(() => {
-                          let accumulatedLength = 0;
-                          return processedCategoryData.map((cat, idx) => {
-                            const segmentLength = (cat.percentage / 100) * circumference;
-                            const strokeDashArray = `${segmentLength} ${circumference}`;
-                            const strokeDashOffset = -accumulatedLength;
-                            accumulatedLength += segmentLength;
-                            
-                            const isHovered = hoveredCategory === idx;
-                            return (
+                    {(() => {
+                      const activeIdx = hoveredCategory !== null ? hoveredCategory : selectedCategoryIdx;
+                      const activeData = processedCategoryData[activeIdx] || null;
+                      
+                      return (
+                        <>
+                          <div style={{
+                            position: 'relative',
+                            width: '160px',
+                            height: '160px',
+                            flexShrink: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                          }}>
+                            <svg viewBox="0 0 100 100" style={{ width: '160px', height: '160px', transform: 'rotate(-90deg)', overflow: 'visible' }}>
+                              {/* Background track circle */}
                               <circle
-                                key={idx}
                                 cx="50"
                                 cy="50"
-                                r={radius}
+                                r="38"
                                 fill="transparent"
-                                stroke={cat.category_color || '#718EBF'}
-                                strokeWidth={isHovered ? 14 : 10}
-                                strokeDasharray={strokeDashArray}
-                                strokeDashoffset={strokeDashOffset}
-                                opacity={hoveredCategory === null || isHovered ? 1 : 0.4}
-                                style={{
-                                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                  cursor: 'pointer',
-                                }}
-                                onMouseEnter={() => setHoveredCategory(idx)}
-                                onMouseLeave={() => setHoveredCategory(null)}
+                                stroke="var(--border-color)"
+                                strokeWidth="8"
+                                opacity="0.15"
                               />
-                            );
-                          });
-                        })()}
-                      </svg>
-                      
-                      {/* Center text overlay */}
-                      {(() => {
-                        const hoveredData = hoveredCategory !== null ? processedCategoryData[hoveredCategory as number] : null;
-                        return (
+                              {/* Segments */}
+                              {(() => {
+                                let accumulatedFraction = 0;
+                                return processedCategoryData.map((cat, idx) => {
+                                  const isSelected = activeIdx === idx;
+                                  const r = isSelected ? 41 : 38;
+                                  const strokeWidth = isSelected ? 12 : 8;
+                                  const c = 2 * Math.PI * r;
+                                  const segmentLength = (cat.percentage / 100) * c;
+                                  const strokeDashArray = `${segmentLength} ${c}`;
+                                  const strokeDashOffset = - (accumulatedFraction * c);
+                                  accumulatedFraction += (cat.percentage / 100);
+                                  
+                                  return (
+                                    <circle
+                                      key={idx}
+                                      cx="50"
+                                      cy="50"
+                                      r={r}
+                                      fill="transparent"
+                                      stroke={cat.category_color || '#718EBF'}
+                                      strokeWidth={strokeWidth}
+                                      strokeDasharray={strokeDashArray}
+                                      strokeDashoffset={strokeDashOffset}
+                                      opacity={activeIdx === null || isSelected ? 1 : 0.4}
+                                      style={{
+                                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                        cursor: 'pointer',
+                                      }}
+                                      onMouseEnter={() => setHoveredCategory(idx)}
+                                      onMouseLeave={() => setHoveredCategory(null)}
+                                      onClick={() => setSelectedCategoryIdx(idx)}
+                                    />
+                                  );
+                                });
+                              })()}
+                            </svg>
+                            
+                            {/* Center text overlay */}
+                            <div style={{
+                              position: 'absolute',
+                              left: '50%',
+                              top: '50%',
+                              transform: 'translate(-50%, -50%)',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              pointerEvents: 'none',
+                              textAlign: 'center',
+                              width: '95px',
+                            }}>
+                              <span style={{ 
+                                fontSize: '10px', 
+                                color: activeData ? activeData.category_color || 'var(--text-light)' : 'var(--text-light)', 
+                                textTransform: 'uppercase', 
+                                letterSpacing: '0.5px', 
+                                fontWeight: '700',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                width: '100%',
+                                transition: 'color 0.2s ease'
+                              }}>
+                                {activeData ? activeData.category_name : t('spending')}
+                              </span>
+                              <span style={{ 
+                                fontSize: '13px', 
+                                fontWeight: '800', 
+                                color: 'var(--text-main)', 
+                                width: '100%', 
+                                overflow: 'hidden', 
+                                textOverflow: 'ellipsis', 
+                                whiteSpace: 'nowrap',
+                                marginTop: '2px',
+                                transition: 'all 0.2s ease'
+                              }}>
+                                {formatCurrency(activeData ? activeData.amount : totalCategoryExpense)}
+                              </span>
+                              {activeData && (
+                                <span style={{
+                                  fontSize: '10px',
+                                  fontWeight: '600',
+                                  color: 'var(--text-light)',
+                                  marginTop: '2px'
+                                }}>
+                                  {activeData.percentage}%
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* List of categories */}
                           <div style={{
-                            position: 'absolute',
-                            left: '50%',
-                            top: '50%',
-                            transform: 'translate(-50%, -50%)',
+                            flex: 1,
                             display: 'flex',
                             flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            pointerEvents: 'none',
-                            textAlign: 'center',
-                            width: '85px',
+                            gap: '8px',
+                            maxHeight: '230px',
+                            overflowY: 'auto',
+                            paddingRight: '6px'
                           }}>
-                            <span style={{ 
-                              fontSize: '9px', 
-                              color: 'var(--text-light)', 
-                              textTransform: 'uppercase', 
-                              letterSpacing: '0.5px', 
-                              fontWeight: '700',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                              width: '100%'
-                            }}>
-                              {hoveredData ? hoveredData.category_name : t('spending')}
-                            </span>
-                            <span style={{ 
-                              fontSize: '13px', 
-                              fontWeight: '800', 
-                              color: 'var(--text-main)', 
-                              width: '100%', 
-                              overflow: 'hidden', 
-                              textOverflow: 'ellipsis', 
-                              whiteSpace: 'nowrap',
-                              marginTop: '2px',
-                              transition: 'all 0.2s ease'
-                            }}>
-                              {formatCurrency(hoveredData ? hoveredData.amount : totalCategoryExpense)}
-                            </span>
+                            {processedCategoryData.map((cat, idx) => {
+                              const isSelected = activeIdx === idx;
+                              return (
+                                <div 
+                                  key={idx} 
+                                  onMouseEnter={() => setHoveredCategory(idx)}
+                                  onMouseLeave={() => setHoveredCategory(null)}
+                                  onClick={() => setSelectedCategoryIdx(idx)}
+                                  style={{ 
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    cursor: 'pointer',
+                                    padding: '10px 12px',
+                                    borderRadius: '16px',
+                                    background: isSelected 
+                                      ? (cat.category_color ? `${cat.category_color}0A` : 'var(--border-color)')
+                                      : 'transparent',
+                                    border: isSelected
+                                      ? `1.5px solid ${cat.category_color || '#718EBF'}`
+                                      : '1.5px solid transparent',
+                                    boxShadow: isSelected ? '0 4px 12px rgba(0, 0, 0, 0.03)' : 'none',
+                                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    transform: isSelected ? 'translateX(2px)' : 'none',
+                                    minWidth: 0
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                                    {/* Left side: Icon & Title */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                                      <div style={{
+                                        width: '32px',
+                                        height: '32px',
+                                        borderRadius: '10px',
+                                        background: cat.category_color ? `${cat.category_color}1A` : 'rgba(113, 142, 191, 0.1)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '16px',
+                                        flexShrink: 0
+                                      }}>
+                                        {parseIcon(cat.category_icon) || '📁'}
+                                      </div>
+                                      <span style={{
+                                        fontSize: '13px',
+                                        fontWeight: '700',
+                                        color: 'var(--text-main)',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                        flex: 1
+                                      }}>
+                                        {cat.category_name}
+                                      </span>
+                                    </div>
+                                    {/* Right side: Amount & Chevron */}
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                                      <span style={{
+                                        fontSize: '13px',
+                                        fontWeight: '700',
+                                        color: 'var(--text-main)'
+                                      }}>
+                                        {formatCurrency(cat.amount)}
+                                      </span>
+                                      <span style={{
+                                        color: isSelected ? (cat.category_color || '#718EBF') : 'var(--text-light)',
+                                        fontSize: '15px',
+                                        fontWeight: '800',
+                                        marginLeft: '4px',
+                                        transition: 'color 0.2s ease'
+                                      }}>
+                                        ›
+                                      </span>
+                                    </div>
+                                  </div>
+                                  {/* Bottom: Progress Bar */}
+                                  <div style={{
+                                    width: '100%',
+                                    height: isSelected ? '6px' : '4px',
+                                    background: 'var(--border-color)',
+                                    borderRadius: '3px',
+                                    marginTop: '6px',
+                                    overflow: 'hidden',
+                                    position: 'relative'
+                                  }}>
+                                    <div style={{
+                                      width: `${cat.percentage}%`,
+                                      height: '100%',
+                                      background: cat.category_color || '#718EBF',
+                                      borderRadius: '3px',
+                                      transition: 'width 0.4s ease-in-out'
+                                    }} />
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
-                        );
-                      })()}
-                    </div>
-
-                    <div style={{
-                      flex: 1,
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '8px',
-                      maxHeight: '180px',
-                      overflowY: 'auto',
-                      paddingRight: '4px'
-                    }}>
-                      {processedCategoryData.map((cat, idx) => (
-                        <div 
-                          key={idx} 
-                          onMouseEnter={() => setHoveredCategory(idx)}
-                          onMouseLeave={() => setHoveredCategory(null)}
-                          style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: '8px', 
-                            fontSize: '12px',
-                            cursor: 'pointer',
-                            padding: '6px 8px',
-                            borderRadius: '8px',
-                            background: hoveredCategory === idx ? 'var(--border-color)' : 'transparent',
-                            transition: 'all 0.2s ease',
-                            transform: hoveredCategory === idx ? 'translateX(2px)' : 'none'
-                          }}
-                        >
-                          <span style={{ 
-                            fontSize: '14px',
-                            transform: hoveredCategory === idx ? 'scale(1.2)' : 'scale(1)',
-                            transition: 'transform 0.2s ease'
-                          }}>
-                            {parseIcon(cat.category_icon) || '📁'}
-                          </span>
-                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: '600', color: 'var(--text-main)', gap: '4px' }}>
-                              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0, flex: 1 }}>
-                                {cat.category_name}
-                              </span>
-                              <span style={{ flexShrink: 0 }}>{cat.percentage}%</span>
-                            </div>
-                            <div style={{ width: '100%', height: '5px', background: 'var(--border-color)', borderRadius: '3px', marginTop: '3px' }}>
-                              <div style={{ 
-                                width: `${cat.percentage}%`, 
-                                height: '100%', 
-                                background: cat.category_color || '#718EBF', 
-                                borderRadius: '3px',
-                                transition: 'all 0.3s ease'
-                              }} />
-                            </div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                        </>
+                      );
+                    })()}
                   </>
                 )}
               </div>

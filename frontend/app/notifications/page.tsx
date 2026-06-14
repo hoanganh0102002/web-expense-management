@@ -6,6 +6,8 @@ import { useAppContext } from '../context/AppContext';
 import { useLanguage } from '../lib/translations';
 import { notificationApi } from '../lib/api';
 
+import './notifications.css';
+
 const formatRelativeTime = (dateStr: string) => {
   try {
     const date = new Date(dateStr);
@@ -23,6 +25,49 @@ const formatRelativeTime = (dateStr: string) => {
     return dateStr;
   }
 };
+
+const renderNotificationIcon = (type: 'danger' | 'warning' | 'info' | 'reminder' | 'success') => {
+  if (type === 'danger') {
+    return (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </svg>
+    );
+  }
+  if (type === 'warning') {
+    return (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+        <line x1="12" y1="9" x2="12" y2="13" />
+        <line x1="12" y1="17" x2="12.01" y2="17" />
+      </svg>
+    );
+  }
+  if (type === 'info') {
+    return (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1814F3" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67" />
+      </svg>
+    );
+  }
+  if (type === 'reminder') {
+    return (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#9966FF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 20h9" />
+        <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+      </svg>
+    );
+  }
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#16DBCC" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+      <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+    </svg>
+  );
+};
+
 
 export default function Notifications() {
   const { isLoggedIn, userData } = useAppContext();
@@ -100,7 +145,13 @@ export default function Notifications() {
     setNewNotif({ title: '', desc: '' });
   };
   
-  const tc:Record<string,{bg:string,b:string}>={warning:{bg:'#FFF5D9',b:'#FF9800'},info:{bg:'#E7EDFF',b:'#1814F3'},danger:{bg:'#FFE0EB',b:'#FE5C73'},success:{bg:'#DCFAF8',b:'#16DBCC'},reminder:{bg:'#F3E8FF',b:'#9966FF'}};
+  const typeStyles: Record<string, { color: string, bg: string, glow: string, border: string }> = {
+    danger: { color: '#FE5C73', bg: '#FFE0EB', glow: 'rgba(254, 92, 115, 0.15)', border: 'rgba(254, 92, 115, 0.3)' },
+    warning: { color: '#FF9800', bg: '#FFF5D9', glow: 'rgba(255, 152, 0, 0.15)', border: 'rgba(255, 152, 0, 0.3)' },
+    info: { color: '#1814F3', bg: '#E7EDFF', glow: 'rgba(24, 20, 243, 0.15)', border: 'rgba(24, 20, 243, 0.3)' },
+    success: { color: '#16DBCC', bg: '#DCFAF8', glow: 'rgba(22, 219, 204, 0.15)', border: 'rgba(22, 219, 204, 0.3)' },
+    reminder: { color: '#9966FF', bg: '#F3E8FF', glow: 'rgba(153, 102, 255, 0.15)', border: 'rgba(153, 102, 255, 0.3)' }
+  };
 
   return (
     <div className="dashboard-container">
@@ -112,12 +163,61 @@ export default function Notifications() {
             {isLoggedIn && notificationsList.some(n => n.read_at === null) && (
               <button 
                 onClick={handleMarkAllAsRead}
-                style={{background:'transparent',color:'#1814F3',padding:'10px 20px',borderRadius:'24px',fontWeight:'600',border:'1px solid #1814F3',cursor:'pointer',marginRight:'10px',fontSize:'14px'}}
+                style={{
+                  background: 'transparent',
+                  color: '#1814F3',
+                  padding: '10px 20px',
+                  borderRadius: '24px',
+                  fontWeight: '600',
+                  border: '1.5px solid #1814F3',
+                  cursor: 'pointer',
+                  marginRight: '10px',
+                  fontSize: '14px',
+                  transition: 'all 0.25s ease'
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = 'rgba(24, 20, 243, 0.05)';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                }}
               >
                 Đánh dấu đọc tất cả
               </button>
             )}
-            <button style={{background:'#1814F3',color:'#fff',padding:'10px 20px',borderRadius:'24px',fontWeight:'600',border:'none',cursor:'pointer',fontSize:'15px',display:'flex',alignItems:'center',gap:'8px',whiteSpace:'nowrap'}} onClick={()=>setIsModalOpen(true)}>{t('create_notification')}</button>
+            <button 
+              style={{
+                background: 'linear-gradient(135deg, #1814F3 0%, #6366F1 100%)',
+                color: '#fff',
+                padding: '10px 20px',
+                borderRadius: '24px',
+                fontWeight: '600',
+                border: 'none',
+                cursor: 'pointer',
+                fontSize: '15px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                whiteSpace: 'nowrap',
+                boxShadow: '0 4px 12px rgba(24, 20, 243, 0.15)',
+                transition: 'all 0.25s ease'
+              }} 
+              onClick={() => setIsModalOpen(true)}
+              onMouseOver={(e) => {
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 6px 16px rgba(24, 20, 243, 0.25)';
+              }}
+              onMouseOut={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(24, 20, 243, 0.15)';
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              {t('create_notification')}
+            </button>
             {isLoggedIn ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginLeft: '15px' }}>
                 <span style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '15px' }}>
@@ -134,22 +234,22 @@ export default function Notifications() {
           </div>
         </nav>
         <div className="content-area">
-          <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:'16px',marginBottom:'24px'}}>
-            <div style={{background:'linear-gradient(135deg,#FE5C73,#FF8A65)',borderRadius:'16px',padding:'20px',color:'#fff'}}>
-              <div style={{fontSize:'28px',fontWeight:'800'}}>{isLoggedIn ? notificationsList.filter(n => n.read_at === null).length : 0}</div>
-              <div>{t('unread')}</div>
+          <div className="notif-stats-grid">
+            <div className="notif-stat-card unread">
+              <div className="notif-stat-number">{isLoggedIn ? notificationsList.filter(n => n.read_at === null).length : 0}</div>
+              <div className="notif-stat-title">{t('unread')}</div>
             </div>
-            <div style={{background:'linear-gradient(135deg,#FF9800,#FFB74D)',borderRadius:'16px',padding:'20px',color:'#fff'}}>
-              <div style={{fontSize:'28px',fontWeight:'800'}}>
+            <div className="notif-stat-card warning">
+              <div className="notif-stat-number">
                 {isLoggedIn ? notificationsList.filter(n => n.read_at === null && (n.title?.toLowerCase().includes('cảnh báo') || n.title?.toLowerCase().includes('warning') || n.title?.toLowerCase().includes('vượt'))).length : 0}
               </div>
-              <div>{t('warning_label')}</div>
+              <div className="notif-stat-title">{t('warning_label')}</div>
             </div>
-            <div style={{background:'linear-gradient(135deg,#1814F3,#6366F1)',borderRadius:'16px',padding:'20px',color:'#fff'}}>
-              <div style={{fontSize:'28px',fontWeight:'800'}}>
+            <div className="notif-stat-card recurring">
+              <div className="notif-stat-number">
                 {isLoggedIn ? notificationsList.filter(n => n.title?.toLowerCase().includes('định kỳ') || n.type?.toLowerCase().includes('recurring')).length : 0}
               </div>
-              <div>{t('auto_transaction')}</div>
+              <div className="notif-stat-title">{t('auto_transaction')}</div>
             </div>
           </div>
 
@@ -157,66 +257,58 @@ export default function Notifications() {
             <div style={{display:'flex', justifyContent:'center', padding:'80px', color:'var(--text-main)', fontSize:'16px'}}>{t('loading')}...</div>
           ) : notificationsList.length > 0 ? (
             notificationsList.map((n) => {
-              let type = 'info';
-              let icon = '🔔';
+              let type: 'danger' | 'warning' | 'info' | 'reminder' | 'success' = 'info';
               
               if (n.type?.includes('BudgetWarningNotification') || n.title?.toLowerCase().includes('ngân sách') || n.title?.toLowerCase().includes('budget')) {
                 const threshold = n.metadata?.threshold_percent;
                 if (threshold === 100) {
                   type = 'danger';
-                  icon = '🚨';
                 } else {
                   type = 'warning';
-                  icon = '⚠️';
                 }
               } else if (n.type?.includes('RecurringTransaction') || n.title?.toLowerCase().includes('định kỳ')) {
                 type = 'info';
-                icon = '🔄';
               } else if (n.type?.includes('SystemNotification')) {
                 type = 'reminder';
-                icon = '📝';
               }
 
               const isRead = n.read_at !== null;
+              const styles = typeStyles[type];
               
+              const customStyle = {
+                '--notif-color': styles.color,
+                '--notif-bg-color': styles.bg,
+                '--notif-glow-shadow': styles.glow,
+                '--notif-color-border': styles.border,
+              } as React.CSSProperties;
+
               return (
                 <div 
                   key={n.id} 
-                  style={{
-                    background: 'var(--card-bg)',
-                    borderRadius:'16px',
-                    padding:'20px',
-                    borderTop:`1px solid ${isRead ? 'var(--border-color)' : tc[type].b}`,
-                    borderRight:`1px solid ${isRead ? 'var(--border-color)' : tc[type].b}`,
-                    borderBottom:`1px solid ${isRead ? 'var(--border-color)' : tc[type].b}`,
-                    borderLeft:`4px solid ${tc[type].b}`,
-                    display:'flex',
-                    alignItems:'center',
-                    gap:'16px',
-                    opacity: isRead ? 0.7 : 1,
-                    marginBottom:'12px',
-                    transition: 'all 0.3s ease'
-                  }}
+                  className={`notification-item ${isRead ? 'read' : 'unread'} notifications-fade-in`}
+                  style={customStyle}
                 >
-                  <div style={{width:'45px',height:'45px',borderRadius:'12px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'22px',background:tc[type].bg}}>{icon}</div>
-                  <div style={{flex:1}}>
-                    <div style={{fontWeight:'700',color:'var(--text-main)'}}>{n.title}</div>
-                    <div style={{fontSize:'14px',color:'#718EBF'}}>{n.content}</div>
+                  <div className="notif-icon-circle">
+                    {renderNotificationIcon(type)}
                   </div>
-                  <div style={{display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'8px'}}>
-                    <span style={{color:'#B1B5C3',fontSize:'13px'}}>{formatRelativeTime(n.created_at)}</span>
+                  <div style={{flex:1}}>
+                    <div style={{fontWeight:'700',color:'var(--text-main)', fontSize: '15px', marginBottom: '4px'}}>{n.title}</div>
+                    <div style={{fontSize:'14px',color:'#718EBF', lineHeight: '1.4'}}>{n.content}</div>
+                  </div>
+                  <div style={{display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'8px', minWidth: '130px'}}>
+                    <span style={{color:'#B1B5C3',fontSize:'13px', fontWeight: '500'}}>{formatRelativeTime(n.created_at)}</span>
                     <div style={{display:'flex', gap:'8px'}}>
                       {!isRead && (
                         <button 
                           onClick={() => handleMarkAsRead(n.id)}
-                          style={{background:'none', border:'none', color:'#1814F3', fontSize:'12px', fontWeight:'600', cursor:'pointer'}}
+                          className="notif-btn-read"
                         >
                           Đánh dấu đã đọc
                         </button>
                       )}
                       <button 
                         onClick={() => handleDeleteNotification(n.id)}
-                        style={{background:'none', border:'none', color:'#FE5C73', fontSize:'12px', fontWeight:'600', cursor:'pointer'}}
+                        className="notif-btn-delete"
                       >
                         Xóa
                       </button>
@@ -226,10 +318,15 @@ export default function Notifications() {
               );
             })
           ) : (
-            <div style={{background:'var(--card-bg)', border:'1px dashed var(--border-color)', borderRadius:'16px', padding:'60px 20px', textAlign:'center', color:'#718EBF'}}>
-              <div style={{fontSize:'40px', marginBottom:'16px'}}>🔔</div>
-              <h3 style={{color:'var(--text-main)', marginBottom:'8px'}}>Không có thông báo</h3>
-              <p style={{fontSize:'14px'}}>Bạn chưa nhận được thông báo nào từ hệ thống.</p>
+            <div className="notif-empty-state notifications-fade-in">
+              <div className="notif-empty-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1814F3" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.73 21a2 2 0 0 1-3.46 0" />
+                </svg>
+              </div>
+              <h3 style={{color:'var(--text-main)', marginBottom:'8px', fontWeight: '700', fontSize: '18px'}}>Không có thông báo</h3>
+              <p style={{fontSize:'14px', maxWidth: '360px', margin: '0 auto'}}>Bạn chưa nhận được thông báo nào từ hệ thống.</p>
             </div>
           )}
           {!isLoggedIn && <p style={{color:'#718EBF',textAlign:'center',padding:'40px',background: 'var(--card-bg)',borderRadius:'16px',border: `1px solid var(--border-color)`}}>{t('login_to_view_notifications')}</p>}
@@ -238,23 +335,68 @@ export default function Notifications() {
 
       {/* MODAL TẠO THÔNG BÁO */}
       {isModalOpen && (
-        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000}}>
-          <div style={{background: 'var(--card-bg)',borderRadius:'24px',padding:'30px',width:'450px',maxWidth:'90%',boxShadow:'0 10px 40px rgba(0,0,0,0.1)'}}>
+        <div className="notif-modal-overlay">
+          <div className="notif-modal-content">
              <h2 style={{color:'var(--text-main)',marginBottom:'20px',fontSize:'20px',fontWeight:'700'}}>{t('send_system_notification')}</h2>
              
              <div style={{marginBottom:'15px'}}>
                <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>{t('title_label')}</label>
-               <input type="text" value={newNotif.title} onChange={e=>setNewNotif({...newNotif,title:e.target.value})} placeholder={t('notif_title_placeholder')} style={{width:'100%',padding:'14px',border: `1px solid var(--border-color)`,borderRadius:'12px',background:'var(--input-bg)',color:'var(--text-main)',fontSize:'15px'}} />
+               <input type="text" value={newNotif.title} onChange={e=>setNewNotif({...newNotif,title:e.target.value})} placeholder={t('notif_title_placeholder')} className="notif-modal-input" />
              </div>
 
              <div style={{marginBottom:'25px'}}>
                <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>{t('content_label')}</label>
-               <textarea value={newNotif.desc} onChange={e=>setNewNotif({...newNotif,desc:e.target.value})} placeholder={t('notif_content_placeholder')} style={{width:'100%',padding:'14px',border: `1px solid var(--border-color)`,borderRadius:'12px',background:'var(--input-bg)',color:'var(--text-main)',fontSize:'15px',minHeight:'100px',fontFamily:'inherit'}}></textarea>
+               <textarea value={newNotif.desc} onChange={e=>setNewNotif({...newNotif,desc:e.target.value})} placeholder={t('notif_content_placeholder')} className="notif-modal-textarea" style={{minHeight:'100px',fontFamily:'inherit'}}></textarea>
              </div>
              
              <div style={{display:'flex',gap:'12px',justifyContent:'flex-end'}}>
-               <button style={{padding:'12px 24px',background:'var(--input-bg)',color:'#718EBF',borderRadius:'12px',border: `1px solid var(--border-color)`,cursor:'pointer',fontWeight:'600',fontSize:'15px'}} onClick={()=>setIsModalOpen(false)}>{t('cancel')}</button>
-               <button style={{padding:'12px 24px',background:'#1814F3',color:'#fff',borderRadius:'12px',border:'none',cursor:'pointer',fontWeight:'600',fontSize:'15px'}} onClick={submitNotif}>{t('send_notification')}</button>
+               <button 
+                 style={{
+                   padding: '12px 24px',
+                   background: 'var(--bg-color)',
+                   color: '#718EBF',
+                   borderRadius: '14px',
+                   border: '1.5px solid var(--border-color)',
+                   cursor: 'pointer',
+                   fontWeight: '600',
+                   fontSize: '15px',
+                   transition: 'all 0.25s ease'
+                 }}
+                 onClick={() => setIsModalOpen(false)}
+                 onMouseOver={(e) => {
+                   e.currentTarget.style.background = 'var(--border-color)';
+                 }}
+                 onMouseOut={(e) => {
+                   e.currentTarget.style.background = 'var(--bg-color)';
+                 }}
+               >
+                 {t('cancel')}
+               </button>
+               <button 
+                 style={{
+                   padding: '12px 24px',
+                   background: 'linear-gradient(135deg, #1814F3 0%, #6366F1 100%)',
+                   color: '#fff',
+                   borderRadius: '14px',
+                   border: 'none',
+                   cursor: 'pointer',
+                   fontWeight: '600',
+                   fontSize: '15px',
+                   boxShadow: '0 4px 12px rgba(24, 20, 243, 0.2)',
+                   transition: 'all 0.25s ease'
+                 }}
+                 onClick={submitNotif}
+                 onMouseOver={(e) => {
+                   e.currentTarget.style.transform = 'translateY(-1px)';
+                   e.currentTarget.style.boxShadow = '0 6px 16px rgba(24, 20, 243, 0.3)';
+                 }}
+                 onMouseOut={(e) => {
+                   e.currentTarget.style.transform = 'translateY(0)';
+                   e.currentTarget.style.boxShadow = '0 4px 12px rgba(24, 20, 243, 0.2)';
+                 }}
+               >
+                 {t('send_notification')}
+               </button>
              </div>
           </div>
         </div>

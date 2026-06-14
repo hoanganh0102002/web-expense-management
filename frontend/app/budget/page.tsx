@@ -5,6 +5,8 @@ import Sidebar from '../components/Sidebar';
 import { useAppContext } from '../context/AppContext';
 import { useLanguage } from '../lib/translations';
 import { budgetApi, transactionApi } from '../lib/api';
+import CategoryPicker from '../components/CategoryPicker';
+import './budget.css';
 
 const parseIcon = (iconName: string) => {
   const iconMap: Record<string, string> = {
@@ -21,6 +23,45 @@ const parseIcon = (iconName: string) => {
   };
   return iconMap[iconName] || iconName;
 };
+
+const renderSvgIcon = (type: 'wallet' | 'calendar' | 'forecast' | 'limit') => {
+  if (type === 'wallet') {
+    return (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#10B981" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
+        <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
+        <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
+      </svg>
+    );
+  }
+  if (type === 'calendar') {
+    return (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+        <line x1="16" x2="16" y1="2" y2="6" />
+        <line x1="8" x2="8" y1="2" y2="6" />
+        <line x1="3" x2="21" y1="10" y2="10" />
+      </svg>
+    );
+  }
+  if (type === 'forecast') {
+    return (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83" />
+      </svg>
+    );
+  }
+  if (type === 'limit') {
+    return (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect width="18" height="18" x="3" y="3" rx="2" />
+        <path d="M7 7h10M7 12h10M7 17h10" />
+      </svg>
+    );
+  }
+  return null;
+};
+
 
 const BudgetDoughnutChart = ({ data }: { data: { name: string; value: number; color: string; icon: string }[] }) => {
   const [hoveredIndex, setHoveredIndex] = React.useState<number | null>(null);
@@ -232,16 +273,7 @@ const BudgetDoughnutChart = ({ data }: { data: { name: string; value: number; co
       </div>
 
       {/* Grid danh sách chú thích 2 cột cực gọn và sang trọng */}
-      <div style={{ 
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
-        gap: '12px',
-        width: '100%',
-        maxHeight: '200px',
-        overflowY: 'auto',
-        padding: '2px 4px',
-        scrollbarWidth: 'none'
-      }}>
+      <div className="budget-legend-list">
         {activeItems.map((item, idx) => {
           const percentage = Math.round((item.value / total) * 100);
           const isHovered = hoveredIndex === idx;
@@ -250,22 +282,13 @@ const BudgetDoughnutChart = ({ data }: { data: { name: string; value: number; co
               key={idx}
               onMouseEnter={() => setHoveredIndex(idx)}
               onMouseLeave={() => setHoveredIndex(null)}
+              className={`budget-legend-item ${isHovered ? 'hovered' : ''}`}
               style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '10px',
-                padding: '10px 14px',
-                borderRadius: '16px',
-                background: isHovered ? `${item.color}0c` : 'var(--bg-color)',
-                borderTop: isHovered ? `1px solid ${item.color}40` : '1px solid var(--border-color)',
-                borderRight: isHovered ? `1px solid ${item.color}40` : '1px solid var(--border-color)',
-                borderBottom: isHovered ? `1px solid ${item.color}40` : '1px solid var(--border-color)',
-                borderLeft: `4px solid ${item.color}`,
-                cursor: 'pointer',
-                transform: isHovered ? 'scale(1.03) translateY(-1px)' : 'scale(1) translateY(0)',
-                boxShadow: isHovered ? `0 8px 20px -6px ${item.color}20` : 'none',
-                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
-              }}
+                '--legend-color': item.color,
+                '--legend-color-bg': `${item.color}0c`,
+                '--legend-color-border': `${item.color}40`,
+                '--legend-color-glow': `${item.color}20`
+              } as React.CSSProperties}
             >
               {/* Icon hình tròn nhỏ */}
               <div style={{
@@ -721,6 +744,8 @@ export default function Budget() {
   const maxUsed = Math.max(totalUsed, prevTotalUsed, 1);
   const prevBarHeight = (prevTotalUsed / maxUsed) * 120;
   const currBarHeight = (totalUsed / maxUsed) * 120;
+  const limitLineHeight = totalLimit > 0 ? (totalLimit / maxUsed) * 120 : 0;
+
 
   return (
     <div className="dashboard-container">
@@ -735,7 +760,7 @@ export default function Budget() {
               <select 
                 value={month} 
                 onChange={e => setMonth(parseInt(e.target.value))}
-                style={{padding:'8px 12px', border:'1px solid var(--border-color)', borderRadius:'10px', background:'var(--bg-color)', color:'var(--text-main)', fontSize:'14px', fontWeight:'600'}}
+                className="budget-select"
               >
                 {Array.from({length:12}, (_, i) => i + 1).map(m => (
                   <option key={m} value={m}>{t(`month_${m}`)}</option>
@@ -744,7 +769,7 @@ export default function Budget() {
               <select 
                 value={year} 
                 onChange={e => setYear(parseInt(e.target.value))}
-                style={{padding:'8px 12px', border:'1px solid var(--border-color)', borderRadius:'10px', background:'var(--bg-color)', color:'var(--text-main)', fontSize:'14px', fontWeight:'600'}}
+                className="budget-select"
               >
                 {Array.from({length:7}, (_, i) => now.getFullYear() - 2 + i).map(y => (
                   <option key={y} value={y}>{t('year_label')} {y}</option>
@@ -754,13 +779,13 @@ export default function Budget() {
 
             <button 
               onClick={handleOpenAddModal}
-              style={{background:'#1814F3',color:'#fff',padding:'10px 20px',borderRadius:'12px',fontWeight:'600',border:'none',cursor:'pointer'}}
+              className="budget-btn-primary"
             >
               {t('set_budget')}
             </button>
             <button 
               onClick={handleCopyBudgets}
-              style={{background:'transparent',color:'#1814F3',padding:'10px 20px',borderRadius:'12px',fontWeight:'600',border:'1px solid #1814F3',cursor:'pointer'}}
+              className="budget-btn-secondary"
             >
               {t('copy_from_previous_month')}
             </button>
@@ -783,44 +808,49 @@ export default function Budget() {
         
         <div className="content-area">
           {/* TỔNG QUAN NGÂN SÁCH */}
-          <div className="bdg-card-animate" style={{background:'linear-gradient(135deg,#1814F3,#6366F1)',borderRadius:'20px',padding:'30px',color:'#fff',marginBottom:'24px', boxShadow:'0 10px 30px rgba(24, 20, 243, 0.2)'}}>
-            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'8px'}}>
-              <div style={{fontSize:'14px',opacity:0.85}}>
+          <div className="bdg-card-animate budget-overall-card">
+            {/* Chip thẻ giả lập */}
+            <div className="budget-card-chip"></div>
+            
+            <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'14px', position: 'relative', zIndex: 5}}>
+              <div style={{fontSize:'14.5px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.95}}>
                 {overallBudget ? t('total_monthly_budget_title') : t('total_category_budget_title')} - {language === 'vi' ? `${t(`month_${month}`)}/${year}` : `${t(`month_${month}`)} ${year}`}
               </div>
               {overallBudget && (
-                <div style={{display:'flex', gap:'8px'}}>
+                <div style={{display:'flex', gap:'10px'}}>
                   <button 
                     onClick={() => handleToggleExpand(overallBudget)}
-                    style={{background: expandedBudgetId === overallBudget.id ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.25)', border:'none', borderRadius:'8px', color:'#fff', padding:'4px 8px', fontSize:'11px', fontWeight:'600', cursor:'pointer'}}
+                    className="budget-overall-btn"
                   >
                     {expandedBudgetId === overallBudget.id ? `▲ ${t('close_details')}` : `👁️ ${t('view_details')}`}
                   </button>
                   <button 
                     onClick={() => handleOpenEditModal(overallBudget)}
-                    style={{background:'rgba(255,255,255,0.25)', border:'none', borderRadius:'8px', color:'#fff', padding:'4px 8px', fontSize:'11px', fontWeight:'600', cursor:'pointer'}}
+                    className="budget-overall-btn"
                   >
                     {t('edit_limit')}
                   </button>
                   <button 
                     onClick={() => handleDeleteBudget(overallBudget.id)}
-                    style={{background:'rgba(255,255,255,0.15)', border:'none', borderRadius:'8px', color:'#fff', padding:'4px 8px', fontSize:'11px', fontWeight:'600', cursor:'pointer'}}
+                    className="budget-overall-btn"
                   >
                     {t('delete_total_limit')}
                   </button>
                 </div>
               )}
             </div>
-            <div style={{fontSize:'36px',fontWeight:'800',marginBottom:'15px'}}>{fmt(totalUsed)} / {fmt(totalLimit)}</div>
-            <div style={{width:'100%',height:'12px',background:'rgba(255,255,255,0.2)',borderRadius:'6px'}}>
-                <div style={{width:`${Math.min(totalPct, 100)}%`,height:'100%',background:totalPct>80?'#FE5C73':'#16DBCC',borderRadius:'6px',transition:'width 0.5s'}}></div>
+            <div style={{fontSize:'40px', fontWeight:'900', marginBottom:'20px', letterSpacing: '-1px', position: 'relative', zIndex: 5}}>
+              {fmt(totalUsed)} <span style={{fontSize: '24px', opacity: 0.65, fontWeight: '500'}}>/</span> {fmt(totalLimit)}
             </div>
-            <div style={{display:'flex',justifyContent:'space-between',marginTop:'10px',fontSize:'13px',opacity:0.85, alignItems:'center'}}>
+            <div className="budget-progress-track">
+                <div style={{width:`${Math.min(totalPct, 100)}%`}} className="budget-progress-bar shimmer-fill"></div>
+            </div>
+            <div style={{display:'flex', justifyContent:'space-between', marginTop:'14px', fontSize:'13.5px', fontWeight: '700', opacity: 0.95, alignItems:'center', position: 'relative', zIndex: 5}}>
                 <span>{t('used_label')} {totalPct}%</span>
                 <span style={{display:'flex', alignItems:'center', gap:'8px'}}>
-                  {totalUsed > totalLimit && totalLimit > 0 && <span style={{fontWeight:'700'}}>{t('over_limit_by')} {fmt(totalUsed - totalLimit)}</span>}
+                  {totalUsed > totalLimit && totalLimit > 0 && <span style={{background: 'rgba(254, 92, 115, 0.35)', color: '#FFD2D7', padding: '2px 8px', borderRadius: '6px'}}>{t('over_limit_by')} {fmt(totalUsed - totalLimit)}</span>}
                   {totalPctDiff !== null && (
-                    <span style={{padding:'2px 6px', background: totalPctDiff > 0 ? 'rgba(254, 92, 115, 0.25)' : 'rgba(22, 219, 204, 0.25)', color: totalPctDiff > 0 ? '#FFD2D7' : '#D1FFF9', borderRadius:'4px', fontWeight:'700', fontSize:'11px'}}>
+                    <span style={{padding:'2.5px 8px', background: totalPctDiff > 0 ? 'rgba(254, 92, 115, 0.35)' : 'rgba(22, 219, 204, 0.35)', color: totalPctDiff > 0 ? '#FFD2D7' : '#D1FFF9', borderRadius:'6px', fontSize:'12px'}}>
                       {totalPctDiff > 0 ? `↑ +${totalPctDiff}%` : totalPctDiff < 0 ? `↓ ${totalPctDiff}%` : t('equal_to_last_month')}
                     </span>
                   )}
@@ -829,21 +859,21 @@ export default function Budget() {
 
             {/* Collapsible Transactions for Overall Budget */}
             {overallBudget && expandedBudgetId === overallBudget.id && (
-              <div style={{marginTop:'20px', borderTop:'1px dashed rgba(255,255,255,0.3)', paddingTop:'20px', width:'100%'}}>
-                <div style={{fontWeight:'700', fontSize:'14px', color:'#fff', marginBottom:'12px'}}>
+              <div style={{marginTop:'24px', borderTop:'1px dashed rgba(255,255,255,0.25)', paddingTop:'22px', width:'100%', position: 'relative', zIndex: 5}}>
+                <div style={{fontWeight:'800', fontSize:'14.5px', color:'#fff', marginBottom:'14px', letterSpacing: '0.5px'}}>
                   {t('transactions_in_month')} ({categoryTransactions.length})
                 </div>
                 {isLoadingTransactions ? (
                   <div style={{fontSize:'13px', color:'rgba(255,255,255,0.7)', textAlign:'center', padding:'10px'}}>{t('loading_transactions')}</div>
                 ) : categoryTransactions.length > 0 ? (
-                  <div style={{maxHeight:'200px', overflowY:'auto', display:'flex', flexDirection:'column', gap:'8px', paddingRight:'4px'}}>
+                  <div style={{maxHeight:'210px', overflowY:'auto', display:'flex', flexDirection:'column', gap:'10px', paddingRight:'4px'}}>
                     {categoryTransactions.map((tx: any) => (
-                      <div key={tx.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'10px 14px', background:'rgba(255,255,255,0.1)', borderRadius:'12px', fontSize:'13px'}}>
-                        <div style={{display:'flex', flexDirection:'column', gap:'2px', maxWidth:'65%'}}>
-                          <span style={{fontWeight:'600', color:'#fff', textOverflow:'ellipsis', overflow:'hidden', whiteSpace:'nowrap'}}>{tx.title}</span>
-                          <span style={{fontSize:'11px', color:'rgba(255,255,255,0.7)'}}>{new Date(tx.transaction_date).toLocaleDateString('vi-VN')} • {tx.category?.name || 'Chưa phân loại'}</span>
+                      <div key={tx.id} className="budget-tx-row-overall">
+                        <div style={{display:'flex', flexDirection:'column', gap:'3px', maxWidth:'65%'}}>
+                          <span style={{fontWeight:'700', color:'#fff', textOverflow:'ellipsis', overflow:'hidden', whiteSpace:'nowrap'}}>{tx.title}</span>
+                          <span style={{fontSize:'11px', color:'rgba(255,255,255,0.75)', fontWeight: '600'}}>{new Date(tx.transaction_date).toLocaleDateString('vi-VN')} • {tx.category?.name || 'Chưa phân loại'}</span>
                         </div>
-                        <span style={{fontWeight:'800', color:'#FFD2D7'}}>
+                        <span style={{fontWeight:'850', color:'#FFD2D7'}}>
                           -{fmt(parseFloat(tx.amount_in_user_currency || tx.amount))}
                         </span>
                       </div>
@@ -857,81 +887,110 @@ export default function Budget() {
           </div>
 
           {/* STATS GRID */}
-          <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(220px, 1fr))', gap:'16px', marginBottom:'24px'}}>
+          <div className="budget-stat-grid">
             {/* Stat 1: Remaining */}
-            <div className="bdg-card-animate" style={{background:'var(--card-bg)', borderRadius:'16px', padding:'20px', border:'1px solid var(--border-color)', boxShadow:'0 4px 15px rgba(0,0,0,0.02)', animationDelay:'0.08s'}}>
-              <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px'}}>
-                <span style={{fontSize:'20px'}}>💰</span>
-                <span style={{fontSize:'14px', color:'#718EBF', fontWeight:'600'}}>{t('remaining')}</span>
+            <div 
+              className="bdg-card-animate budget-stat-card" 
+              style={{
+                animationDelay: '0.08s',
+                '--stat-glow-color': 'rgba(16, 185, 129, 0.15)',
+                '--stat-glow-shadow': 'rgba(16, 185, 129, 0.12)',
+                '--stat-border-hover': '#10B981'
+              } as React.CSSProperties}
+            >
+              <div style={{display:'flex', alignItems:'center', gap:'12px', marginBottom:'12px'}}>
+                <div className="budget-stat-icon-wrapper" style={{ background: 'rgba(16, 185, 129, 0.1)' }}>
+                  {renderSvgIcon('wallet')}
+                </div>
+                <span style={{fontSize:'14px', color:'#718EBF', fontWeight:'700'}}>{t('remaining')}</span>
               </div>
-              <div style={{fontSize:'20px', fontWeight:'800', color: isOverBudget ? '#FE5C73' : 'var(--text-main)'}}>
+              <div style={{fontSize:'22px', fontWeight:'850', color: isOverBudget ? '#FE5C73' : 'var(--text-main)', letterSpacing: '-0.5px'}}>
                 {isOverBudget ? `${t('over_limit_by')} ${fmt(totalUsed - totalLimit)}` : fmt(remainingAmount)}
               </div>
-              <div style={{fontSize:'12px', color:'#718EBF', marginTop:'4px'}}>
+              <div style={{fontSize:'12px', color:'#718EBF', marginTop:'6px'}}>
                 {isOverBudget ? t('all_budget_used') : t('current_available_balance')}
               </div>
             </div>
 
             {/* Stat 2: Average Spend per Day */}
-            <div className="bdg-card-animate" style={{background:'var(--card-bg)', borderRadius:'16px', padding:'20px', border:'1px solid var(--border-color)', boxShadow:'0 4px 15px rgba(0,0,0,0.02)', animationDelay:'0.16s'}}>
-              <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px'}}>
-                <span style={{fontSize:'20px'}}>📅</span>
-                <span style={{fontSize:'14px', color:'#718EBF', fontWeight:'600'}}>{t('avg_per_day')}</span>
+            <div 
+              className="bdg-card-animate budget-stat-card" 
+              style={{
+                animationDelay: '0.16s',
+                '--stat-glow-color': 'rgba(59, 130, 246, 0.15)',
+                '--stat-glow-shadow': 'rgba(59, 130, 246, 0.12)',
+                '--stat-border-hover': '#3B82F6'
+              } as React.CSSProperties}
+            >
+              <div style={{display:'flex', alignItems:'center', gap:'12px', marginBottom:'12px'}}>
+                <div className="budget-stat-icon-wrapper" style={{ background: 'rgba(59, 130, 246, 0.1)' }}>
+                  {renderSvgIcon('calendar')}
+                </div>
+                <span style={{fontSize:'14px', color:'#718EBF', fontWeight:'700'}}>{t('avg_per_day')}</span>
               </div>
-              <div style={{fontSize:'20px', fontWeight:'800', color:'var(--text-main)'}}>
+              <div style={{fontSize:'22px', fontWeight:'850', color:'var(--text-main)', letterSpacing: '-0.5px'}}>
                 {fmt(averagePerDay)}
               </div>
-              <div style={{fontSize:'12px', color:'#718EBF', marginTop:'4px'}}>
+              <div style={{fontSize:'12px', color:'#718EBF', marginTop:'6px'}}>
                 {t('based_on_passed_days').replace('{days}', passedDays.toString())}
               </div>
             </div>
 
             {/* Stat 3: Month End Forecast */}
-            <div className="bdg-card-animate" style={{background:'var(--card-bg)', borderRadius:'16px', padding:'20px', border:'1px solid var(--border-color)', boxShadow:'0 4px 15px rgba(0,0,0,0.02)', animationDelay:'0.24s'}}>
-              <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px'}}>
-                <span style={{fontSize:'20px'}}>🔮</span>
-                <span style={{fontSize:'14px', color:'#718EBF', fontWeight:'600'}}>{t('month_end_forecast')}</span>
+            <div 
+              className="bdg-card-animate budget-stat-card" 
+              style={{
+                animationDelay: '0.24s',
+                '--stat-glow-color': 'rgba(245, 158, 11, 0.15)',
+                '--stat-glow-shadow': 'rgba(245, 158, 11, 0.12)',
+                '--stat-border-hover': '#F59E0B'
+              } as React.CSSProperties}
+            >
+              <div style={{display:'flex', alignItems:'center', gap:'12px', marginBottom:'12px'}}>
+                <div className="budget-stat-icon-wrapper" style={{ background: 'rgba(245, 158, 11, 0.1)' }}>
+                  {renderSvgIcon('forecast')}
+                </div>
+                <span style={{fontSize:'14px', color:'#718EBF', fontWeight:'700'}}>{t('month_end_forecast')}</span>
               </div>
-              <div style={{fontSize:'20px', fontWeight:'800', color: projectedTotal > totalLimit && totalLimit > 0 ? '#FE5C73' : '#16DBCC'}}>
+              <div style={{fontSize:'22px', fontWeight:'850', color: projectedTotal > totalLimit && totalLimit > 0 ? '#FE5C73' : '#10B981', letterSpacing: '-0.5px'}}>
                 {fmt(projectedTotal)}
               </div>
-              <div style={{fontSize:'12px', color:'#718EBF', marginTop:'4px'}}>
+              <div style={{fontSize:'12px', color:'#718EBF', marginTop:'6px'}}>
                 {projectedTotal > totalLimit && totalLimit > 0 ? t('projected_over_budget') : t('projected_within_budget')}
               </div>
             </div>
 
             {/* Stat 4: Category Budgets Count */}
-            <div className="bdg-card-animate" style={{background:'var(--card-bg)', borderRadius:'16px', padding:'20px', border:'1px solid var(--border-color)', boxShadow:'0 4px 15px rgba(0,0,0,0.02)', animationDelay:'0.32s'}}>
-              <div style={{display:'flex', alignItems:'center', gap:'10px', marginBottom:'10px'}}>
-                <span style={{fontSize:'20px'}}>🔲</span>
-                <span style={{fontSize:'14px', color:'#718EBF', fontWeight:'600'}}>{t('category_limits_count')}</span>
+            <div 
+              className="bdg-card-animate budget-stat-card" 
+              style={{
+                animationDelay: '0.32s',
+                '--stat-glow-color': 'rgba(139, 92, 246, 0.15)',
+                '--stat-glow-shadow': 'rgba(139, 92, 246, 0.12)',
+                '--stat-border-hover': '#8B5CF6'
+              } as React.CSSProperties}
+            >
+              <div style={{display:'flex', alignItems:'center', gap:'12px', marginBottom:'12px'}}>
+                <div className="budget-stat-icon-wrapper" style={{ background: 'rgba(139, 92, 246, 0.1)' }}>
+                  {renderSvgIcon('limit')}
+                </div>
+                <span style={{fontSize:'14px', color:'#718EBF', fontWeight:'700'}}>{t('category_limits_count')}</span>
               </div>
-              <div style={{fontSize:'20px', fontWeight:'800', color:'var(--text-main)'}}>
+              <div style={{fontSize:'22px', fontWeight:'850', color:'var(--text-main)', letterSpacing: '-0.5px'}}>
                 {categoryBudgets.length} {t('categories_unit')}
               </div>
-              <div style={{fontSize:'12px', color:'#718EBF', marginTop:'4px'}}>
+              <div style={{fontSize:'12px', color:'#718EBF', marginTop:'6px'}}>
                 {t('out_of_total_categories').replace('{total}', categories.length.toString())}
               </div>
             </div>
           </div>
 
+
           {/* CHARTS GRID */}
           {!isLoading && categoryBudgets.length > 0 && (
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-              gap: '24px',
-              marginBottom: '24px'
-            }}>
+            <div className="budget-charts-grid">
               {/* BIỂU ĐỒ TRÒN CƠ CẤU CHI TIÊU */}
-              <div className="bdg-card-animate" style={{
-                background: 'var(--card-bg)',
-                borderRadius: '24px',
-                padding: '28px',
-                border: '1px solid var(--border-color)',
-                boxShadow: '0 8px 24px rgba(0,0,0,0.02)',
-                animationDelay: '0.4s'
-              }}>
+              <div className="bdg-card-animate budget-chart-card" style={{ animationDelay: '0.4s' }}>
                 <h3 style={{ color: 'var(--text-main)', fontSize: '16px', fontWeight: '700', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0 }}>
                   <span>📊</span> {t('spending_structure_by_category')}
                 </h3>
@@ -945,20 +1004,19 @@ export default function Budget() {
 
               {/* COMPARISON CARD */}
               {(prevTotalLimit > 0 || prevTotalUsed > 0) ? (
-                <div className="bdg-card-animate" style={{
-                  background: 'var(--card-bg)',
-                  borderRadius: '24px',
-                  padding: '28px',
-                  border: '1px solid var(--border-color)',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.02)',
+                <div className="bdg-card-animate budget-chart-card" style={{
                   animationDelay: '0.45s',
                   display: 'flex',
                   flexDirection: 'column',
                   justifyContent: 'space-between'
                 }}>
                   <div>
-                    <h3 style={{ color: 'var(--text-main)', fontSize: '16px', fontWeight: '700', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0 }}>
-                      <span>📈</span> {t('compare_spending_with_last_month')}
+                    <h3 style={{ color: 'var(--text-main)', fontSize: '16px', fontWeight: '750', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0 }}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#1814F3' }}>
+                        <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+                        <polyline points="16 7 22 7 22 13" />
+                      </svg>
+                      {t('compare_spending_with_last_month')}
                     </h3>
                     <p style={{fontSize: '13px', color: '#718EBF', margin: '0 0 20px 0'}}>
                       {totalDiff > 0 ? (
@@ -971,42 +1029,33 @@ export default function Budget() {
                     </p>
                   </div>
 
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'flex-end',
-                    justifyContent: 'center',
-                    gap: '50px',
-                    height: '140px',
-                    paddingBottom: '20px',
-                    borderBottom: '1px solid var(--border-color)'
-                  }}>
+                  <div className="compare-chart-container">
+                    {/* Limit threshold indicator */}
+                    {limitLineHeight > 0 && limitLineHeight <= 120 && (
+                      <div className="compare-limit-line" style={{ bottom: `${limitLineHeight + 20}px` }}>
+                        <span className="compare-limit-label">{t('limit_label')}</span>
+                      </div>
+                    )}
+
                     {/* Column 1: Last Month */}
-                    <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px'}}>
+                    <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', zIndex: 2}}>
                       <div style={{fontSize: '11px', fontWeight: '700', color: '#718EBF'}}>{fmt(prevTotalUsed)}</div>
-                      <div style={{
-                        width: '32px',
-                        height: `${prevBarHeight}px`,
-                        background: 'linear-gradient(to top, #718EBF, #A3AED0)',
-                        borderRadius: '6px 6px 0 0',
-                        transition: 'height 0.5s ease',
-                        boxShadow: '0 4px 10px rgba(113, 142, 191, 0.15)'
-                      }}></div>
+                      <div 
+                        className="compare-bar-prev" 
+                        style={{ height: `${prevBarHeight}px` }}
+                      ></div>
                       <div style={{fontSize: '11px', fontWeight: '600', color: 'var(--text-main)', textAlign: 'center'}}>
                         {t(`month_${month === 1 ? 12 : month - 1}`)} {month === 1 ? year - 1 : year}
                       </div>
                     </div>
 
                     {/* Column 2: This Month */}
-                    <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px'}}>
-                      <div style={{fontSize: '11px', fontWeight: '700', color: '#1814F3'}}>{fmt(totalUsed)}</div>
-                      <div style={{
-                        width: '32px',
-                        height: `${currBarHeight}px`,
-                        background: 'linear-gradient(to top, #1814F3, #6366F1)',
-                        borderRadius: '6px 6px 0 0',
-                        transition: 'height 0.5s ease',
-                        boxShadow: '0 4px 15px rgba(24, 20, 243, 0.25)'
-                      }}></div>
+                    <div style={{display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', zIndex: 2}}>
+                      <div style={{fontSize: '11px', fontWeight: '750', color: '#1814F3'}}>{fmt(totalUsed)}</div>
+                      <div 
+                        className="compare-bar-curr" 
+                        style={{ height: `${currBarHeight}px` }}
+                      ></div>
                       <div style={{fontSize: '11px', fontWeight: '600', color: 'var(--text-main)', textAlign: 'center'}}>
                         {t(`month_${month}`)} {year}
                       </div>
@@ -1019,27 +1068,15 @@ export default function Budget() {
                   </div>
                 </div>
               ) : (
-                <div className="bdg-card-animate" style={{
-                  background: 'var(--card-bg)',
-                  borderRadius: '24px',
-                  padding: '28px',
-                  border: '1px dashed var(--border-color)',
-                  boxShadow: '0 8px 24px rgba(0,0,0,0.02)',
-                  animationDelay: '0.45s',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  textAlign: 'center',
-                  color: '#718EBF'
-                }}>
-                  <span style={{fontSize: '32px', marginBottom: '12px'}}>📈</span>
-                  <h4 style={{color: 'var(--text-main)', margin: '0 0 6px 0', fontSize: '15px', fontWeight: '700'}}>{t('no_comparison_data')}</h4>
-                  <p style={{fontSize: '12px', margin: 0, lineHeight: '1.5', maxWidth: '240px'}}>
+                <div className="bdg-card-animate budget-empty-state" style={{ animationDelay: '0.45s', margin: 0, width: '100%', maxWidth: '100%', padding: '30px' }}>
+                  <div className="budget-empty-icon">📈</div>
+                  <h4 className="budget-empty-title">{t('no_comparison_data')}</h4>
+                  <p className="budget-empty-desc" style={{ fontSize: '12px', margin: 0 }}>
                     {t('no_comparison_data_desc')}
                   </p>
                 </div>
               )}
+
 
             </div>
           )}
@@ -1048,7 +1085,7 @@ export default function Budget() {
           {isLoading ? (
             <div style={{display:'flex', justifyContent:'center', padding:'80px', color:'var(--text-main)', fontSize:'16px'}}>{t('loading')}...</div>
           ) : categoryBudgets.length > 0 ? (
-            <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill, minmax(350px, 1fr))',gap:'20px'}}>
+            <div className="budget-grid">
               {categoryBudgets.map((b,i)=>{
                 const limit = parseFloat(b.limit_amount);
                 const used = Math.abs(parseFloat(b.used_amount));
@@ -1063,80 +1100,96 @@ export default function Budget() {
                 const pctDiff = prevUsed > 0 ? Math.round((diff / prevUsed) * 100) : null;
                 
                 return(
-                  <div key={b.id} className="bdg-card-animate" style={{background:'var(--card-bg)',borderRadius:'20px',padding:'24px',border:'1px solid var(--border-color)', display:'flex', flexDirection:'column', justifyContent:'space-between', minHeight:'170px', boxShadow:'0 4px 15px rgba(0,0,0,0.02)', animationDelay:`${i * 0.07}s`}}>
+                  <div 
+                    key={b.id} 
+                    className={`bdg-card-animate budget-card ${pct >= 100 ? 'exceeded pulse-exceeded' : ''}`} 
+                    style={{
+                      animationDelay: `${i * 0.07}s`,
+                      '--cat-color-glow': `${catColor}1c`,
+                      '--cat-color-border': `${catColor}65`
+                    } as React.CSSProperties}
+                  >
                     <div>
-                      <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',marginBottom:'16px'}}>
+                      <div className="budget-card-header">
                         <div 
                           onClick={() => handleToggleExpand(b)}
-                          style={{display:'flex',alignItems:'center',gap:'12px', cursor:'pointer', flex: 1}}
+                          className="budget-card-title"
                           title={t('click_to_view_tx')}
                         >
-                          <div style={{width:'45px',height:'45px',borderRadius:'12px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'22px',background:`${catColor}15`}}>{catIcon}</div>
+                          <div className="budget-icon-circle" style={{ background: `${catColor}15` }}>{catIcon}</div>
                           <div>
-                            <div style={{fontWeight:'700',color:'var(--text-main)', display:'flex', alignItems:'center', gap:'6px'}}>
+                            <div style={{fontWeight:'750', color:'var(--text-main)', display:'flex', alignItems:'center', gap:'6px', fontSize: '14.5px'}}>
                               {catName}
-                              <span style={{fontSize:'10px', color:'#718EBF'}}>
+                              <span style={{fontSize:'10px', color:'#718EBF', opacity: 0.8}}>
                                 {expandedBudgetId === b.id ? '▲' : '▼'}
                               </span>
                             </div>
-                            <div style={{fontSize:'13px',color:'#718EBF'}}>{t('limit_label')} {fmt(limit)}</div>
+                            <div style={{fontSize:'12.5px', color:'#718EBF', fontWeight: '600', marginTop: '2px'}}>{t('limit_label')} {fmt(limit)}</div>
                           </div>
                         </div>
                         <div style={{display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'6px'}}>
                           {pct>=80 && (
-                            <span style={{padding:'4px 10px',borderRadius:'20px',fontSize:'11px',fontWeight:'600',background:pct>=100?'#FFE0EB':'#FFF5D9',color:pct>=100?'#FE5C73':'#FF9800', whiteSpace:'nowrap'}}>
+                            <span style={{padding:'4px 10px', borderRadius:'20px', fontSize:'10.5px', fontWeight:'700', background:pct>=100?'rgba(239, 68, 68, 0.12)':'rgba(245, 158, 11, 0.12)', color:pct>=100?'#EF4444':'#F59E0B', whiteSpace:'nowrap'}}>
                               {pct>=100?t('over_budget'):t('almost_empty')}
                             </span>
                           )}
-                          <div style={{display:'flex', gap:'8px'}}>
+                          <div className="budget-actions-slide">
                             <button 
                               onClick={() => handleOpenEditModal(b)}
-                              style={{background:'none', border:'none', color:'#1814F3', fontSize:'12px', fontWeight:'600', cursor:'pointer', padding:'2px 4px'}}
+                              style={{background:'none', border:'none', color:'#1814F3', fontSize:'12.5px', fontWeight:'700', cursor:'pointer', padding:'2px 4px'}}
                             >
                               {t('edit_label')}
                             </button>
                             <button 
                               onClick={() => handleDeleteBudget(b.id)}
-                              style={{background:'none', border:'none', color:'#FE5C73', fontSize:'12px', fontWeight:'600', cursor:'pointer', padding:'2px 4px'}}
+                              style={{background:'none', border:'none', color:'#FE5C73', fontSize:'12.5px', fontWeight:'700', cursor:'pointer', padding:'2px 4px'}}
                             >
                               {t('delete_label')}
                             </button>
                           </div>
                         </div>
                       </div>
-                      <div style={{width:'100%',height:'10px',background:'var(--bg-color)',borderRadius:'5px',marginBottom:'8px'}}>
-                        <div style={{width:`${Math.min(pct,100)}%`,height:'100%',background:pct>=80?'#FE5C73':catColor,borderRadius:'5px',transition:'width 0.6s'}}></div>
+                      <div className="budget-progress-track" style={{ height: '10px', marginBottom: '8px' }}>
+                        <div style={{width:`${Math.min(pct,100)}%`, background:pct>=100?'#EF4444':pct>=80?'#F59E0B':catColor}} className="budget-progress-bar"></div>
                       </div>
                     </div>
-                    <div style={{display:'flex',justifyContent:'space-between',fontSize:'13px'}}>
-                      <span style={{color:pct>=80?'#FE5C73':catColor,fontWeight:'600'}}>{fmt(used)}</span>
+                    <div style={{display:'flex', justifyContent:'space-between', fontSize:'13px', alignItems: 'center', marginTop: '4px'}}>
+                      <span style={{color:pct>=100?'#EF4444':pct>=80?'#F59E0B':catColor, fontWeight:'750', fontSize: '13.5px'}}>{fmt(used)}</span>
                       <div style={{display:'flex', alignItems:'center', gap:'8px'}}>
                         {pctDiff !== null && (
-                          <span style={{fontSize:'11px', fontWeight:'700', color: pctDiff > 0 ? '#FE5C73' : '#16DBCC', background: pctDiff > 0 ? '#FFE0EB' : '#E0FBF6', padding:'2px 6px', borderRadius:'10px'}}>
+                          <span style={{fontSize:'10.5px', fontWeight:'700', color: pctDiff > 0 ? '#EF4444' : '#10B981', background: pctDiff > 0 ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)', padding:'2px 6px', borderRadius:'10px'}}>
                             {pctDiff > 0 ? `↑ +${pctDiff}%` : `↓ ${pctDiff}%`}
                           </span>
                         )}
-                        <span style={{color:'#718EBF'}}>{pct}%</span>
+                        <span style={{color:'#718EBF', fontWeight: '700'}}>{pct}%</span>
                       </div>
                     </div>
 
                     {/* Collapsible Transactions List */}
                     {expandedBudgetId === b.id && (
-                      <div style={{marginTop:'16px', borderTop:'1px solid var(--border-color)', paddingTop:'16px', width:'100%'}}>
-                        <div style={{fontWeight:'700', fontSize:'13px', color:'var(--text-main)', marginBottom:'10px'}}>
+                      <div className="budget-tx-list">
+                        <div style={{fontWeight:'800', fontSize:'13px', color:'var(--text-main)', marginBottom:'10px', display: 'flex', alignItems: 'center', gap: '6px'}}>
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="8" x2="21" y1="6" y2="6"/>
+                            <line x1="8" x2="21" y1="12" y2="12"/>
+                            <line x1="8" x2="21" y1="18" y2="18"/>
+                            <line x1="3" x2="3.01" y1="6" y2="6"/>
+                            <line x1="3" x2="3.01" y1="12" y2="12"/>
+                            <line x1="3" x2="3.01" y1="18" y2="18"/>
+                          </svg>
                           {t('transactions_in_month')} ({categoryTransactions.length})
                         </div>
                         {isLoadingTransactions ? (
                           <div style={{fontSize:'12px', color:'#718EBF', textAlign:'center', padding:'10px'}}>{t('loading_transactions')}</div>
                         ) : categoryTransactions.length > 0 ? (
-                          <div style={{maxHeight:'160px', overflowY:'auto', display:'flex', flexDirection:'column', gap:'6px', paddingRight:'4px'}}>
+                          <div style={{maxHeight:'165px', overflowY:'auto', display:'flex', flexDirection:'column', gap:'8px', paddingRight:'4px'}}>
                             {categoryTransactions.map((tx: any) => (
-                              <div key={tx.id} style={{display:'flex', justifyContent:'space-between', alignItems:'center', padding:'6px 10px', background:'var(--bg-color)', borderRadius:'8px', fontSize:'12px'}}>
-                                <div style={{display:'flex', flexDirection:'column', gap:'1px', maxWidth:'65%'}}>
-                                  <span style={{fontWeight:'600', color:'var(--text-main)', textOverflow:'ellipsis', overflow:'hidden', whiteSpace:'nowrap'}}>{tx.title}</span>
-                                  <span style={{fontSize:'10px', color:'#718EBF'}}>{new Date(tx.transaction_date).toLocaleDateString(language === 'vi' ? 'vi-VN' : 'en-US')}</span>
+                              <div key={tx.id} className="budget-tx-row">
+                                <div style={{display:'flex', flexDirection:'column', gap:'2px', maxWidth:'65%'}}>
+                                  <span style={{fontWeight:'700', color:'var(--text-main)', textOverflow:'ellipsis', overflow:'hidden', whiteSpace:'nowrap'}}>{tx.title}</span>
+                                  <span style={{fontSize:'10px', color:'#718EBF', fontWeight: '600'}}>{new Date(tx.transaction_date).toLocaleDateString(language === 'vi' ? 'vi-VN' : 'en-US')}</span>
                                 </div>
-                                <span style={{fontWeight:'700', color: tx.type === 'income' ? '#16DBCC' : '#FE5C73'}}>
+                                <span style={{fontWeight:'800', color: tx.type === 'income' ? '#10B981' : '#EF4444'}}>
                                   {tx.type === 'income' ? '+' : '-'}{fmt(parseFloat(tx.amount_in_user_currency || tx.amount))}
                                 </span>
                               </div>
@@ -1152,101 +1205,58 @@ export default function Budget() {
               })}
             </div>
           ) : (
-            <div style={{
-              background: 'var(--card-bg)',
-              border: '1px dashed var(--border-color)',
-              borderRadius: '24px',
-              padding: '50px 30px',
-              textAlign: 'center',
-              boxShadow: '0 8px 30px rgba(0,0,0,0.02)',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginTop: '20px',
-              maxWidth: '800px',
-              margin: '20px auto 0 auto'
-            }}>
-              <div style={{
-                width: '70px',
-                height: '70px',
-                borderRadius: '50%',
-                background: 'rgba(24, 20, 243, 0.08)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '36px',
-                marginBottom: '20px'
-              }}>
-                🎯
+            <div className="budget-empty-state">
+              <div className="budget-empty-icon">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#1814F3" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="10" />
+                  <circle cx="12" cy="12" r="6" />
+                  <circle cx="12" cy="12" r="2" />
+                </svg>
               </div>
-              <h3 style={{color: 'var(--text-main)', fontSize: '20px', fontWeight: '700', marginBottom: '10px'}}>
-                {t('no_budget_setup')}
-              </h3>
-              <p style={{fontSize: '14px', color: '#718EBF', maxWidth: '500px', lineHeight: '1.6', margin: '0 auto 24px'}}>
-                {t('no_budget_desc')}
-              </p>
+              <h3 className="budget-empty-title">{t('no_budget_setup')}</h3>
+              <p className="budget-empty-desc">{t('no_budget_desc')}</p>
               
               {/* Onboarding Guide steps */}
               <div style={{
                 display: 'grid',
                 gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-                gap: '16px',
+                gap: '20px',
                 width: '100%',
-                marginBottom: '30px',
+                marginBottom: '32px',
                 textAlign: 'left'
               }}>
-                <div style={{padding: '16px', background: 'var(--bg-color)', borderRadius: '16px', border: '1px solid var(--border-color)'}}>
-                  <div style={{fontSize: '14px', fontWeight: '800', color: '#1814F3', marginBottom: '8px'}}>1. {t('onboard_step1_title')}</div>
-                  <div style={{fontSize: '12px', color: '#718EBF', lineHeight: '1.5'}}>
+                <div className="budget-onboard-step">
+                  <div style={{fontSize: '14.5px', fontWeight: '800', color: '#1814F3', marginBottom: '8px'}}>1. {t('onboard_step1_title')}</div>
+                  <div style={{fontSize: '12px', color: '#718EBF', lineHeight: '1.6', fontWeight: '500'}}>
                     {t('onboard_step1_desc')}
                   </div>
                 </div>
-                <div style={{padding: '16px', background: 'var(--bg-color)', borderRadius: '16px', border: '1px solid var(--border-color)'}}>
-                  <div style={{fontSize: '14px', fontWeight: '800', color: '#1814F3', marginBottom: '8px'}}>2. {t('onboard_step2_title')}</div>
-                  <div style={{fontSize: '12px', color: '#718EBF', lineHeight: '1.5'}}>
+                <div className="budget-onboard-step">
+                  <div style={{fontSize: '14.5px', fontWeight: '800', color: '#1814F3', marginBottom: '8px'}}>2. {t('onboard_step2_title')}</div>
+                  <div style={{fontSize: '12px', color: '#718EBF', lineHeight: '1.6', fontWeight: '500'}}>
                     {t('onboard_step2_desc')}
                   </div>
                 </div>
-                <div style={{padding: '16px', background: 'var(--bg-color)', borderRadius: '16px', border: '1px solid var(--border-color)'}}>
-                  <div style={{fontSize: '14px', fontWeight: '800', color: '#1814F3', marginBottom: '8px'}}>3. {t('onboard_step3_title')}</div>
-                  <div style={{fontSize: '12px', color: '#718EBF', lineHeight: '1.5'}}>
+                <div className="budget-onboard-step">
+                  <div style={{fontSize: '14.5px', fontWeight: '800', color: '#1814F3', marginBottom: '8px'}}>3. {t('onboard_step3_title')}</div>
+                  <div style={{fontSize: '12px', color: '#718EBF', lineHeight: '1.6', fontWeight: '500'}}>
                     {t('onboard_step3_desc')}
                   </div>
                 </div>
               </div>
 
-              <div style={{display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap'}}>
+              <div style={{display: 'flex', gap: '14px', justifyContent: 'center', flexWrap: 'wrap'}}>
                 <button 
                   onClick={handleOpenAddModal}
-                  style={{
-                    background: '#1814F3',
-                    color: '#fff',
-                    padding: '12px 24px',
-                    borderRadius: '12px',
-                    fontWeight: '600',
-                    border: 'none',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    boxShadow: '0 4px 15px rgba(24, 20, 243, 0.25)',
-                    transition: 'all 0.2s'
-                  }}
+                  className="budget-btn-primary"
+                  style={{ padding: '12px 28px' }}
                 >
                   {t('set_new_budget')}
                 </button>
                 <button 
                   onClick={handleCopyBudgets}
-                  style={{
-                    background: 'transparent',
-                    color: '#1814F3',
-                    padding: '12px 24px',
-                    borderRadius: '12px',
-                    fontWeight: '600',
-                    border: '1px solid #1814F3',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    transition: 'all 0.2s'
-                  }}
+                  className="budget-btn-secondary"
+                  style={{ padding: '12px 28px' }}
                 >
                   {t('copy_from_previous_month')}
                 </button>
@@ -1256,92 +1266,136 @@ export default function Budget() {
 
           {/* LỊCH SỬ NGÂN SÁCH CÁC THÁNG TRƯỚC */}
           {isLoggedIn && (
-            <div style={{marginTop:'28px'}}>
+            <div style={{marginTop:'32px'}}>
               <div 
                 onClick={() => setShowHistory(!showHistory)} 
-                style={{display:'flex', alignItems:'center', justifyContent:'space-between', cursor:'pointer', padding:'16px 20px', background:'var(--card-bg)', borderRadius:'16px', border:'1px solid var(--border-color)'}}
+                className="budget-history-header"
               >
-                <div style={{display:'flex', alignItems:'center', gap:'10px'}}>
-                  <span style={{fontSize:'20px'}}>📅</span>
-                  <span style={{fontWeight:'700', color:'var(--text-main)', fontSize:'16px'}}>{t('past_months_budget_history')}</span>
+                <div style={{display:'flex', alignItems:'center', gap:'12px'}}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#1814F3" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <polyline points="12 6 12 12 16 14" />
+                  </svg>
+                  <span style={{fontWeight:'750', color:'var(--text-main)', fontSize:'16px'}}>{t('past_months_budget_history')}</span>
                 </div>
                 <span style={{color:'#718EBF', fontSize:'20px', transition:'transform 0.3s', transform: showHistory ? 'rotate(180deg)' : 'rotate(0deg)'}}>▼</span>
               </div>
 
               {showHistory && (
-                <div style={{marginTop:'16px'}}>
+                <div style={{marginTop:'20px'}}>
                   {isLoadingHistory ? (
                     <div style={{display:'flex', justifyContent:'center', padding:'40px', color:'var(--text-main)'}}>{t('loading')}...</div>
                   ) : budgetHistory.length > 0 ? (
-                    <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(300px, 1fr))', gap:'16px'}}>
+                    <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(300px, 1fr))', gap:'20px'}}>
                       {budgetHistory.map((h, i) => {
                         const pct = h.limit > 0 ? Math.round((h.used / h.limit) * 100) : 0;
-                        const barColor = pct >= 100 ? '#FE5C73' : pct >= 80 ? '#FF9800' : '#16DBCC';
+                        const barColor = pct >= 100 ? '#EF4444' : pct >= 80 ? '#F59E0B' : '#10B981';
                         return (
                           <div 
                             key={i} 
-                            style={{
-                              background:'var(--card-bg)', 
-                              borderRadius:'16px', 
-                              padding:'20px', 
-                              border:'1px solid var(--border-color)',
-                              cursor:'pointer',
-                              transition:'all 0.2s'
-                            }}
+                            className="budget-history-card"
                             onClick={() => { setMonth(h.month); setYear(h.year); setShowHistory(false); }}
                           >
                             <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'12px'}}>
-                              <span style={{fontWeight:'700', color:'var(--text-main)', fontSize:'15px'}}>
+                              <span style={{fontWeight:'750', color:'var(--text-main)', fontSize:'15px'}}>
                                 {language === 'vi' ? `${t(`month_${h.month}`)}/${h.year}` : `${t(`month_${h.month}`)} ${h.year}`}
                               </span>
-                              <span style={{fontSize:'13px', fontWeight:'700', color: barColor}}>{pct}%</span>
+                              <span style={{fontSize:'13px', fontWeight:'800', color: barColor}}>{pct}%</span>
                             </div>
-                            <div style={{width:'100%', height:'10px', background:'var(--bg-color)', borderRadius:'5px', overflow:'hidden', marginBottom:'10px'}}>
-                              <div style={{width:`${Math.min(pct, 100)}%`, height:'100%', background: barColor, borderRadius:'5px', transition:'width 0.5s'}}></div>
+                            <div className="budget-progress-track" style={{ height: '10px', marginBottom: '10px' }}>
+                              <div style={{width:`${Math.min(pct, 100)}%`, background: barColor}} className="budget-progress-bar"></div>
                             </div>
-                            <div style={{display:'flex', justifyContent:'space-between', fontSize:'13px', color:'#718EBF'}}>
+                            <div style={{display:'flex', justifyContent:'space-between', fontSize:'13px', color:'#718EBF', fontWeight: '500'}}>
                               <span>{fmt(h.used)} / {fmt(h.limit)}</span>
                               <span>{h.count} {t('item_unit')}</span>
                             </div>
                             {pct >= 100 && (
-                              <div style={{marginTop:'6px', fontSize:'12px', color:'#FE5C73', fontWeight:'600'}}>{t('over_budget_alert')}</div>
+                              <div style={{marginTop:'8px', fontSize:'12px', color:'#EF4444', fontWeight:'700'}}>{t('over_budget_alert')}</div>
                             )}
                           </div>
                         );
                       })}
                     </div>
                   ) : (
-                    <div style={{background:'var(--card-bg)', border:'1px dashed var(--border-color)', borderRadius:'16px', padding:'40px 20px', textAlign:'center', color:'#718EBF'}}>
-                      <div style={{fontSize:'32px', marginBottom:'12px'}}>📭</div>
-                      <p style={{fontSize:'14px', margin:0}}>{t('no_past_budgets')}</p>
+                    <div className="budget-empty-state" style={{ padding: '40px 20px', margin: 0, width: '100%', maxWidth: '100%' }}>
+                      <div className="budget-empty-icon">
+                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#718EBF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <rect width="20" height="16" x="2" y="4" rx="2" />
+                          <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+                        </svg>
+                      </div>
+                      <p style={{fontSize:'14px', margin:0, color:'#718EBF', fontWeight: '600'}}>{t('no_past_budgets')}</p>
                     </div>
                   )}
                 </div>
               )}
             </div>
           )}
+
         </div>
       </main>
 
       {/* MODAL ĐẶT NGÂN SÁCH */}
       {isModalOpen && (
-        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:1000, backdropFilter: 'blur(4px)'}}>
-          <div style={{background: 'var(--card-bg)',borderRadius:'24px',padding:'30px',width:'450px',maxWidth:'95%',boxShadow:'0 10px 40px rgba(0,0,0,0.1)'}}>
+        <div className="budget-modal-overlay">
+          <div className="budget-modal-content">
              <h2 style={{color: 'var(--text-main)',marginBottom:'24px',fontSize:'20px',fontWeight:'700'}}>
                {isEditMode ? t('edit_budget_limit') : t('setup_budget_limit')}
              </h2>
              
              <div style={{marginBottom:'20px'}}>
-               <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>{t('apply_to_category')}</label>
-               <select 
-                 value={selectedCategory} 
-                 onChange={e=>setSelectedCategory(e.target.value)} 
-                 disabled={isEditMode}
-                 style={{width:'100%',padding:'12px',border: '1px solid var(--border-color)',borderRadius:'12px',background: isEditMode ? 'var(--border-color)' : 'var(--bg-color)',color: 'var(--text-main)',fontSize:'15px', cursor: isEditMode ? 'not-allowed' : 'default'}}
-               >
-                  <option value="">{t('overall_budget_option')}</option>
-                  {flatCategories.map(c => <option key={c.id} value={c.id}>{c.displayName}</option>)}
-               </select>
+               <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>{t('apply_to_category') || 'Áp dụng cho'}</label>
+               
+               {/* Segmented Control */}
+               <div className="budget-segmented-control">
+                 <button
+                   type="button"
+                   disabled={isEditMode}
+                   onClick={() => setSelectedCategory('')}
+                   className={`budget-segmented-btn ${selectedCategory === '' ? 'active' : ''}`}
+                   style={{
+                     cursor: isEditMode ? 'not-allowed' : 'pointer',
+                     opacity: isEditMode && selectedCategory !== '' ? 0.5 : 1
+                   }}
+                 >
+                   {t('overall_budget_option') || 'Ngân sách chung'}
+                 </button>
+                 <button
+                   type="button"
+                   disabled={isEditMode}
+                   onClick={() => {
+                     const expenseParents = categories.filter((c: any) => c.type === 'expense');
+                     let defaultSubId = '';
+                     for (const parent of expenseParents) {
+                       if (parent.children && parent.children.length > 0) {
+                         defaultSubId = parent.children[0].id;
+                         break;
+                       }
+                     }
+                     setSelectedCategory(defaultSubId);
+                   }}
+                   className={`budget-segmented-btn ${selectedCategory !== '' ? 'active' : ''}`}
+                   style={{
+                     cursor: isEditMode ? 'not-allowed' : 'pointer',
+                     opacity: isEditMode && selectedCategory === '' ? 0.5 : 1
+                   }}
+                 >
+                   {t('by_category') || 'Theo danh mục'}
+                 </button>
+               </div>
+
+               {/* Category Picker */}
+               {selectedCategory !== '' && (
+                 <CategoryPicker
+                   value={selectedCategory}
+                   onChange={(id) => setSelectedCategory(id)}
+                   type="expense"
+                   categories={categories}
+                   tCategory={tCategory}
+                   placeholder={t('select_category') || 'Chọn danh mục'}
+                   disabled={isEditMode}
+                 />
+               )}
              </div>
 
              <div style={{marginBottom:'24px'}}>
@@ -1351,16 +1405,16 @@ export default function Budget() {
                  value={limitAmount} 
                  onChange={e=>setLimitAmount(e.target.value)} 
                  placeholder={t('limit_amount_placeholder')} 
-                 style={{width:'100%',padding:'12px',border: '1px solid var(--border-color)',borderRadius:'12px',background: 'var(--bg-color)',color: 'var(--text-main)',fontSize:'15px'}} 
+                 className="budget-modal-input"
                />
              </div>
              
-             <div style={{display:'flex',gap:'12px',justifyContent:'flex-end'}}>
-               <button style={{padding:'12px 24px',background: 'var(--bg-color)',color:'#718EBF',borderRadius:'12px',border: '1px solid var(--border-color)',cursor:'pointer',fontWeight:'600',fontSize:'15px'}} onClick={handleCloseModal} disabled={isSubmitting}>{t('cancel')}</button>
+             <div className="budget-modal-actions">
+               <button className="budget-btn-secondary" onClick={handleCloseModal} disabled={isSubmitting}>{t('cancel')}</button>
                <button 
-                style={{padding:'12px 24px',background:'#1814F3',color:'#fff',borderRadius:'12px',border:'none',cursor:'pointer',fontWeight:'600',fontSize:'15px', display:'flex', alignItems:'center', gap:'8px'}} 
-                onClick={handleSaveBudget} 
-                disabled={isSubmitting}
+                 className="budget-btn-primary" 
+                 onClick={handleSaveBudget} 
+                 disabled={isSubmitting}
                >
                  {isSubmitting ? t('saving_label') : t('save_budget_btn')}
                </button>
@@ -1371,40 +1425,25 @@ export default function Budget() {
 
       {/* CONFIRM DIALOG */}
       {confirmDialog.isOpen && (
-        <div style={{position:'fixed',top:0,left:0,right:0,bottom:0,background:'rgba(0,0,0,0.5)',display:'flex',alignItems:'center',justifyContent:'center',zIndex:2000,backdropFilter:'blur(4px)',animation:'bdg-fadeIn 0.2s ease'}}>
-          <div style={{background:'var(--card-bg)',borderRadius:'20px',padding:'28px',width:'400px',maxWidth:'90%',boxShadow:'0 20px 60px rgba(0,0,0,0.3)',animation:'bdg-slideUp 0.25s ease'}}>
+        <div className="budget-modal-overlay">
+          <div className="budget-modal-content" style={{ width: '400px' }}>
             <div style={{display:'flex',alignItems:'center',gap:'12px',marginBottom:'16px'}}>
               <div style={{width:'42px',height:'42px',borderRadius:'12px',background:'linear-gradient(135deg,#FF6B6B,#EE5A24)',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'20px'}}>⚠️</div>
               <h3 style={{color:'var(--text-main)',fontSize:'18px',fontWeight:'700',margin:0}}>{confirmDialog.title}</h3>
             </div>
             <p style={{color:'#718EBF',fontSize:'14px',lineHeight:'1.6',margin:'0 0 24px 0'}}>{confirmDialog.message}</p>
             <div style={{display:'flex',gap:'12px',justifyContent:'flex-end'}}>
-              <button onClick={closeConfirm} style={{padding:'10px 22px',background:'var(--bg-color)',color:'#718EBF',borderRadius:'12px',border:'1px solid var(--border-color)',cursor:'pointer',fontWeight:'600',fontSize:'14px',transition:'all 0.2s'}}>{t('cancel')}</button>
-              <button onClick={() => { confirmDialog.onConfirm(); closeConfirm(); }} style={{padding:'10px 22px',background:'linear-gradient(135deg,#FF6B6B,#EE5A24)',color:'#fff',borderRadius:'12px',border:'none',cursor:'pointer',fontWeight:'600',fontSize:'14px',transition:'all 0.2s'}}>{t('confirm')}</button>
+              <button onClick={closeConfirm} className="budget-btn-secondary">{t('cancel')}</button>
+              <button onClick={() => { confirmDialog.onConfirm(); closeConfirm(); }} className="budget-btn-primary" style={{ background: 'linear-gradient(135deg,#FF6B6B,#EE5A24)' }}>{t('confirm')}</button>
             </div>
           </div>
         </div>
       )}
 
       {/* TOAST NOTIFICATIONS */}
-      <div style={{position:'fixed',top:'24px',right:'24px',zIndex:3000,display:'flex',flexDirection:'column',gap:'10px',pointerEvents:'none'}}>
+      <div className="budget-toast-container">
         {toasts.map(toast => (
-          <div key={toast.id} style={{
-            pointerEvents:'auto',
-            padding:'14px 20px',
-            borderRadius:'14px',
-            background: toast.type === 'success' ? 'linear-gradient(135deg,#00C9A7,#00B4D8)' : toast.type === 'error' ? 'linear-gradient(135deg,#FF6B6B,#EE5A24)' : 'linear-gradient(135deg,#1814F3,#5B73E8)',
-            color:'#fff',
-            fontSize:'14px',
-            fontWeight:'600',
-            boxShadow:'0 8px 32px rgba(0,0,0,0.18)',
-            display:'flex',
-            alignItems:'center',
-            gap:'10px',
-            minWidth:'280px',
-            maxWidth:'400px',
-            animation:'bdg-toastIn 0.35s ease, bdg-toastOut 0.35s ease 3.15s forwards'
-          }}>
+          <div key={toast.id} className={`budget-toast ${toast.type}`}>
             <span style={{fontSize:'18px'}}>{toast.type === 'success' ? '✅' : toast.type === 'error' ? '❌' : 'ℹ️'}</span>
             {toast.message}
           </div>
