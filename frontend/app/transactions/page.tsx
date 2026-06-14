@@ -253,27 +253,34 @@ export default function Transactions() {
           console.log("Payees API response:", res);
           
           // Handle different API response structures robustly
-          let payeesArray = [];
+          let rawArray: any[] = [];
           if (Array.isArray(res)) {
-            payeesArray = res;
+            rawArray = res;
           } else if (res?.data && Array.isArray(res.data)) {
-            payeesArray = res.data;
+            rawArray = res.data;
           } else if (res?.data?.data && Array.isArray(res.data.data)) {
-            payeesArray = res.data.data;
+            rawArray = res.data.data;
           }
           
-          // Nếu danh sách rỗng (chưa có dữ liệu từ backend), tự động thêm dữ liệu mẫu để test UI
-          if (payeesArray.length === 0) {
-            console.log("Payees list is empty. Using mock data for testing.");
-            payeesArray = [
-              { id: 'mock-uuid-1', payee_name: 'Nguyễn Văn A (Dữ liệu mẫu)', identifier: '0901234567' },
-              { id: 'mock-uuid-2', payee_name: 'Trần Thị B (Dữ liệu mẫu)', identifier: '0987654321' },
-              { id: 'mock-uuid-3', payee_name: 'Lê Văn C (Dữ liệu mẫu)', identifier: 'levanc@example.com' }
-            ];
-          }
+          let payeesArray = rawArray.map((item: any) => {
+            if (typeof item === 'string' || typeof item === 'number') {
+              return { id: String(item), payee_name: String(item), identifier: 'ID' };
+            }
+            return {
+              ...item,
+              id: String(item.id || item.user_id || Math.random()),
+              payee_name: String(item.payee_name || item.name || item.full_name || item.id || item.user_id || 'Không xác định'),
+              identifier: String(item.identifier || item.email || item.phone || '')
+            };
+          });
+
+          // Do not use mock data, strictly read from API
+          // if (payeesArray.length === 0) { ... }
           
           console.log("Parsed payees array:", payeesArray);
           setPayees(payeesArray);
+          // Store raw res for debugging
+          (window as any).debugApiRes = res;
         } catch (e: any) {
           console.error("Lỗi khi lấy danh sách người hưởng thụ:", e);
           alert("Lỗi khi tải danh sách người thụ hưởng: " + (e.message || e));
