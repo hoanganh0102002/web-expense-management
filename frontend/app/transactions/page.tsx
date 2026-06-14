@@ -265,9 +265,9 @@ export default function Transactions() {
         method: 'POST',
         body: JSON.stringify({ qr_string: term })
       });
-      
+
       console.log("Decode API response:", res);
-      
+
       if (res?.status === 'success' && res.data) {
         const payeeData = res.data;
         const newPayee = {
@@ -276,7 +276,7 @@ export default function Transactions() {
           identifier: payeeData.identifier,
           payee_type: payeeData.type || 'internal'
         };
-        
+
         // Add to payees list if not already there
         setPayees(prev => {
           if (prev.some(p => p.id === newPayee.id)) return prev;
@@ -314,7 +314,7 @@ export default function Transactions() {
           console.log("Fetching payees from /payees API...");
           const res = await apiFetch('/payees');
           console.log("Payees API response:", res);
-          
+
           // Handle different API response structures robustly
           let rawArray: any[] = [];
           if (Array.isArray(res)) {
@@ -324,7 +324,7 @@ export default function Transactions() {
           } else if (res?.data?.data && Array.isArray(res.data.data)) {
             rawArray = res.data.data;
           }
-          
+
           let payeesArray = rawArray.map((item: any) => {
             if (typeof item === 'string' || typeof item === 'number') {
               return { id: String(item), payee_name: String(item), identifier: 'ID' };
@@ -339,7 +339,7 @@ export default function Transactions() {
 
           // Do not use mock data, strictly read from API
           // if (payeesArray.length === 0) { ... }
-          
+
           console.log("Parsed payees array:", payeesArray);
           setPayees(payeesArray);
           // Store raw res for debugging
@@ -349,7 +349,7 @@ export default function Transactions() {
           alert("Lỗi khi tải danh sách người thụ hưởng: " + (e.message || e));
         }
       };
-      
+
       const token = localStorage.getItem('access_token');
       if (typeof window !== 'undefined' && token) {
         fetchPayees();
@@ -641,6 +641,11 @@ export default function Transactions() {
       alert(t('please_fill_all_required_fields') || 'Vui lòng điền các trường bắt buộc');
       return;
     }
+    const selectedWallet = wallets.find(w => w.id === newTx.wallet_id);
+    if (selectedWallet?.type === 'cash') {
+      alert('Không được phép chọn ví Tiền mặt để thanh toán. Vui lòng chọn ví khác!');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -798,6 +803,12 @@ export default function Transactions() {
   const submitEdit = async () => {
     if (!editingTx.title || !editingTx.amount || !editingTx.wallet_id) {
       alert('Vui lòng điền các trường bắt buộc');
+      return;
+    }
+
+    const selectedEditWallet = wallets.find(w => w.id === editingTx.wallet_id);
+    if (selectedEditWallet?.type === 'cash') {
+      alert('Không được phép chọn ví Tiền mặt để thanh toán. Vui lòng chọn ví khác!');
       return;
     }
 
@@ -1906,16 +1917,16 @@ export default function Transactions() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   <span style={{ color: '#718EBF', fontWeight: '500' }}>Ảnh hóa đơn</span>
                   <div style={{ textAlign: 'center', background: 'var(--bg-color)', borderRadius: '12px', padding: '10px' }}>
-                    <img 
-                      src={viewingTx.attachment_url || viewingTx.attachments[0]?.file_url} 
-                      alt="Receipt" 
-                      style={{ maxWidth: '100%', maxHeight: '250px', borderRadius: '12px', objectFit: 'contain', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} 
+                    <img
+                      src={viewingTx.attachment_url || viewingTx.attachments[0]?.file_url}
+                      alt="Receipt"
+                      style={{ maxWidth: '100%', maxHeight: '250px', borderRadius: '12px', objectFit: 'contain', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
                     />
                     <div style={{ marginTop: '10px' }}>
-                      <a 
-                        href={viewingTx.attachment_url || viewingTx.attachments[0]?.file_url} 
-                        target="_blank" 
-                        rel="noreferrer" 
+                      <a
+                        href={viewingTx.attachment_url || viewingTx.attachments[0]?.file_url}
+                        target="_blank"
+                        rel="noreferrer"
                         style={{ color: '#1814F3', textDecoration: 'underline', fontSize: '13px', fontWeight: '600' }}
                       >
                         Mở ảnh kích thước đầy đủ ↗
@@ -2008,7 +2019,7 @@ export default function Transactions() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '10px', background: 'var(--bg-color)', padding: '10px', borderRadius: '12px' }}>
                   <img src={editingTx.existing_attachment_url} alt="Current" style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '6px' }} />
                   <span style={{ fontSize: '13px', color: '#718EBF', flex: 1 }}>Sử dụng ảnh hóa đơn hiện tại</span>
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setEditingTx({ ...editingTx, existing_attachment_url: '' })}
                     style={{ background: 'none', border: 'none', color: '#FE5C73', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}
@@ -2041,16 +2052,16 @@ export default function Transactions() {
                   <div>{t('click_to_upload') || 'Nhấn để tải lên ảnh hóa đơn mới'}</div>
                 )}
               </div>
-              <input 
-                id="edit-file-input" 
-                type="file" 
+              <input
+                id="edit-file-input"
+                type="file"
                 onChange={(e) => {
                   if (e.target.files && e.target.files[0]) {
                     setEditingTx({ ...editingTx, attachment: e.target.files[0] });
                   }
-                }} 
-                accept="image/*" 
-                style={{ display: 'none' }} 
+                }}
+                accept="image/*"
+                style={{ display: 'none' }}
               />
             </div>
 
