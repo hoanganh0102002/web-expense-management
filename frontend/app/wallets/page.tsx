@@ -553,6 +553,7 @@ export default function Wallets() {
                   required 
                   placeholder={t('wallet_name_placeholder')}
                   className="wallet-input"
+                  style={{ border: '1px solid #E2E8F0', background: '#F5F7FA' }}
                 />
               </div>
 
@@ -572,6 +573,7 @@ export default function Wallets() {
                       background: showModal === 'edit' ? '#F1F5F9' : '#F5F7FA',
                       color: showModal === 'edit' ? '#94A3B8' : '#1E293B',
                       cursor: showModal === 'edit' ? 'not-allowed' : 'text',
+                      border: '1px solid #E2E8F0'
                     }}
                   />
                   <span style={{ 
@@ -603,7 +605,7 @@ export default function Wallets() {
                 <select 
                   value={walletCurrency} 
                   onChange={(e) => setWalletCurrency(e.target.value)}
-                  style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}
+                  style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px', background: '#F5F7FA', color: '#1E293B', fontSize: '15px' }}
                 >
                   <option value="VND">VNĐ (₫)</option>
                   <option value="USD">USD ($)</option>
@@ -615,32 +617,16 @@ export default function Wallets() {
 
               {/* Wallet Type */}
               <div style={{ marginBottom: '20px' }}>
-                <label className="form-group-label">{t('select_wallet_type')}</label>
-                <div className="wallet-type-grid">
-                  {[
-                    { key: 'cash', label: t('cash'), icon: <CardNoteIcon size={16} /> },
-                    { key: 'bank', label: t('bank'), icon: <BankIcon size={16} /> },
-                    { key: 'ewallet', label: t('ewallet'), icon: <QrIcon size={16} /> }
-                  ].map((t) => {
-                    const isSelected = type === t.key;
-                    return (
-                      <button
-                        key={t.key}
-                        type="button"
-                        onClick={() => setType(t.key)}
-                        className="type-select-btn"
-                        style={{
-                          border: isSelected ? '2px solid #5F63E8' : '2px solid transparent',
-                          background: isSelected ? '#EEF2FF' : '#F5F7FA',
-                          color: isSelected ? '#5F63E8' : '#718EBF',
-                        }}
-                      >
-                        {t.icon}
-                        <span>{t.label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
+                <label className="form-group-label">Loại ví</label>
+                <select 
+                  value={type} 
+                  onChange={(e) => setType(e.target.value)}
+                  style={{ width: '100%', padding: '14px', border: '1px solid #E2E8F0', borderRadius: '12px', background: '#F5F7FA', color: '#1E293B', fontSize: '15px' }}
+                >
+                  <option value="cash">Tiền mặt</option>
+                  <option value="bank">Tiền gửi ngân hàng</option>
+                  <option value="ewallet">Ví điện tử</option>
+                </select>
               </div>
 
               {/* Icon Selection */}
@@ -748,14 +734,14 @@ export default function Wallets() {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
               <div style={{ flex: 1, position: 'relative' }}>
-                <div style={{ color: '#8F9BB3', fontSize: '12px', fontWeight: '700', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Chuyển từ ví</div>
+                <div style={{ color: '#8F9BB3', fontSize: '12px', fontWeight: '700', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tên ví chuyển</div>
                 <select 
                   value={transferFrom} 
                   onChange={e => setTransferFrom(e.target.value)}
                   style={{ width: '100%', background: '#1C1F33', border: '1px solid #2A2D40', color: transferFrom ? '#FFF' : '#8F9BB3', padding: '14px 16px', borderRadius: '12px', outline: 'none', appearance: 'none', fontSize: '15px', fontWeight: '500' }}
                 >
-                  <option value="" disabled>Chọn ví</option>
-                  {wallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  <option value="" disabled>Chọn tên ví...</option>
+                  {wallets.map(w => <option key={w.id} value={w.id}>{w.name} ({formatWalletCurrency(w.available_balance, w.currency_code)})</option>)}
                 </select>
                 <svg style={{ position: 'absolute', right: '14px', bottom: '16px', pointerEvents: 'none' }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8F9BB3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
               </div>
@@ -768,14 +754,14 @@ export default function Wallets() {
               </div>
 
               <div style={{ flex: 1, position: 'relative' }}>
-                <div style={{ color: '#8F9BB3', fontSize: '12px', fontWeight: '700', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Chuyển đến ví</div>
+                <div style={{ color: '#8F9BB3', fontSize: '12px', fontWeight: '700', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Tên ví nhận</div>
                 <select 
                   value={transferTo} 
                   onChange={e => setTransferTo(e.target.value)}
                   style={{ width: '100%', background: '#1C1F33', border: '1px solid #2A2D40', color: transferTo ? '#FFF' : '#8F9BB3', padding: '14px 16px', borderRadius: '12px', outline: 'none', appearance: 'none', fontSize: '15px', fontWeight: '500' }}
                 >
-                  <option value="" disabled>Chọn ví</option>
-                  {wallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  <option value="" disabled>Chọn tên ví...</option>
+                  {wallets.map(w => <option key={w.id} value={w.id}>{w.name} ({formatWalletCurrency(w.available_balance, w.currency_code)})</option>)}
                 </select>
                 <svg style={{ position: 'absolute', right: '14px', bottom: '16px', pointerEvents: 'none' }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8F9BB3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
               </div>
