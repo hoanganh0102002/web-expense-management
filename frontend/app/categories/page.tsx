@@ -215,7 +215,7 @@ export default function Categories() {
 
         <div className="content-area" style={{padding: '32px 40px'}}>
           {/* Enhanced Tabs */}
-          <div className="tabs-container" style={{display: 'flex', gap: '8px', marginBottom: '32px', background: '#edeff3', padding: '6px', borderRadius: '16px', width: 'fit-content'}}>
+          <div className="tabs-container">
             <button 
               onClick={() => setActiveTab('expense')}
               className={`tab-item ${activeTab === 'expense' ? 'active' : ''}`}
@@ -239,18 +239,18 @@ export default function Categories() {
           >
             <div className="plus-icon">+</div>
             <div style={{textAlign: 'left'}}>
-              <div style={{fontWeight: '700', color: 'var(--text-main)'}}>{t('add_new_category')}</div>
-              <div style={{fontSize: '12px', color: '#64748b'}}>{t('limit_reached')}</div>
+              <div style={{fontWeight: '700', color: 'var(--text-main)', fontSize: '15px'}}>{t('add_new_category')}</div>
+              <div style={{fontSize: '12px', color: '#718EBF', marginTop: '2px'}}>{t('limit_reached')}</div>
             </div>
           </button>
 
           {isLoadingCategories ? (
             <div className="loading-state">
               <div className="spinner"></div>
-              <p>{t('loading')}</p>
+              <p>{t('loading')}...</p>
             </div>
           ) : (
-            <div style={{display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))', gap: '24px'}}>
+            <div className="categories-grid">
               {filteredCategories.map((group) => (
                 <div key={group.id} className="category-group-card">
                   <div className="group-header">
@@ -275,32 +275,31 @@ export default function Categories() {
                       const canDelete = !isDefault;
                       
                       return (
-                      <div 
-                        key={sub.id} 
-                        className={`sub-item-card ${(isDeleting && canDelete) ? 'jiggling' : ''}`}
-                        style={{opacity: (isDeleting && !canDelete) ? 0.4 : 1, cursor: (isDeleting && !canDelete) ? 'not-allowed' : 'pointer'}}
-                        onClick={(e) => {
-                          if (isDeleting) {
-                            if (canDelete) {
-                              handleDelete(sub.id, e);
+                        <div 
+                          key={sub.id} 
+                          className={`sub-item-card ${(isDeleting && canDelete) ? 'jiggling' : ''}`}
+                          style={{opacity: (isDeleting && !canDelete) ? 0.3 : 1, cursor: (isDeleting && !canDelete) ? 'not-allowed' : 'pointer'}}
+                          onClick={(e) => {
+                            if (isDeleting) {
+                              if (canDelete) {
+                                handleDelete(sub.id, e);
+                              }
+                            } else {
+                              handleOpenModal(sub);
                             }
-                          } else {
-                            handleOpenModal(sub);
-                          }
-                        }}
-                      >
-                        <div className="sub-icon-circle" style={{background: (sub.color || '#94a3b8') + '15', color: sub.color || '#94a3b8', border: `1px solid ${(sub.color || '#94a3b8')}30`}}>
-                          {parseIcon(sub.icon)}
-                        </div>
-                        <span className="sub-name">{sub.name}</span>
-                        {(isDeleting && canDelete) && (
-                          <div style={{position: 'absolute', top: '0', right: '0', background: '#FE5C73', color: 'white', borderRadius: '50%', width: '22px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '10px', fontWeight: 'bold', border: '2px solid white', boxShadow: '0 2px 8px rgba(254, 92, 115, 0.4)', zIndex: 10}}>
-                            ✕
+                          }}
+                        >
+                          <div className="sub-icon-circle" style={{background: (sub.color || '#94a3b8') + '15', color: sub.color || '#94a3b8', border: `1px solid ${(sub.color || '#94a3b8')}30`}}>
+                            {parseIcon(sub.icon)}
                           </div>
-                        )}
-                        <div className="item-hover-indicator"></div>
-                      </div>
-                    )})}
+                          <span className="sub-name">{sub.name}</span>
+                          {(isDeleting && canDelete) && (
+                            <div className="delete-badge">✕</div>
+                          )}
+                          <div className="item-hover-indicator"></div>
+                        </div>
+                      );
+                    })}
                     <button 
                       className="sub-item-card add-sub"
                       onClick={() => {
@@ -310,7 +309,7 @@ export default function Categories() {
                       }}
                     >
                       <div className="sub-icon-circle add">+</div>
-                      <span className="sub-name" style={{color: '#94a3b8'}}>{t('select')}</span>
+                      <span className="sub-name" style={{color: '#718EBF'}}>{t('select') || 'Thêm'}</span>
                     </button>
                   </div>
                 </div>
@@ -330,7 +329,7 @@ export default function Categories() {
             <form onSubmit={handleSubmit} className="premium-form">
               <div className="avatar-preview-section">
                  <div className="preview-circle" style={{background: formData.color + '15', color: formData.color, border: '3px solid ' + formData.color}}>
-                    {formData.icon}
+                    {parseIcon(formData.icon)}
                  </div>
                  <button type="button" onClick={() => setIsIconPickerOpen(true)} className="change-btn">
                    <span style={{fontSize: '12px'}}>✨</span> {t('change_icon')}
@@ -338,7 +337,7 @@ export default function Categories() {
               </div>
 
               <div className="form-group">
-                <label>{t('category_name')}*</label>
+                <label>{t('category_name')} *</label>
                 <input 
                   type="text" 
                   value={formData.name}
@@ -349,20 +348,20 @@ export default function Categories() {
               </div>
 
               <div className="form-group">
-                <label>{t('parent_category')}*</label>
+                <label>{t('parent_category')} *</label>
                 <div 
                   className="custom-select-trigger"
                   onClick={() => setIsParentPickerOpen(true)}
                 >
                   {formData.parent_id ? (
                     <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
-                      <span style={{fontSize: '20px'}}>{categories.find(c => c.id === formData.parent_id)?.icon || '📁'}</span>
-                      <span style={{fontWeight: '600'}}>{categories.find(c => c.id === formData.parent_id)?.name}</span>
+                      <span style={{fontSize: '20px'}}>{parseIcon(categories.find(c => c.id === formData.parent_id)?.icon || '📁')}</span>
+                      <span style={{fontWeight: '600', color: 'var(--text-main)'}}>{categories.find(c => c.id === formData.parent_id)?.name}</span>
                     </div>
                   ) : (
                     <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
                       <span style={{fontSize: '20px'}}>🌟</span>
-                      <span style={{fontWeight: '600', color: '#1e293b'}}>{t('set_as_parent')}</span>
+                      <span style={{fontWeight: '600', color: 'var(--text-main)'}}>{t('set_as_parent')}</span>
                     </div>
                   )}
                   <span className="arrow-icon">∟</span>
@@ -382,7 +381,7 @@ export default function Categories() {
         <div className="modal-overlay secondary">
            <div className="picker-panel">
               <div className="picker-header">
-                <h3>{t('choose_icon_color')}</h3>
+                <h3>{t('choose_icon_color') || 'Chọn Icon & Màu'}</h3>
                 <button onClick={() => setIsIconPickerOpen(false)}>✕</button>
               </div>
               <div className="icons-scroll grid">
@@ -393,15 +392,14 @@ export default function Categories() {
                     className={`icon-box ${formData.icon === icon ? 'active' : ''}`}
                     title={icon}
                   >
-                    {/* Render basic text for now, could integrate specific SVGs if needed */}
                     <span style={{fontSize: '24px'}}>{parseIcon(icon)}</span>
                   </div>
                 )) : (
-                  <div style={{padding: '20px', color: '#888'}}>{t('loading_icons')}</div>
+                  <div style={{padding: '20px', color: '#718EBF'}}>{t('loading_icons') || 'Đang tải icon...'}</div>
                 )}
               </div>
               <div className="color-section">
-                <p>{t('select_tone')}</p>
+                <p>{t('select_tone') || 'Chọn tông màu'}</p>
                 <div className="colors-grid">
                   {COLORS.map(color => (
                     <div 
@@ -416,12 +414,13 @@ export default function Categories() {
            </div>
         </div>
       )}
+
       {/* Parent Category Picker Modal */}
       {isParentPickerOpen && (
-        <div className="modal-overlay secondary" style={{zIndex: 1100}}>
+        <div className="modal-overlay secondary">
           <div className="picker-panel parent-picker">
             <div className="picker-header">
-              <h3 style={{fontSize: '18px', fontWeight: '800', margin: 0, color: '#1e293b'}}>{t('choose_parent_cat')}</h3>
+              <h3 style={{fontSize: '18px', fontWeight: '800', margin: 0, color: 'var(--text-main)'}}>{t('choose_parent_cat')}</h3>
               <button onClick={() => setIsParentPickerOpen(false)}>✕</button>
             </div>
             <div className="parent-list">
@@ -434,10 +433,10 @@ export default function Categories() {
                 }}
               >
                 <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
-                  <div className="parent-icon-circle" style={{background: '#f1f5f9', color: '#64748b'}}>
+                  <div className="parent-icon-circle" style={{background: '#f1f5f9', color: '#718EBF'}}>
                     🌟
                   </div>
-                  <span style={{fontWeight: '600', color: '#1e293b'}}>{t('set_as_parent')}</span>
+                  <span style={{fontWeight: '600', color: 'var(--text-main)'}}>{t('set_as_parent')}</span>
                 </div>
                 <div className={`radio-circle ${!formData.parent_id ? 'checked' : ''}`}></div>
               </div>
@@ -453,10 +452,10 @@ export default function Categories() {
                   }}
                 >
                   <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
-                    <div className="parent-icon-circle" style={{background: (p.color || '#f1f5f9') + '20', color: p.color || '#1e293b'}}>
+                    <div className="parent-icon-circle" style={{background: (p.color || '#f1f5f9') + '20', color: p.color || '#718EBF'}}>
                       {parseIcon(p.icon || '📁')}
                     </div>
-                    <span style={{fontWeight: '600', color: '#1e293b'}}>{p.name}</span>
+                    <span style={{fontWeight: '600', color: 'var(--text-main)'}}>{p.name}</span>
                   </div>
                   <div className={`radio-circle ${formData.parent_id === p.id ? 'checked' : ''}`}></div>
                 </div>
@@ -472,6 +471,18 @@ export default function Categories() {
           font-family: 'Inter', sans-serif;
         }
 
+        /* Tabs container & items */
+        .tabs-container {
+          display: flex;
+          gap: 6px;
+          margin-bottom: 32px;
+          background: #edeff3;
+          padding: 6px;
+          border-radius: 16px;
+          width: fit-content;
+          border: 1px solid var(--border-color);
+        }
+
         .tab-item {
           display: flex;
           align-items: center;
@@ -481,17 +492,24 @@ export default function Categories() {
           border: none;
           cursor: pointer;
           font-weight: 600;
-          color: var(--text-muted);
+          color: #718EBF;
           background: transparent;
-          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+          outline: none;
+        }
+
+        .tab-item:hover {
+          color: #1814F3;
         }
 
         .tab-item.active {
-          color: var(--active-blue);
+          color: #1814F3;
           background: var(--card-bg);
-          box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+          box-shadow: 0 8px 16px rgba(0, 0, 0, 0.05);
+          font-weight: 700;
         }
 
+        /* Add category card */
         .add-category-card {
           width: 100%;
           padding: 24px;
@@ -502,14 +520,17 @@ export default function Categories() {
           align-items: center;
           gap: 20px;
           cursor: pointer;
-          transition: all 0.3s;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           margin-bottom: 40px;
+          outline: none;
+          box-sizing: border-box;
         }
 
         .add-category-card:hover {
           border-color: #1814F3;
-          background: #f8faff;
+          background: rgba(24, 20, 243, 0.02);
           transform: translateY(-2px);
+          box-shadow: 0 10px 20px rgba(24, 20, 243, 0.04);
         }
 
         .plus-icon {
@@ -521,7 +542,8 @@ export default function Categories() {
           align-items: center;
           justify-content: center;
           font-size: 24px;
-          color: var(--text-muted);
+          color: #718EBF;
+          font-weight: 700;
           transition: all 0.3s;
         }
 
@@ -530,17 +552,26 @@ export default function Categories() {
           color: white;
         }
 
+        /* Category Grid */
+        .categories-grid {
+          display: grid;
+          grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+          gap: 24px;
+        }
+
+        /* Parent category group card */
         .category-group-card {
           background: var(--card-bg);
           border-radius: 28px;
           padding: 28px;
-          box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+          box-shadow: 0 8px 24px rgba(0,0,0,0.02);
           border: 1px solid var(--border-color);
-          transition: all 0.3s;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         .category-group-card:hover {
-          box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+          box-shadow: 0 16px 36px rgba(0,0,0,0.05);
+          transform: translateY(-2px);
         }
 
         .group-header {
@@ -551,33 +582,62 @@ export default function Categories() {
         }
 
         .group-icon-wrap {
-          width: 42px;
-          height: 42px;
+          width: 46px;
+          height: 46px;
           border-radius: 14px;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 20px;
+          font-size: 22px;
+          box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1);
+        }
+
+        /* Action buttons for parent groups */
+        .group-actions {
+          display: flex;
+          gap: 8px;
         }
 
         .action-btn {
-          padding: 6px 12px;
-          border-radius: 8px;
+          padding: 6px 14px;
+          border-radius: 10px;
           border: none;
           font-size: 13px;
-          font-weight: 600;
+          font-weight: 700;
           cursor: pointer;
           background: #f8fafc;
-          transition: all 0.2s;
+          transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+          outline: none;
         }
 
-        .action-btn.edit { color: #1814F3; }
-        .action-btn.delete { color: #ef4444; }
-        .action-btn:hover { background: #f1f5f9; }
+        .action-btn.edit {
+          color: #1814F3;
+          background: #F0F5FF;
+        }
+        .action-btn.edit:hover {
+          background: #E7EDFF;
+          box-shadow: 0 2px 8px rgba(24, 20, 243, 0.1);
+        }
 
+        .action-btn.delete {
+          color: #ef4444;
+          background: #FFF2F4;
+        }
+        .action-btn.delete:hover {
+          background: #FFE2E5;
+          box-shadow: 0 2px 8px rgba(239, 68, 68, 0.1);
+        }
+
+        .action-btn.delete.active {
+          background: #ef4444;
+          color: white;
+          box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
+        }
+
+        /* Subcategories grid and items */
         .subcategories-grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(85px, 1fr));
+          grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
           gap: 16px;
         }
 
@@ -585,81 +645,155 @@ export default function Categories() {
           display: flex;
           flex-direction: column;
           align-items: center;
-          gap: 10px;
+          gap: 8px;
           cursor: pointer;
-          transition: all 0.3s;
-          padding: 12px 4px;
-          border-radius: 16px;
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+          padding: 12px 6px;
+          border-radius: 18px;
           position: relative;
+          background: transparent;
+          border: 1px solid transparent;
         }
 
         .sub-item-card:hover {
           background: #f8fafc;
-          transform: translateY(-3px);
+          border-color: #f1f5f9;
+          transform: translateY(-4px);
         }
 
         .sub-icon-circle {
           width: 52px;
           height: 52px;
-          border-radius: 18px;
+          border-radius: 16px;
           display: flex;
           align-items: center;
           justify-content: center;
           font-size: 24px;
-          transition: all 0.3s;
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        @keyframes jiggle {
-          0% { transform: rotate(-2deg); }
-          50% { transform: rotate(2deg); }
-          100% { transform: rotate(-2deg); }
-        }
-
-        .sub-item-card.jiggling {
-          animation: jiggle 0.3s infinite;
-        }
-        
-        .action-btn.delete.active {
-          background: #FE5C73;
-          color: white;
-        }
-
-        .sub-icon-circle.add {
-          background: #f8fafc;
-          border: 1px dashed #cbd5e1;
-          color: #94a3b8;
-          font-size: 20px;
+        .sub-item-card:hover .sub-icon-circle {
+          transform: scale(1.05);
         }
 
         .sub-name {
           font-size: 12px;
-          font-weight: 600;
-          color: var(--text-muted);
+          font-weight: 700;
+          color: var(--text-main);
           text-align: center;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          width: 100%;
+          padding: 0 4px;
         }
 
+        /* Delete Mode configurations */
+        @keyframes jiggle {
+          0% { transform: rotate(-1.5deg); }
+          50% { transform: rotate(1.5deg); }
+          100% { transform: rotate(-1.5deg); }
+        }
+
+        .sub-item-card.jiggling {
+          animation: jiggle 0.25s infinite;
+          box-shadow: 0 4px 10px rgba(0,0,0,0.02);
+          border-color: #FFE2E5;
+          background: #FFF8F8;
+        }
+
+        .delete-badge {
+          position: absolute;
+          top: -2px;
+          right: -2px;
+          background: #ef4444;
+          color: white;
+          border-radius: 50%;
+          width: 20px;
+          height: 20px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 9px;
+          font-weight: 800;
+          border: 2px solid white;
+          box-shadow: 0 2px 8px rgba(239, 68, 68, 0.3);
+          z-index: 10;
+        }
+
+        /* Add sub-item card */
+        .sub-item-card.add-sub {
+          border: 1.5px dashed var(--border-color);
+        }
+        .sub-item-card.add-sub:hover {
+          background: rgba(24, 20, 243, 0.02);
+          border-color: #1814F3;
+        }
+
+        .sub-icon-circle.add {
+          background: #f1f5f9;
+          color: #718EBF;
+          font-weight: 700;
+          font-size: 20px;
+          border: 1px dashed transparent;
+        }
+
+        .sub-item-card.add-sub:hover .sub-icon-circle.add {
+          background: #1814F3;
+          color: white;
+        }
+
+        /* Glass Modal & overlays */
         .modal-overlay {
           position: fixed;
           inset: 0;
-          background: rgba(15, 23, 42, 0.4);
+          background: rgba(15, 23, 42, 0.45);
           backdrop-filter: blur(8px);
           display: flex;
           align-items: center;
           justify-content: center;
-          zIndex: 1000;
-          animation: fadeIn 0.3s ease;
+          z-index: 1000;
+          animation: fadeIn 0.25s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        .modal-overlay.secondary {
+          z-index: 1100;
         }
 
         .modal-content-glass {
           background: var(--card-bg);
-          backdrop-filter: blur(20px);
           width: 100%;
-          max-width: 460px;
+          max-width: 480px;
           padding: 40px;
           border-radius: 32px;
           border: 1px solid var(--border-color);
-          box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+          box-shadow: 0 24px 60px rgba(0, 0, 0, 0.12);
           position: relative;
+          animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        .close-modal {
+          position: absolute;
+          top: 24px;
+          right: 24px;
+          background: #f1f5f9;
+          border: none;
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          color: #718EBF;
+          cursor: pointer;
+          transition: all 0.2s;
+          font-weight: 700;
+        }
+
+        .close-modal:hover {
+          background: #FFE2E5;
+          color: #ef4444;
         }
 
         .modal-title {
@@ -685,25 +819,32 @@ export default function Categories() {
         }
 
         .preview-circle {
-          width: 90px;
-          height: 90px;
-          border-radius: 30px;
+          width: 96px;
+          height: 96px;
+          border-radius: 28px;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 44px;
-          transition: all 0.3s;
+          font-size: 48px;
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          box-shadow: 0 10px 20px rgba(0,0,0,0.03);
         }
 
         .change-btn {
-          background: #f1f5f9;
+          background: #F0F5FF;
           border: none;
-          padding: 8px 16px;
+          padding: 8px 18px;
           border-radius: 12px;
           color: #1814F3;
           font-weight: 700;
           cursor: pointer;
           font-size: 13px;
+          transition: all 0.2s;
+        }
+
+        .change-btn:hover {
+          background: #E7EDFF;
+          transform: translateY(-1px);
         }
 
         .form-group label {
@@ -719,54 +860,94 @@ export default function Categories() {
           padding: 14px 20px;
           border-radius: 14px;
           border: 1px solid var(--border-color);
-          background: var(--input-bg);
+          background: var(--bg-color);
           font-size: 15px;
           color: var(--text-main);
-          transition: all 0.2s;
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+          outline: none;
+          box-sizing: border-box;
         }
 
         .form-group input:focus {
-          outline: none;
           border-color: #1814F3;
-          background: #fff;
-          box-shadow: 0 0 0 4px rgba(24, 20, 243, 0.1);
+          box-shadow: 0 0 0 3px rgba(24, 20, 243, 0.1);
+          background: var(--card-bg);
         }
 
         .submit-btn-gradient {
-          padding: 18px;
-          background: linear-gradient(135deg, #1814F3 0%, #4f46e5 100%);
+          padding: 16px;
+          background: linear-gradient(135deg, #1814F3 0%, #396AFF 100%);
           color: white;
           border: none;
-          border-radius: 18px;
+          border-radius: 16px;
           font-weight: 700;
-          font-size: 16px;
+          font-size: 15px;
           cursor: pointer;
-          box-shadow: 0 10px 15px -3px rgba(24, 20, 243, 0.3);
-          transition: all 0.3s;
+          box-shadow: 0 8px 20px rgba(24, 20, 243, 0.2);
+          transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
           margin-top: 10px;
         }
 
         .submit-btn-gradient:hover {
           transform: translateY(-2px);
-          box-shadow: 0 20px 25px -5px rgba(24, 20, 243, 0.4);
+          box-shadow: 0 14px 28px rgba(24, 20, 243, 0.35);
         }
 
+        /* Picker Panels (Icon & Parent) */
         .picker-panel {
-          background: white;
+          background: var(--card-bg);
           width: 100%;
-          max-width: 420px;
-          border-radius: 32px;
+          max-width: 440px;
+          border-radius: 28px;
           padding: 30px;
-          box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+          box-shadow: 0 20px 50px rgba(0,0,0,0.15);
+          border: 1px solid var(--border-color);
+          animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+
+        .picker-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 20px;
+        }
+
+        .picker-header h3 {
+          font-size: 18px;
+          font-weight: 800;
+          margin: 0;
+          color: var(--text-main);
+        }
+
+        .picker-header button {
+          background: #f1f5f9;
+          border: none;
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          font-size: 11px;
+          color: #718EBF;
+          cursor: pointer;
+          transition: all 0.2s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-weight: 700;
+        }
+
+        .picker-header button:hover {
+          background: #FFE2E5;
+          color: #ef4444;
         }
 
         .icons-scroll {
           display: grid;
           grid-template-columns: repeat(5, 1fr);
           gap: 12px;
-          max-height: 300px;
+          max-height: 260px;
           overflow-y: auto;
           padding: 4px;
+          margin-bottom: 20px;
         }
 
         .icon-box {
@@ -779,16 +960,38 @@ export default function Categories() {
           font-size: 26px;
           cursor: pointer;
           transition: all 0.2s;
+          border: 1.5px solid transparent;
         }
 
-        .icon-box:hover { background: #f1f5f9; transform: scale(1.05); }
-        .icon-box.active { background: #1814F3; color: white; }
+        .icon-box:hover {
+          background: #f1f5f9;
+          transform: scale(1.05);
+        }
+
+        .icon-box.active {
+          background: #E7EDFF;
+          border-color: #1814F3;
+          color: #1814F3;
+        }
+
+        .color-section {
+          border-top: 1px solid var(--border-color);
+          padding-top: 16px;
+        }
+
+        .color-section p {
+          margin: 0 0 12px;
+          font-weight: 700;
+          font-size: 13px;
+          color: #718EBF;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
 
         .colors-grid {
           display: flex;
           flex-wrap: wrap;
           gap: 12px;
-          margin-top: 12px;
         }
 
         .color-dot {
@@ -797,49 +1000,48 @@ export default function Categories() {
           border-radius: 50%;
           cursor: pointer;
           transition: all 0.2s;
-          border: 3px solid transparent;
+          border: 3px solid white;
+          box-shadow: 0 0 0 1px #cbd5e1;
         }
 
         .color-dot.active {
-          border-color: var(--text-main);
+          box-shadow: 0 0 0 2px #1814F3;
           transform: scale(1.1);
         }
 
+        /* Custom trigger select */
         .custom-select-trigger {
           width: 100%;
           padding: 14px 20px;
           border-radius: 14px;
-          border: 1px solid #e2e8f0;
-          background: #f8fafc;
+          border: 1px solid var(--border-color);
+          background: var(--bg-color);
           display: flex;
           justify-content: space-between;
           align-items: center;
           cursor: pointer;
           transition: all 0.2s;
+          box-sizing: border-box;
         }
 
         .custom-select-trigger:hover {
           border-color: #1814F3;
-          background: #fff;
         }
 
         .arrow-icon {
-          color: #94a3b8;
+          color: #718EBF;
           font-size: 18px;
           transform: rotate(45deg);
+          transition: all 0.2s;
         }
 
-        .parent-picker {
-          max-width: 440px !important;
-          border-radius: 28px !important;
-        }
-
+        /* Parent category options */
         .parent-list {
           display: flex;
           flex-direction: column;
           gap: 12px;
           margin-top: 20px;
-          max-height: 400px;
+          max-height: 340px;
           overflow-y: auto;
           padding-right: 5px;
         }
@@ -849,21 +1051,22 @@ export default function Categories() {
           justify-content: space-between;
           align-items: center;
           padding: 16px 20px;
-          background: white;
-          border: 1px solid #f1f5f9;
+          background: var(--bg-color);
+          border: 1.5px solid transparent;
           border-radius: 18px;
           cursor: pointer;
           transition: all 0.2s;
         }
 
         .parent-option-card:hover {
-          background: #f8fafc;
+          background: var(--card-bg);
+          border-color: var(--border-color);
           transform: translateX(4px);
         }
 
         .parent-option-card.selected {
           border-color: #1814F3;
-          background: #f0f7ff;
+          background: #F0F5FF;
         }
 
         .parent-icon-circle {
@@ -877,8 +1080,8 @@ export default function Categories() {
         }
 
         .radio-circle {
-          width: 22px;
-          height: 22px;
+          width: 20px;
+          height: 20px;
           border: 2px solid #cbd5e1;
           border-radius: 50%;
           position: relative;
@@ -898,33 +1101,34 @@ export default function Categories() {
           border-radius: 50%;
         }
 
-        .picker-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          margin-bottom: 20px;
-        }
-
-        .picker-header button {
-          background: none;
-          border: none;
-          font-size: 20px;
-          color: #94a3b8;
-          cursor: pointer;
-        }
-
+        /* Animations */
         @keyframes fadeIn {
           from { opacity: 0; }
           to { opacity: 1; }
         }
 
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(16px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        .loading-state {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 80px 0;
+          color: #718EBF;
+        }
+
         .spinner {
           width: 40px;
           height: 40px;
-          border: 4px solid #f3f3f3;
-          border-top: 4px solid #1814F3;
+          border: 3px solid #edeff3;
+          border-top: 3px solid #1814F3;
           border-radius: 50%;
           animation: spin 1s linear infinite;
+          margin-bottom: 16px;
         }
 
         @keyframes spin {

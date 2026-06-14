@@ -1,0 +1,245 @@
+/* Notifications Page Styles - Fintech Premium Design */
+
+.notifications-fade-in {
+  animation: notif-slide-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes notif-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Stats Cards Grid */
+.notif-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+  margin-bottom: 28px;
+}
+
+.notif-stat-card {
+  border-radius: 20px;
+  padding: 24px;
+  color: #fff;
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+}
+
+.notif-stat-card:hover {
+  transform: translateY(-4px);
+}
+
+.notif-stat-card.unread {
+  background: linear-gradient(135deg, #FE5C73 0%, #FF8A65 100%);
+  box-shadow: 0 10px 24px rgba(254, 92, 115, 0.22);
+}
+
+.notif-stat-card.warning {
+  background: linear-gradient(135deg, #F59E0B 0%, #FBBF24 100%);
+  box-shadow: 0 10px 24px rgba(245, 158, 11, 0.22);
+}
+
+.notif-stat-card.recurring {
+  background: linear-gradient(135deg, #1814F3 0%, #6366F1 100%);
+  box-shadow: 0 10px 24px rgba(24, 20, 243, 0.22);
+}
+
+.notif-stat-number {
+  font-size: 30px;
+  font-weight: 850;
+  margin-bottom: 4px;
+  letter-spacing: -0.5px;
+}
+
+.notif-stat-title {
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.92;
+}
+
+/* Notification Item - Glassmorphic */
+.notification-item {
+  background: var(--card-bg);
+  border-radius: 20px;
+  padding: 22px 26px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 14px;
+  border-top: 1px solid var(--border-color);
+  border-right: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+  border-left: 4.5px solid var(--notif-color, var(--border-color));
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.005);
+}
+
+.notification-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.015), 0 4px 12px var(--notif-glow-shadow, rgba(0,0,0,0));
+  border-color: var(--notif-color-border, var(--border-color)) !important;
+}
+
+.notification-item.unread {
+  opacity: 1;
+}
+
+.notification-item.read {
+  opacity: 0.7;
+}
+
+/* Icon Circle inside Item */
+.notif-icon-circle {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+  background: var(--notif-bg-color);
+}
+
+.notification-item:hover .notif-icon-circle {
+  transform: scale(1.08) rotate(3deg);
+}
+
+/* Action Buttons inside Item */
+.notif-btn-read {
+  background: transparent;
+  border: none;
+  color: #1814F3;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.notif-btn-read:hover {
+  background: rgba(24, 20, 243, 0.06);
+}
+
+.notif-btn-delete {
+  background: transparent;
+  border: none;
+  color: #FE5C73;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.notif-btn-delete:hover {
+  background: rgba(254, 92, 115, 0.06);
+}
+
+/* Empty State Styling with ringing bell */
+.notif-empty-state {
+  background: var(--card-bg);
+  border: 2px dashed var(--border-color);
+  border-radius: 24px;
+  padding: 60px 40px;
+  text-align: center;
+  color: #718EBF;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.01);
+  max-width: 600px;
+  margin: 32px auto 0;
+}
+
+.notif-empty-icon {
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(24, 20, 243, 0.1) 0%, rgba(24, 20, 243, 0.01) 70%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  box-shadow: 0 6px 16px rgba(24, 20, 243, 0.05);
+}
+
+.notif-empty-icon svg {
+  animation: bell-ring 2.5s ease-in-out infinite;
+}
+
+@keyframes bell-ring {
+  0% { transform: rotate(0); }
+  5% { transform: rotate(10deg); }
+  10% { transform: rotate(-10deg); }
+  15% { transform: rotate(8deg); }
+  20% { transform: rotate(-8deg); }
+  25% { transform: rotate(4deg); }
+  30% { transform: rotate(-4deg); }
+  35% { transform: rotate(0); }
+  100% { transform: rotate(0); }
+}
+
+/* Modals - Glassmorphic */
+.notif-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(10, 10, 20, 0.65);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(16px);
+  animation: notif-fade-in 0.25s ease forwards;
+}
+
+.notif-modal-content {
+  background: var(--card-bg);
+  border-radius: 28px;
+  padding: 36px;
+  width: 460px;
+  max-width: 95%;
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  animation: notif-slide-up-modal 0.35s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
+}
+
+@keyframes notif-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes notif-slide-up-modal {
+  from { opacity: 0; transform: translateY(20px) scale(0.96); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.notif-modal-input, .notif-modal-textarea {
+  width: 100%;
+  padding: 13px 18px;
+  border: 1.5px solid var(--border-color);
+  border-radius: 14px;
+  background: var(--bg-color);
+  color: var(--text-main);
+  font-size: 14.5px;
+  font-weight: 600;
+  outline: none;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+.notif-modal-input:focus, .notif-modal-textarea:focus {
+  border-color: #1814F3;
+  box-shadow: 0 0 0 3px rgba(24, 20, 243, 0.12);
+  background: var(--card-bg);
+}

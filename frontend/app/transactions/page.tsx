@@ -5,6 +5,7 @@ import Sidebar from '../components/Sidebar';
 import { useAppContext } from '../context/AppContext';
 import { useLanguage } from '../lib/translations';
 import { apiFetch, budgetApi, transactionApi } from '../lib/api';
+import CategoryPicker from '../components/CategoryPicker';
 
 const parseIcon = (iconName: string) => {
   const iconMap: Record<string, string> = {
@@ -189,7 +190,7 @@ export default function Transactions() {
     userData,
     fetchWallets
   } = useAppContext();
-  const { t } = useLanguage();
+  const { t, tCategory } = useLanguage();
   const formatCurrency = (amount: number | string) => {
     const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     if (isNaN(numericAmount)) return '0';
@@ -211,6 +212,7 @@ export default function Transactions() {
   const [viewingTx, setViewingTx] = useState<any>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingTx, setEditingTx] = useState<any>(null);
+  const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
 
   const getLocalDateTime = () => {
     const now = new Date();
@@ -898,6 +900,73 @@ export default function Transactions() {
 
   return (
     <div className="dashboard-container">
+      <style>{`
+        @keyframes fadeUpIn {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes slideDown {
+          from { opacity: 0; transform: translateY(-8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+          animation: fadeUpIn 0.35s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+        .animate-slide-down {
+          animation: slideDown 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+        
+        /* Table enhancements */
+        .modern-table th {
+          text-transform: uppercase;
+          font-size: 12px;
+          letter-spacing: 0.5px;
+          padding: 16px 12px !important;
+        }
+        .modern-table td {
+          padding: 16px 12px !important;
+          vertical-align: middle;
+        }
+        
+        /* Custom scrollbar for transaction list */
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 6px;
+          height: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: var(--border-color);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: #718EBF;
+        }
+        
+        /* Filter control enhancements */
+        .filter-control {
+          width: 100%;
+          padding: 11px 16px;
+          border: 1px solid var(--border-color);
+          border-radius: 12px;
+          background: var(--bg-color);
+          color: var(--text-main);
+          font-size: 14px;
+          font-family: inherit;
+          transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+          outline: none;
+          box-sizing: border-box;
+        }
+        .filter-control:hover {
+          border-color: rgba(24, 20, 243, 0.35);
+        }
+        .filter-control:focus {
+          border-color: #1814F3;
+          box-shadow: 0 0 0 3px rgba(24, 20, 243, 0.1);
+          background: var(--card-bg);
+        }
+      `}</style>
       <Sidebar activeItem="transactions" />
       <main className="main-content" style={{ background: 'var(--bg-color)' }}>
         <nav className="navbar" style={{ background: 'var(--card-bg)', borderBottom: '1px solid var(--border-color)' }}>
@@ -1031,7 +1100,7 @@ export default function Transactions() {
                   <select
                     value={selectedWallet}
                     onChange={e => handleFilterChange(() => setSelectedWallet(e.target.value))}
-                    style={{ width: '100%', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '10px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '14px' }}
+                    className="filter-control"
                   >
                     <option value="">Tất cả ví</option>
                     {wallets.map(w => <option key={w.id} value={w.id}>{w.wallet_name || w.name}</option>)}
@@ -1045,7 +1114,7 @@ export default function Transactions() {
                     <select
                       value={selectedCategory}
                       onChange={e => handleFilterChange(() => setSelectedCategory(e.target.value))}
-                      style={{ width: '100%', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '10px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '14px' }}
+                      className="filter-control"
                     >
                       <option value="">Tất cả danh mục</option>
                       {flatCategories.map(c => <option key={c.id} value={c.id}>{c.displayName}</option>)}
@@ -1060,7 +1129,7 @@ export default function Transactions() {
                     type="date"
                     value={startDate}
                     onChange={e => handleFilterChange(() => setStartDate(e.target.value))}
-                    style={{ width: '100%', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '10px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '14px' }}
+                    className="filter-control"
                   />
                 </div>
 
@@ -1071,7 +1140,7 @@ export default function Transactions() {
                     type="date"
                     value={endDate}
                     onChange={e => handleFilterChange(() => setEndDate(e.target.value))}
-                    style={{ width: '100%', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '10px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '14px' }}
+                    className="filter-control"
                   />
                 </div>
 
@@ -1083,7 +1152,7 @@ export default function Transactions() {
                     placeholder="Từ..."
                     value={minAmount}
                     onChange={e => handleFilterChange(() => setMinAmount(e.target.value))}
-                    style={{ width: '100%', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '10px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '14px' }}
+                    className="filter-control"
                   />
                 </div>
 
@@ -1095,7 +1164,7 @@ export default function Transactions() {
                     placeholder="Đến..."
                     value={maxAmount}
                     onChange={e => handleFilterChange(() => setMaxAmount(e.target.value))}
-                    style={{ width: '100%', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '10px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '14px' }}
+                    className="filter-control"
                   />
                 </div>
 
@@ -1105,7 +1174,7 @@ export default function Transactions() {
                   <select
                     value={sortBy}
                     onChange={e => handleFilterChange(() => setSortBy(e.target.value))}
-                    style={{ width: '100%', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '10px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '14px' }}
+                    className="filter-control"
                   >
                     <option value="date">Ngày giao dịch</option>
                     <option value="amount">Số tiền</option>
@@ -1119,313 +1188,539 @@ export default function Transactions() {
                   <select
                     value={sortOrder}
                     onChange={e => handleFilterChange(() => setSortOrder(e.target.value))}
-                    style={{ width: '100%', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '10px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '14px' }}
+                    className="filter-control"
                   >
                     <option value="desc">Mới nhất / Lớn nhất</option>
                     <option value="asc">Cũ nhất / Nhỏ nhất</option>
                   </select>
                 </div>
-
-                {/* Fixed maximum 20 transactions per page */}
-              </div>
-
-              {/* Hủy bộ lọc */}
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button
-                  onClick={handleClearFilters}
-                  style={{
-                    padding: '8px 16px',
-                    borderRadius: '10px',
-                    background: 'transparent',
-                    color: '#FE5C73',
-                    border: '1px solid #FE5C73',
-                    cursor: 'pointer',
-                    fontWeight: '600',
-                    fontSize: '13px'
-                  }}
-                >
-                  Xóa bộ lọc
-                </button>
               </div>
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: '30px', borderBottom: '1px solid var(--border-color)', marginBottom: '20px', overflowX: 'auto', whiteSpace: 'nowrap' }}>
-            {[{ k: 'all', l: t('all') }, { k: 'income', l: t('income') }, { k: 'expense', l: t('spending') }, { k: 'transfer', l: 'Chuyển tiền nội bộ' }, { k: 'recurring', l: 'Quy tắc định kỳ' }, { k: 'recurring_history', l: 'Lịch sử định kỳ' }].map(tab => (
-              <div key={tab.k} onClick={() => {
-                setActiveTab(tab.k);
-                setCurrentCursor(null);
-                setRegularPage(1);
-                setTransferPage(1);
-                setRecurringPage(1);
-              }} style={{ paddingBottom: '10px', color: activeTab === tab.k ? '#1814F3' : '#718EBF', borderBottom: activeTab === tab.k ? '3px solid #1814F3' : 'none', fontWeight: activeTab === tab.k ? '600' : '400', cursor: 'pointer' }}>{tab.l}</div>
-            ))}
+          <div className="custom-scrollbar" style={{
+            display: 'flex',
+            gap: '12px',
+            marginBottom: '24px',
+            overflowX: 'auto',
+            paddingBottom: '8px',
+            paddingTop: '4px',
+            whiteSpace: 'nowrap'
+          }}>
+            {[{ k: 'all', l: t('all') },
+            { k: 'income', l: t('income') },
+            { k: 'expense', l: t('spending') },
+            { k: 'transfer', l: 'Chuyển tiền nội bộ' },
+            { k: 'recurring', l: 'Quy tắc định kỳ' },
+            { k: 'recurring_history', l: 'Lịch sử định kỳ' }
+            ].map(tab => {
+              const isActive = activeTab === tab.k;
+              return (
+                <button
+                  key={tab.k}
+                  onClick={() => {
+                    setActiveTab(tab.k);
+                    setCurrentCursor(null);
+                    setRegularPage(1);
+                    setTransferPage(1);
+                    setRecurringPage(1);
+                  }}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '12px',
+                    fontSize: '13px',
+                    fontWeight: isActive ? '700' : '600',
+                    cursor: 'pointer',
+                    outline: 'none',
+                    background: isActive ? 'linear-gradient(135deg, #1814F3 0%, #396AFF 100%)' : 'var(--card-bg)',
+                    color: isActive ? '#FFFFFF' : '#718EBF',
+                    boxShadow: isActive ? '0 8px 16px rgba(24, 20, 243, 0.15)' : '0 2px 6px rgba(0, 0, 0, 0.02)',
+                    border: isActive ? '1px solid transparent' : '1px solid var(--border-color)',
+                    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                    transform: isActive ? 'translateY(-1px)' : 'none',
+                  }}
+                  onMouseEnter={e => {
+                    if (!isActive) {
+                      e.currentTarget.style.background = 'rgba(24, 20, 243, 0.05)';
+                      e.currentTarget.style.color = '#1814F3';
+                      e.currentTarget.style.borderColor = 'rgba(24, 20, 243, 0.2)';
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!isActive) {
+                      e.currentTarget.style.background = 'var(--card-bg)';
+                      e.currentTarget.style.color = '#718EBF';
+                      e.currentTarget.style.borderColor = 'var(--border-color)';
+                    }
+                  }}
+                >
+                  {tab.l}
+                </button>
+              );
+            })}
           </div>
 
-          <div style={{ background: 'var(--card-bg)', borderRadius: '20px', padding: '24px', border: '1px solid var(--border-color)', minHeight: '400px' }}>
+          <div key={activeTab} className="animate-fade-in" style={{ background: 'var(--card-bg)', borderRadius: '24px', padding: '24px', border: '1px solid var(--border-color)', minHeight: '400px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
             {(activeTab === 'transfer' && isLoadingTransfers) || (activeTab === 'recurring' && isLoadingRecurring) || (activeTab !== 'transfer' && activeTab !== 'recurring' && isLoadingTransactions) ? (
-              <div style={{ display: 'flex', justifyContent: 'center', padding: '40px', color: 'var(--text-main)' }}>{t('loading')}...</div>
+              <div style={{ display: 'flex', justifyContent: 'center', padding: '60px', color: 'var(--text-main)', fontWeight: '600' }}>{t('loading')}...</div>
             ) : activeTab === 'transfer' ? (
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', color: 'var(--text-main)', fontSize: '15px' }}>
-                <thead style={{ color: '#718EBF', borderBottom: '1px solid var(--border-color)' }}>
-                  <tr>
-                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>{t('description')}</th>
-                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>Từ ví</th>
-                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>Đến ví</th>
-                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>{t('date_label')}</th>
-                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>{t('amount_label')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredTransfers.length > 0 ? filteredTransfers.slice((transferPage - 1) * 10, transferPage * 10).map((tx: any) => (
-                    <tr key={tx.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                      <td style={{ padding: '14px 8px', fontWeight: 600 }}>Chuyển tiền nội bộ</td>
-                      <td style={{ padding: '14px 8px', fontWeight: 500, color: '#1814F3' }}>{tx.from_wallet_name}</td>
-                      <td style={{ padding: '14px 8px', fontWeight: 500, color: '#16DBCC' }}>{tx.to_wallet_name}</td>
-                      <td style={{ padding: '14px 8px' }}>
-                        <div style={{ fontWeight: '500' }}>{new Date(tx.date).toLocaleDateString('vi-VN')}</div>
-                        <div style={{ fontSize: '12px', color: '#718EBF' }}>{new Date(tx.date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</div>
-                      </td>
-                      <td style={{ padding: '14px 8px', color: '#8F9BB3', fontWeight: '600' }}>
-                        {formatCurrency(tx.amount || 0)}
-                      </td>
-                    </tr>
-                  )) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="modern-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', color: 'var(--text-main)' }}>
+                  <thead style={{ color: '#718EBF', borderBottom: '1px solid var(--border-color)' }}>
                     <tr>
-                      <td colSpan={5} style={{ padding: '40px', textAlign: 'center', color: '#718EBF' }}>Chưa có chuyển tiền nội bộ nào</td>
+                      <th style={{ fontWeight: '600' }}>{t('description')}</th>
+                      <th style={{ fontWeight: '600' }}>Từ ví</th>
+                      <th style={{ fontWeight: '600' }}>Đến ví</th>
+                      <th style={{ fontWeight: '600' }}>{t('date_label')}</th>
+                      <th style={{ fontWeight: '600' }}>{t('amount_label')}</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
-            ) : activeTab === 'recurring' ? (
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', color: 'var(--text-main)', fontSize: '15px' }}>
-                <thead style={{ color: '#718EBF', borderBottom: '1px solid var(--border-color)' }}>
-                  <tr>
-                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>{t('description') || 'Mô tả'}</th>
-                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>{t('amount_label') || 'Số tiền'}</th>
-                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>Loại</th>
-                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>Tần suất</th>
-                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>Ngày tiếp theo</th>
-                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>Trạng thái</th>
-                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recurringTransactions.length > 0 ? recurringTransactions.slice((recurringPage - 1) * 10, recurringPage * 10).map((tx: any) => (
-                    <tr key={tx.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                      <td style={{ padding: '14px 8px', fontWeight: 600 }}>{tx.title || tx.description || tx.name}</td>
-                      <td style={{ padding: '14px 8px', color: tx.type === 'income' ? '#16DBCC' : '#FE5C73', fontWeight: '600' }}>
-                        {tx.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(Number(tx.amount)))}
-                      </td>
-                      <td style={{ padding: '14px 8px' }}>{tx.type === 'income' ? (t('income') || 'Thu nhập') : (t('spending') || 'Chi tiêu')}</td>
-                      <td style={{ padding: '14px 8px' }}>{tx.frequency === 'daily' ? 'Hàng ngày' : tx.frequency === 'weekly' ? 'Hàng tuần' : tx.frequency === 'yearly' ? 'Hàng năm' : 'Hàng tháng'}</td>
-                      <td style={{ padding: '14px 8px' }}>
-                        <div style={{ fontWeight: '500' }}>{tx.next_run_at ? new Date(tx.next_run_at).toLocaleDateString('vi-VN') : '-'}</div>
-                        {tx.next_run_at && <div style={{ fontSize: '12px', color: '#718EBF' }}>{new Date(tx.next_run_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>}
-                      </td>
-                      <td style={{ padding: '14px 8px' }}>
-                        <button
-                          onClick={() => toggleRecurringRule(tx)}
+                  </thead>
+                  <tbody>
+                    {filteredTransfers.length > 0 ? filteredTransfers.slice((transferPage - 1) * 10, transferPage * 10).map((tx: any) => {
+                      const isHovered = hoveredRowId === tx.id;
+                      return (
+                        <tr
+                          key={tx.id}
+                          onMouseEnter={() => setHoveredRowId(tx.id)}
+                          onMouseLeave={() => setHoveredRowId(null)}
                           style={{
-                            padding: '6px 10px',
-                            borderRadius: '8px',
-                            fontSize: '12px',
-                            border: 'none',
-                            cursor: 'pointer',
-                            background: tx.is_active ? '#E7EDFF' : '#FFE2E5',
-                            color: tx.is_active ? '#1814F3' : '#FE5C73',
-                            fontWeight: '600',
-                            transition: 'all 0.2s ease'
+                            borderBottom: '1px solid var(--border-color)',
+                            background: isHovered ? 'var(--bg-color)' : 'transparent',
+                            transform: isHovered ? 'translateY(-2px)' : 'none',
+                            boxShadow: isHovered ? '0 4px 12px rgba(0,0,0,0.03)' : 'none',
+                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
                           }}
-                          onMouseOver={(e) => e.currentTarget.style.opacity = '0.8'}
-                          onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
                         >
-                          {tx.is_active ? 'Hoạt động' : 'Đã tắt'}
-                        </button>
-                      </td>
-                      <td style={{ padding: '14px 8px' }}>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button
-                            onClick={() => {
-                              setViewingRuleTx(tx);
-                              setIsRuleDetailModalOpen(true);
-                            }}
-                            style={{
+                          <td style={{ fontWeight: 700 }}>
+                            <span style={{ marginRight: '8px' }}>🔄</span>
+                            Chuyển tiền nội bộ
+                          </td>
+                          <td>
+                            <span style={{
                               padding: '6px 12px',
+                              borderRadius: '10px',
+                              background: 'rgba(24, 20, 243, 0.08)',
+                              color: '#1814F3',
+                              fontWeight: '600',
+                              fontSize: '13px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}>
+                              🏦 {tx.from_wallet_name}
+                            </span>
+                          </td>
+                          <td>
+                            <span style={{
+                              padding: '6px 12px',
+                              borderRadius: '10px',
+                              background: 'rgba(22, 219, 204, 0.08)',
+                              color: '#0BB5A7',
+                              fontWeight: '600',
+                              fontSize: '13px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}>
+                              📱 {tx.to_wallet_name}
+                            </span>
+                          </td>
+                          <td>
+                            <div style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '13px' }}>
+                              {new Date(tx.date).toLocaleDateString('vi-VN')}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#718EBF', marginTop: '2px', fontWeight: '500' }}>
+                              {new Date(tx.date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                          </td>
+                          <td style={{ color: 'var(--text-main)', fontWeight: '700', fontSize: '14px' }}>
+                            {formatCurrency(tx.amount || 0)}
+                          </td>
+                        </tr>
+                      );
+                    }) : (
+                      <tr>
+                        <td colSpan={5} style={{ padding: '40px', textAlign: 'center', color: '#718EBF' }}>Chưa có chuyển tiền nội bộ nào</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            ) : activeTab === 'recurring' ? (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="modern-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', color: 'var(--text-main)' }}>
+                  <thead style={{ color: '#718EBF', borderBottom: '1px solid var(--border-color)' }}>
+                    <tr>
+                      <th style={{ fontWeight: '600' }}>{t('description') || 'Mô tả'}</th>
+                      <th style={{ fontWeight: '600' }}>{t('amount_label') || 'Số tiền'}</th>
+                      <th style={{ fontWeight: '600' }}>Loại</th>
+                      <th style={{ fontWeight: '600' }}>Tần suất</th>
+                      <th style={{ fontWeight: '600' }}>Ngày tiếp theo</th>
+                      <th style={{ fontWeight: '600' }}>Trạng thái</th>
+                      <th style={{ fontWeight: '600' }}>Thao tác</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {recurringTransactions.length > 0 ? recurringTransactions.slice((recurringPage - 1) * 10, recurringPage * 10).map((tx: any) => {
+                      const isHovered = hoveredRowId === tx.id;
+                      return (
+                        <tr
+                          key={tx.id}
+                          onMouseEnter={() => setHoveredRowId(tx.id)}
+                          onMouseLeave={() => setHoveredRowId(null)}
+                          style={{
+                            borderBottom: '1px solid var(--border-color)',
+                            background: isHovered ? 'var(--bg-color)' : 'transparent',
+                            transform: isHovered ? 'translateY(-2px)' : 'none',
+                            boxShadow: isHovered ? '0 4px 12px rgba(0,0,0,0.03)' : 'none',
+                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+                          }}
+                        >
+                          <td style={{ fontWeight: 700 }}>
+                            <span style={{ marginRight: '8px' }}>⏰</span>
+                            {tx.title || tx.description || tx.name}
+                          </td>
+                          <td style={{ color: tx.type === 'income' ? '#16DBCC' : '#FE5C73', fontWeight: '700', fontSize: '15px' }}>
+                            {tx.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(Number(tx.amount)))}
+                          </td>
+                          <td>
+                            <span style={{
+                              padding: '4px 10px',
+                              borderRadius: '8px',
+                              background: tx.type === 'income' ? 'rgba(22, 219, 204, 0.08)' : 'rgba(254, 92, 115, 0.08)',
+                              color: tx.type === 'income' ? '#16DBCC' : '#FE5C73',
+                              fontWeight: '600',
+                              fontSize: '12px'
+                            }}>
+                              {tx.type === 'income' ? (t('income') || 'Thu nhập') : (t('spending') || 'Chi tiêu')}
+                            </span>
+                          </td>
+                          <td>
+                            <span style={{
+                              padding: '4px 10px',
                               borderRadius: '8px',
                               background: '#F0F5FF',
                               color: '#1814F3',
-                              border: 'none',
-                              cursor: 'pointer',
-                              fontSize: '13px',
-                              fontWeight: '600'
-                            }}
-                          >
-                            Chi tiết
-                          </button>
-                          <button
-                            onClick={() => {
-                              setEditingRecurringTx({
-                                id: tx.id,
-                                title: tx.title || tx.description || tx.name || '',
-                                amount: tx.amount || '',
-                                type: tx.type || 'expense',
-                                wallet_id: tx.wallet_id || (wallets.length > 0 ? wallets[0].id : ''),
-                                category_id: tx.category_id || '',
-                                frequency: tx.frequency || 'monthly',
-                                start_date: tx.start_date ? new Date(new Date(tx.start_date).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : (tx.next_run_at ? new Date(new Date(tx.next_run_at).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : getLocalDateTime()),
-                                end_date: tx.end_at ? tx.end_at.split('T')[0] : '',
-                                notes: tx.notes || ''
-                              });
-                              setIsEditRecurringModalOpen(true);
-                            }}
-                            style={{
-                              padding: '6px 12px',
-                              borderRadius: '8px',
-                              background: '#E7EDFF',
-                              color: '#1814F3',
-                              border: 'none',
-                              cursor: 'pointer',
-                              fontSize: '13px',
-                              fontWeight: '600'
-                            }}
-                          >
-                            Sửa
-                          </button>
-                          <button
-                            onClick={() => handleDeleteRecurringRule(tx.id)}
-                            style={{
-                              padding: '6px 12px',
-                              borderRadius: '8px',
-                              background: 'transparent',
-                              color: '#FE5C73',
-                              border: '1px solid #FFE2E5',
-                              cursor: 'pointer',
-                              fontSize: '13px',
-                              fontWeight: '600'
-                            }}
-                            onMouseOver={(e) => e.currentTarget.style.background = '#FFE2E5'}
-                            onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
-                          >
-                            Xóa
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )) : (
-                    <tr>
-                      <td colSpan={7} style={{ padding: '40px', textAlign: 'center', color: '#718EBF' }}>Chưa có giao dịch định kỳ nào</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                              fontWeight: '600',
+                              fontSize: '12px'
+                            }}>
+                              {tx.frequency === 'daily' ? 'Hàng ngày' : tx.frequency === 'weekly' ? 'Hàng tuần' : tx.frequency === 'yearly' ? 'Hàng năm' : 'Hàng tháng'}
+                            </span>
+                          </td>
+                          <td>
+                            <div style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '13px' }}>
+                              {tx.next_run_at ? new Date(tx.next_run_at).toLocaleDateString('vi-VN') : '-'}
+                            </div>
+                            {tx.next_run_at && (
+                              <div style={{ fontSize: '11px', color: '#718EBF', marginTop: '2px', fontWeight: '500' }}>
+                                {new Date(tx.next_run_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                              </div>
+                            )}
+                          </td>
+                          <td>
+                            <button
+                              onClick={() => toggleRecurringRule(tx)}
+                              style={{
+                                padding: '6px 14px',
+                                borderRadius: '20px',
+                                fontSize: '11px',
+                                border: 'none',
+                                cursor: 'pointer',
+                                background: tx.is_active ? 'rgba(39, 174, 96, 0.1)' : 'rgba(231, 76, 60, 0.1)',
+                                color: tx.is_active ? '#27AE60' : '#E74C3C',
+                                fontWeight: '700',
+                                transition: 'all 0.2s ease',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                outline: 'none'
+                              }}
+                              onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.05)'}
+                              onMouseOut={(e) => e.currentTarget.style.transform = 'none'}
+                            >
+                              <span style={{
+                                width: '6px',
+                                height: '6px',
+                                borderRadius: '50%',
+                                background: tx.is_active ? '#27AE60' : '#E74C3C',
+                                display: 'inline-block'
+                              }}></span>
+                              {tx.is_active ? 'Hoạt động' : 'Đã tắt'}
+                            </button>
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button
+                                onClick={() => {
+                                  setViewingRuleTx(tx);
+                                  setIsRuleDetailModalOpen(true);
+                                }}
+                                style={{
+                                  padding: '6px 12px',
+                                  borderRadius: '10px',
+                                  background: '#F0F5FF',
+                                  color: '#1814F3',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  fontSize: '12px',
+                                  fontWeight: '700',
+                                  transition: 'all 0.2s ease',
+                                  outline: 'none'
+                                }}
+                                onMouseOver={(e) => e.currentTarget.style.boxShadow = '0 2px 8px rgba(24, 20, 243, 0.1)'}
+                                onMouseOut={(e) => e.currentTarget.style.boxShadow = 'none'}
+                              >
+                                Chi tiết
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditingRecurringTx({
+                                    id: tx.id,
+                                    title: tx.title || tx.description || tx.name || '',
+                                    amount: tx.amount || '',
+                                    type: tx.type || 'expense',
+                                    wallet_id: tx.wallet_id || (wallets.length > 0 ? wallets[0].id : ''),
+                                    category_id: tx.category_id || '',
+                                    frequency: tx.frequency || 'monthly',
+                                    start_date: tx.start_date ? new Date(new Date(tx.start_date).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : (tx.next_run_at ? new Date(new Date(tx.next_run_at).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : getLocalDateTime()),
+                                    end_date: tx.end_at ? tx.end_at.split('T')[0] : '',
+                                    notes: tx.notes || ''
+                                  });
+                                  setIsEditRecurringModalOpen(true);
+                                }}
+                                style={{
+                                  padding: '6px 12px',
+                                  borderRadius: '10px',
+                                  background: '#E7EDFF',
+                                  color: '#1814F3',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  fontSize: '12px',
+                                  fontWeight: '700',
+                                  transition: 'all 0.2s ease',
+                                  outline: 'none'
+                                }}
+                                onMouseOver={(e) => e.currentTarget.style.boxShadow = '0 2px 8px rgba(24, 20, 243, 0.1)'}
+                                onMouseOut={(e) => e.currentTarget.style.boxShadow = 'none'}
+                              >
+                                Sửa
+                              </button>
+                              <button
+                                onClick={() => handleDeleteRecurringRule(tx.id)}
+                                style={{
+                                  padding: '6px 12px',
+                                  borderRadius: '10px',
+                                  background: 'transparent',
+                                  color: '#FE5C73',
+                                  border: '1px solid #FFE2E5',
+                                  cursor: 'pointer',
+                                  fontSize: '12px',
+                                  fontWeight: '700',
+                                  transition: 'all 0.2s ease',
+                                  outline: 'none'
+                                }}
+                                onMouseOver={(e) => {
+                                  e.currentTarget.style.background = '#FFE2E5';
+                                  e.currentTarget.style.borderColor = '#FE5C73';
+                                }}
+                                onMouseOut={(e) => {
+                                  e.currentTarget.style.background = 'transparent';
+                                  e.currentTarget.style.borderColor = '#FFE2E5';
+                                }}
+                              >
+                                Xóa
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }) : (
+                      <tr>
+                        <td colSpan={7} style={{ padding: '40px', textAlign: 'center', color: '#718EBF' }}>Chưa có giao dịch định kỳ nào</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             ) : (
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', color: 'var(--text-main)', fontSize: '15px' }}>
-                <thead style={{ color: '#718EBF', borderBottom: '1px solid var(--border-color)' }}>
-                  <tr>
-                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>{t('description')}</th>
-                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>{t('categories')}</th>
-                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>{t('date_label')}</th>
-                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>{t('amount_label')}</th>
-                    <th style={{ padding: '14px 8px', fontWeight: '500' }}>{t('actions')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.length > 0 ? filtered.map((tx: any) => (
-                    <tr key={tx.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
-                      <td style={{ padding: '14px 8px', fontWeight: 600 }}>
-                        {tx.title}
-                        {tx.source_type === 'recurring' && (
-                          <span style={{ marginLeft: '8px', padding: '2px 8px', background: '#E7EDFF', color: '#1814F3', fontSize: '11px', borderRadius: '12px', fontWeight: '500' }}>
-                            Tự động
-                          </span>
-                        )}
-                      </td>
-                      <td style={{ padding: '14px 8px' }}>{tx.category?.name || '-'}</td>
-                      <td style={{ padding: '14px 8px' }}>
-                        <div style={{ fontWeight: '500' }}>{new Date(tx.transaction_date).toLocaleDateString('vi-VN')}</div>
-                        <div style={{ fontSize: '12px', color: '#718EBF' }}>{new Date(tx.transaction_date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</div>
-                      </td>
-                      <td style={{ padding: '14px 8px', color: tx.type === 'income' ? '#16DBCC' : '#FE5C73', fontWeight: '600' }}>
-                        {tx.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0)))}
-                      </td>
-                      <td style={{ padding: '14px 8px' }}>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button
-                            onClick={() => {
-                              setViewingTx(tx);
-                              setIsDetailModalOpen(true);
-                            }}
-                            style={{
-                              padding: '6px 12px',
-                              borderRadius: '8px',
-                              background: '#F0F5FF',
-                              color: '#1814F3',
-                              border: 'none',
-                              cursor: 'pointer',
-                              fontSize: '13px',
-                              fontWeight: '600'
-                            }}
-                          >
-                            Chi tiết
-                          </button>
-                          <button
-                            onClick={() => {
-                              setEditingTx({
-                                id: tx.id,
-                                title: tx.title || '',
-                                amount: tx.amount || '',
-                                type: tx.type || 'expense',
-                                wallet_id: tx.wallet_id || '',
-                                category_id: tx.category_id || '',
-                                payee_id: tx.payee_id || '',
-                                transaction_date: toLocalDateTimeInput(tx.transaction_date),
-                                notes: tx.notes || '',
-                                attachment: null,
-                                existing_attachment_url: tx.attachment_url || tx.attachments?.[0]?.file_url || ''
-                              });
-                              setIsEditModalOpen(true);
-                            }}
-                            style={{
-                              padding: '6px 12px',
-                              borderRadius: '8px',
-                              background: '#E7EDFF',
-                              color: '#1814F3',
-                              border: 'none',
-                              cursor: 'pointer',
-                              fontSize: '13px',
-                              fontWeight: '600'
-                            }}
-                          >
-                            Sửa
-                          </button>
-                          <button
-                            onClick={() => handleDelete(tx.id)}
-                            style={{
-                              padding: '6px 12px',
-                              borderRadius: '8px',
-                              background: 'transparent',
-                              color: '#FE5C73',
-                              border: '1px solid #FFE2E5',
-                              cursor: 'pointer',
-                              fontSize: '13px',
-                              fontWeight: '600'
-                            }}
-                            onMouseOver={(e) => e.currentTarget.style.background = '#FFE2E5'}
-                            onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
-                          >
-                            Xóa
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  )) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table className="modern-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', color: 'var(--text-main)' }}>
+                  <thead style={{ color: '#718EBF', borderBottom: '1px solid var(--border-color)' }}>
                     <tr>
-                      <td colSpan={5} style={{ padding: '40px', textAlign: 'center', color: '#718EBF' }}>{t('no_transactions_found') || 'Không tìm thấy giao dịch nào'}</td>
+                      <th style={{ fontWeight: '600' }}>{t('description')}</th>
+                      <th style={{ fontWeight: '600' }}>{t('categories')}</th>
+                      <th style={{ fontWeight: '600' }}>{t('date_label')}</th>
+                      <th style={{ fontWeight: '600' }}>{t('amount_label')}</th>
+                      <th style={{ fontWeight: '600' }}>{t('actions')}</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {filtered.length > 0 ? filtered.map((tx: any) => {
+                      const isHovered = hoveredRowId === tx.id;
+                      const categoryColor = tx.category?.color || '#718EBF';
+                      const categoryIcon = parseIcon(tx.category?.icon) || '📁';
+
+                      return (
+                        <tr
+                          key={tx.id}
+                          onMouseEnter={() => setHoveredRowId(tx.id)}
+                          onMouseLeave={() => setHoveredRowId(null)}
+                          style={{
+                            borderBottom: '1px solid var(--border-color)',
+                            background: isHovered ? 'var(--bg-color)' : 'transparent',
+                            transform: isHovered ? 'translateY(-2px)' : 'none',
+                            boxShadow: isHovered ? '0 4px 12px rgba(0,0,0,0.03)' : 'none',
+                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+                          }}
+                        >
+                          <td style={{ fontWeight: 700, minWidth: '160px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <span>{tx.title}</span>
+                              {tx.source_type === 'recurring' && (
+                                <span style={{
+                                  padding: '2px 8px',
+                                  background: 'rgba(24, 20, 243, 0.08)',
+                                  color: '#1814F3',
+                                  fontSize: '10px',
+                                  borderRadius: '12px',
+                                  fontWeight: '700',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.3px',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '3px'
+                                }}>
+                                  <span>🤖</span> Tự động
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td>
+                            {tx.category?.name ? (
+                              <span style={{
+                                padding: '6px 12px',
+                                borderRadius: '12px',
+                                background: `${categoryColor}15`,
+                                color: categoryColor,
+                                fontWeight: '700',
+                                fontSize: '13px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                              }}>
+                                <span>{categoryIcon}</span>
+                                {tx.category.name}
+                              </span>
+                            ) : (
+                              <span style={{ color: 'var(--text-light)', fontSize: '13px', fontWeight: '500' }}>-</span>
+                            )}
+                          </td>
+                          <td>
+                            <div style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '13px' }}>
+                              {new Date(tx.transaction_date).toLocaleDateString('vi-VN')}
+                            </div>
+                            <div style={{ fontSize: '11px', color: '#718EBF', marginTop: '2px', fontWeight: '500' }}>
+                              {new Date(tx.transaction_date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                          </td>
+                          <td style={{ color: tx.type === 'income' ? '#16DBCC' : '#FE5C73', fontWeight: '800', fontSize: '15px' }}>
+                            {tx.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0)))}
+                          </td>
+                          <td>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button
+                                onClick={() => {
+                                  setViewingTx(tx);
+                                  setIsDetailModalOpen(true);
+                                }}
+                                style={{
+                                  padding: '6px 12px',
+                                  borderRadius: '10px',
+                                  background: '#F0F5FF',
+                                  color: '#1814F3',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  fontSize: '12px',
+                                  fontWeight: '700',
+                                  transition: 'all 0.2s ease',
+                                  outline: 'none'
+                                }}
+                                onMouseOver={(e) => e.currentTarget.style.boxShadow = '0 2px 8px rgba(24, 20, 243, 0.1)'}
+                                onMouseOut={(e) => e.currentTarget.style.boxShadow = 'none'}
+                              >
+                                Chi tiết
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditingTx({
+                                    id: tx.id,
+                                    title: tx.title || '',
+                                    amount: tx.amount || '',
+                                    type: tx.type || 'expense',
+                                    wallet_id: tx.wallet_id || '',
+                                    category_id: tx.category_id || '',
+                                    payee_id: tx.payee_id || '',
+                                    transaction_date: toLocalDateTimeInput(tx.transaction_date),
+                                    notes: tx.notes || '',
+                                    attachment: null,
+                                    existing_attachment_url: tx.attachment_url || tx.attachments?.[0]?.file_url || ''
+                                  });
+                                  setIsEditModalOpen(true);
+                                }}
+                                style={{
+                                  padding: '6px 12px',
+                                  borderRadius: '10px',
+                                  background: '#E7EDFF',
+                                  color: '#1814F3',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  fontSize: '12px',
+                                  fontWeight: '700',
+                                  transition: 'all 0.2s ease',
+                                  outline: 'none'
+                                }}
+                                onMouseOver={(e) => e.currentTarget.style.boxShadow = '0 2px 8px rgba(24, 20, 243, 0.1)'}
+                                onMouseOut={(e) => e.currentTarget.style.boxShadow = 'none'}
+                              >
+                                Sửa
+                              </button>
+                              <button
+                                onClick={() => handleDelete(tx.id)}
+                                style={{
+                                  padding: '6px 12px',
+                                  borderRadius: '10px',
+                                  background: 'transparent',
+                                  color: '#FE5C73',
+                                  border: '1px solid #FFE2E5',
+                                  cursor: 'pointer',
+                                  fontSize: '12px',
+                                  fontWeight: '700',
+                                  transition: 'all 0.2s ease',
+                                  outline: 'none'
+                                }}
+                                onMouseOver={(e) => {
+                                  e.currentTarget.style.background = '#FFE2E5';
+                                  e.currentTarget.style.borderColor = '#FE5C73';
+                                }}
+                                onMouseOut={(e) => {
+                                  e.currentTarget.style.background = 'transparent';
+                                  e.currentTarget.style.borderColor = '#FFE2E5';
+                                }}
+                              >
+                                Xóa
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    }) : (
+                      <tr>
+                        <td colSpan={5} style={{ padding: '40px', textAlign: 'center', color: '#718EBF' }}>{t('no_transactions_found') || 'Không tìm thấy giao dịch nào'}</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             )}
 
             {/* PHÂN TRANG CHO GIAO DỊCH THƯỜNG */}
@@ -1441,18 +1736,20 @@ export default function Transactions() {
                   }}
                   style={{
                     padding: '10px 20px',
-                    borderRadius: '12px',
-                    background: prevCursor ? '#1814F3' : 'var(--bg-color)',
+                    borderRadius: '14px',
+                    background: prevCursor ? 'linear-gradient(135deg, #1814F3 0%, #396AFF 100%)' : 'var(--bg-color)',
                     color: prevCursor ? '#fff' : '#718EBF',
-                    border: '1px solid var(--border-color)',
+                    border: prevCursor ? '1px solid transparent' : '1px solid var(--border-color)',
                     cursor: prevCursor ? 'pointer' : 'not-allowed',
-                    fontWeight: '600',
-                    fontSize: '14px'
+                    fontWeight: '700',
+                    fontSize: '13px',
+                    boxShadow: prevCursor ? '0 4px 10px rgba(24, 20, 243, 0.15)' : 'none',
+                    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                   }}
                 >
                   {t('previous')}
                 </button>
-                <span style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: '500' }}>
+                <span style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: '600' }}>
                   Trang {regularPage}
                 </span>
                 <button
@@ -1465,13 +1762,15 @@ export default function Transactions() {
                   }}
                   style={{
                     padding: '10px 20px',
-                    borderRadius: '12px',
-                    background: nextCursor ? '#1814F3' : 'var(--bg-color)',
+                    borderRadius: '14px',
+                    background: nextCursor ? 'linear-gradient(135deg, #1814F3 0%, #396AFF 100%)' : 'var(--bg-color)',
                     color: nextCursor ? '#fff' : '#718EBF',
-                    border: '1px solid var(--border-color)',
+                    border: nextCursor ? '1px solid transparent' : '1px solid var(--border-color)',
                     cursor: nextCursor ? 'pointer' : 'not-allowed',
-                    fontWeight: '600',
-                    fontSize: '14px'
+                    fontWeight: '700',
+                    fontSize: '13px',
+                    boxShadow: nextCursor ? '0 4px 10px rgba(24, 20, 243, 0.15)' : 'none',
+                    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                   }}
                 >
                   {t('next')}
@@ -1487,18 +1786,20 @@ export default function Transactions() {
                   onClick={() => setTransferPage(p => Math.max(1, p - 1))}
                   style={{
                     padding: '10px 20px',
-                    borderRadius: '12px',
-                    background: transferPage > 1 ? '#1814F3' : 'var(--bg-color)',
+                    borderRadius: '14px',
+                    background: transferPage > 1 ? 'linear-gradient(135deg, #1814F3 0%, #396AFF 100%)' : 'var(--bg-color)',
                     color: transferPage > 1 ? '#fff' : '#718EBF',
-                    border: '1px solid var(--border-color)',
+                    border: transferPage > 1 ? '1px solid transparent' : '1px solid var(--border-color)',
                     cursor: transferPage > 1 ? 'pointer' : 'not-allowed',
-                    fontWeight: '600',
-                    fontSize: '14px'
+                    fontWeight: '700',
+                    fontSize: '13px',
+                    boxShadow: transferPage > 1 ? '0 4px 10px rgba(24, 20, 243, 0.15)' : 'none',
+                    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                   }}
                 >
                   {t('previous')}
                 </button>
-                <span style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: '500' }}>
+                <span style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: '600' }}>
                   Trang {transferPage} / {Math.ceil(filteredTransfers.length / 10)}
                 </span>
                 <button
@@ -1506,13 +1807,15 @@ export default function Transactions() {
                   onClick={() => setTransferPage(p => p + 1)}
                   style={{
                     padding: '10px 20px',
-                    borderRadius: '12px',
-                    background: transferPage < Math.ceil(filteredTransfers.length / 10) ? '#1814F3' : 'var(--bg-color)',
+                    borderRadius: '14px',
+                    background: transferPage < Math.ceil(filteredTransfers.length / 10) ? 'linear-gradient(135deg, #1814F3 0%, #396AFF 100%)' : 'var(--bg-color)',
                     color: transferPage < Math.ceil(filteredTransfers.length / 10) ? '#fff' : '#718EBF',
-                    border: '1px solid var(--border-color)',
+                    border: transferPage < Math.ceil(filteredTransfers.length / 10) ? '1px solid transparent' : '1px solid var(--border-color)',
                     cursor: transferPage < Math.ceil(filteredTransfers.length / 10) ? 'pointer' : 'not-allowed',
-                    fontWeight: '600',
-                    fontSize: '14px'
+                    fontWeight: '700',
+                    fontSize: '13px',
+                    boxShadow: transferPage < Math.ceil(filteredTransfers.length / 10) ? '0 4px 10px rgba(24, 20, 243, 0.15)' : 'none',
+                    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                   }}
                 >
                   {t('next')}
@@ -1528,18 +1831,20 @@ export default function Transactions() {
                   onClick={() => setRecurringPage(p => Math.max(1, p - 1))}
                   style={{
                     padding: '10px 20px',
-                    borderRadius: '12px',
-                    background: recurringPage > 1 ? '#1814F3' : 'var(--bg-color)',
+                    borderRadius: '14px',
+                    background: recurringPage > 1 ? 'linear-gradient(135deg, #1814F3 0%, #396AFF 100%)' : 'var(--bg-color)',
                     color: recurringPage > 1 ? '#fff' : '#718EBF',
-                    border: '1px solid var(--border-color)',
+                    border: recurringPage > 1 ? '1px solid transparent' : '1px solid var(--border-color)',
                     cursor: recurringPage > 1 ? 'pointer' : 'not-allowed',
-                    fontWeight: '600',
-                    fontSize: '14px'
+                    fontWeight: '700',
+                    fontSize: '13px',
+                    boxShadow: recurringPage > 1 ? '0 4px 10px rgba(24, 20, 243, 0.15)' : 'none',
+                    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                   }}
                 >
                   {t('previous')}
                 </button>
-                <span style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: '500' }}>
+                <span style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: '600' }}>
                   Trang {recurringPage} / {Math.ceil(recurringTransactions.length / 10)}
                 </span>
                 <button
@@ -1547,13 +1852,15 @@ export default function Transactions() {
                   onClick={() => setRecurringPage(p => p + 1)}
                   style={{
                     padding: '10px 20px',
-                    borderRadius: '12px',
-                    background: recurringPage < Math.ceil(recurringTransactions.length / 10) ? '#1814F3' : 'var(--bg-color)',
+                    borderRadius: '14px',
+                    background: recurringPage < Math.ceil(recurringTransactions.length / 10) ? 'linear-gradient(135deg, #1814F3 0%, #396AFF 100%)' : 'var(--bg-color)',
                     color: recurringPage < Math.ceil(recurringTransactions.length / 10) ? '#fff' : '#718EBF',
-                    border: '1px solid var(--border-color)',
+                    border: recurringPage < Math.ceil(recurringTransactions.length / 10) ? '1px solid transparent' : '1px solid var(--border-color)',
                     cursor: recurringPage < Math.ceil(recurringTransactions.length / 10) ? 'pointer' : 'not-allowed',
-                    fontWeight: '600',
-                    fontSize: '14px'
+                    fontWeight: '700',
+                    fontSize: '13px',
+                    boxShadow: recurringPage < Math.ceil(recurringTransactions.length / 10) ? '0 4px 10px rgba(24, 20, 243, 0.15)' : 'none',
+                    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                   }}
                 >
                   {t('next')}
@@ -1635,10 +1942,14 @@ export default function Transactions() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>{t('categories')} *</label>
-                <select value={newTx.category_id} onChange={e => setNewTx({ ...newTx, category_id: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}>
-                  <option value="">{t('select_category') || 'Chọn danh mục'}</option>
-                  {flatCategories.map(c => <option key={c.id} value={c.id}>{c.displayName}</option>)}
-                </select>
+                <CategoryPicker
+                  value={newTx.category_id}
+                  onChange={(id) => setNewTx({ ...newTx, category_id: id })}
+                  type={newTx.type}
+                  categories={categories}
+                  tCategory={tCategory}
+                  placeholder={t('select_category') || 'Chọn danh mục'}
+                />
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>{t('date_label')} *</label>
@@ -1754,10 +2065,14 @@ export default function Transactions() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Danh mục *</label>
-                <select value={editingRecurringTx.category_id} onChange={e => setEditingRecurringTx({ ...editingRecurringTx, category_id: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}>
-                  <option value="">Chọn danh mục</option>
-                  {flatCategories.map(c => <option key={c.id} value={c.id}>{c.displayName}</option>)}
-                </select>
+                <CategoryPicker
+                  value={editingRecurringTx.category_id}
+                  onChange={(id) => setEditingRecurringTx({ ...editingRecurringTx, category_id: id })}
+                  type={editingRecurringTx.type}
+                  categories={categories}
+                  tCategory={tCategory}
+                  placeholder="Chọn danh mục"
+                />
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Ngày bắt đầu *</label>
@@ -1982,11 +2297,15 @@ export default function Transactions() {
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
               <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Danh mục</label>
-                <select value={editingTx.category_id} onChange={e => setEditingTx({ ...editingTx, category_id: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}>
-                  <option value="">{t('select_category') || 'Chọn danh mục'}</option>
-                  {flatCategories.map(c => <option key={c.id} value={c.id}>{c.displayName}</option>)}
-                </select>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Danh mục *</label>
+                <CategoryPicker
+                  value={editingTx.category_id}
+                  onChange={(id) => setEditingTx({ ...editingTx, category_id: id })}
+                  type={editingTx.type}
+                  categories={categories}
+                  tCategory={tCategory}
+                  placeholder={t('select_category') || 'Chọn danh mục'}
+                />
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Ngày giao dịch *</label>

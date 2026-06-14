@@ -1,0 +1,298 @@
+/* Reports Page Styles - Fintech Premium Design */
+
+.reports-fade-in {
+  animation: reports-slide-up 0.45s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes reports-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Card Grid for Formats */
+.report-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.report-card {
+  background: var(--card-bg);
+  border-radius: 24px;
+  padding: 32px;
+  border: 1px solid var(--border-color);
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.01);
+}
+
+.report-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, var(--card-glow-color, transparent) 0%, transparent 100%);
+  opacity: 0;
+  transition: opacity 0.4s ease;
+  pointer-events: none;
+}
+
+.report-card:hover {
+  transform: translateY(-6px);
+  border-color: var(--card-glow-border) !important;
+  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.03), 0 4px 20px var(--card-glow-shadow) !important;
+}
+
+.report-card:hover::before {
+  opacity: 0.06;
+}
+
+/* Specific format card setups */
+.report-card.pdf {
+  --card-glow-color: #EF4444;
+  --card-glow-border: rgba(239, 68, 68, 0.35);
+  --card-glow-shadow: rgba(239, 68, 68, 0.12);
+}
+
+.report-card.excel {
+  --card-glow-color: #10B981;
+  --card-glow-border: rgba(16, 185, 129, 0.35);
+  --card-glow-shadow: rgba(16, 185, 129, 0.12);
+}
+
+.report-card.csv {
+  --card-glow-color: #1814F3;
+  --card-glow-border: rgba(24, 20, 243, 0.35);
+  --card-glow-shadow: rgba(24, 20, 243, 0.12);
+}
+
+/* Icon Containers in Cards */
+.report-card-icon-wrapper {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px;
+  transition: all 0.3s ease;
+}
+
+.report-card:hover .report-card-icon-wrapper {
+  transform: scale(1.1) rotate(4deg);
+}
+
+/* Title and Descriptions */
+.report-card-title {
+  color: var(--text-main);
+  font-size: 18px;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.report-card-desc {
+  color: #718EBF;
+  font-size: 13.5px;
+  line-height: 1.5;
+  margin-bottom: 24px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Capsule Gradient Buttons for Downloads */
+.report-download-btn {
+  width: 100%;
+  padding: 11px 24px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 14px;
+  border: none;
+  cursor: pointer;
+  color: #fff !important;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  outline: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.report-download-btn:hover {
+  transform: translateY(-2px);
+}
+
+.report-download-btn:disabled {
+  opacity: 0.45 !important;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.report-download-btn.pdf-btn {
+  background: linear-gradient(135deg, #EF4444 0%, #F87171 100%);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
+}
+.report-download-btn.pdf-btn:hover:not(:disabled) {
+  box-shadow: 0 8px 20px rgba(239, 68, 68, 0.28);
+}
+
+.report-download-btn.excel-btn {
+  background: linear-gradient(135deg, #10B981 0%, #34D399 100%);
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+}
+.report-download-btn.excel-btn:hover:not(:disabled) {
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.28);
+}
+
+.report-download-btn.csv-btn {
+  background: linear-gradient(135deg, #1814F3 0%, #6366F1 100%);
+  box-shadow: 0 4px 12px rgba(24, 20, 243, 0.15);
+}
+.report-download-btn.csv-btn:hover:not(:disabled) {
+  box-shadow: 0 8px 20px rgba(24, 20, 243, 0.28);
+}
+
+/* Sections Styling */
+.report-section-header {
+  color: var(--text-main);
+  font-size: 16px;
+  font-weight: 800;
+  margin: 32px 0 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Filter Box - Glassmorphic */
+.report-filter-box {
+  background: var(--card-bg);
+  border-radius: 24px;
+  padding: 28px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 32px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.005);
+}
+
+.report-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 20px;
+}
+
+.report-filter-label {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--text-main);
+  font-weight: 700;
+  font-size: 13.5px;
+}
+
+/* Inputs and Selects styling */
+.report-input, .report-select {
+  width: 100%;
+  padding: 11px 16px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--bg-color);
+  color: var(--text-main);
+  font-size: 14px;
+  font-weight: 600;
+  outline: none;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-sizing: border-box;
+}
+
+.report-input:hover, .report-select:hover {
+  border-color: #1814F3;
+}
+
+.report-input:focus, .report-select:focus {
+  border-color: #1814F3;
+  box-shadow: 0 0 0 3px rgba(24, 20, 243, 0.1);
+  background: var(--card-bg);
+}
+
+/* Export History Card list */
+.report-history-box {
+  background: var(--card-bg);
+  border-radius: 24px;
+  padding: 28px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.005);
+}
+
+.report-history-item {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+  transition: all 0.25s ease;
+  border-radius: 16px;
+  margin-bottom: 4px;
+}
+
+.report-history-item:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+}
+
+.report-history-item:hover {
+  background: var(--hover-bg);
+  transform: translateX(4px);
+}
+
+.report-history-icon-circle {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 18px;
+  flex-shrink: 0;
+}
+
+.report-history-icon-circle.pdf {
+  background: rgba(239, 68, 68, 0.08);
+}
+.report-history-icon-circle.excel {
+  background: rgba(16, 185, 129, 0.08);
+}
+.report-history-icon-circle.csv {
+  background: rgba(24, 20, 243, 0.08);
+}
+
+/* History reload button */
+.report-history-btn {
+  border: 1.5px solid #1814F3 !important;
+  color: #1814F3 !important;
+  background: transparent;
+  padding: 8px 18px;
+  border-radius: 10px;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  outline: none;
+}
+
+.report-history-btn:hover {
+  background: rgba(24, 20, 243, 0.06) !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 10px rgba(24, 20, 243, 0.08);
+}
+
+.report-history-btn:active {
+  transform: translateY(0);
+}
