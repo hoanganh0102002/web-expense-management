@@ -243,9 +243,72 @@ export default function Transactions() {
   const [payees, setPayees] = useState<any[]>([]);
   const [isPayeeModalOpen, setIsPayeeModalOpen] = useState(false);
   const [payeeSearchTerm, setPayeeSearchTerm] = useState('');
+  const [isSearchingSystem, setIsSearchingSystem] = useState(false);
+  const [searchSystemError, setSearchSystemError] = useState('');
+  const [targetModalForPayee, setTargetModalForPayee] = useState<'new' | 'edit'>('new');
+
+  const handleSearchSystemPayee = async () => {
+    let term = payeeSearchTerm.trim();
+    if (!term) return;
+
+    // Auto format 6-digit code to USRxxxxxx
+    if (/^\d{6}$/.test(term)) {
+      term = `USR${term}`;
+    }
+
+    setIsSearchingSystem(true);
+    setSearchSystemError('');
+
+    try {
+      console.log(`Decoding recipient ${term} via API /qr/decode...`);
+      const res = await apiFetch('/qr/decode', {
+        method: 'POST',
+        body: JSON.stringify({ qr_string: term })
+      });
+      
+      console.log("Decode API response:", res);
+      
+      if (res?.status === 'success' && res.data) {
+        const payeeData = res.data;
+        const newPayee = {
+          id: payeeData.payee_id,
+          payee_name: payeeData.payee_name,
+          identifier: payeeData.identifier,
+          payee_type: payeeData.type || 'internal'
+        };
+        
+        // Add to payees list if not already there
+        setPayees(prev => {
+          if (prev.some(p => p.id === newPayee.id)) return prev;
+          // Filter out mock data if they exist to keep list clean
+          const filteredPrev = prev.filter(p => !p.id.toString().startsWith('mock-uuid-'));
+          return [newPayee, ...filteredPrev];
+        });
+
+        // Set the active payee
+        if (targetModalForPayee === 'new') {
+          setNewTx((prev: any) => ({ ...prev, payee_id: newPayee.id }));
+        } else {
+          setEditingTx((prev: any) => ({ ...prev, payee_id: newPayee.id }));
+        }
+        setIsPayeeModalOpen(false);
+        setPayeeSearchTerm('');
+        alert(`Đã tìm thấy và chọn người thụ hưởng: ${newPayee.payee_name}`);
+      } else {
+        setSearchSystemError('Không tìm thấy thông tin phù hợp hoặc phản hồi không đúng cấu trúc.');
+      }
+    } catch (e: any) {
+      console.error("Lỗi khi tìm người thụ hưởng trên hệ thống:", e);
+      setSearchSystemError(e.message || 'Không tìm thấy người thụ hưởng trên hệ thống.');
+    } finally {
+      setIsSearchingSystem(false);
+    }
+  };
 
   useEffect(() => {
     if (isPayeeModalOpen) {
+      setSearchSystemError('');
+      setIsSearchingSystem(false);
       const fetchPayees = async () => {
         try {
           console.log("Fetching payees from /payees API...");
@@ -741,6 +804,9 @@ export default function Transactions() {
       formData.append('category_id', editingTx.category_id || '');
       formData.append('transaction_date', new Date(editingTx.transaction_date).toISOString());
       formData.append('notes', editingTx.notes || '');
+      if (editingTx.payee_id) {
+        formData.append('payee_id', editingTx.payee_id);
+      }
 
       if (editingTx.attachment) {
         formData.append('attachment', editingTx.attachment);
@@ -1294,6 +1360,7 @@ export default function Transactions() {
                                 type: tx.type || 'expense',
                                 wallet_id: tx.wallet_id || '',
                                 category_id: tx.category_id || '',
+                                payee_id: tx.payee_id || '',
                                 transaction_date: toLocalDateTimeInput(tx.transaction_date),
                                 notes: tx.notes || '',
                                 attachment: null,
@@ -1564,7 +1631,10 @@ export default function Transactions() {
             <div style={{ marginBottom: '15px' }}>
               <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Người hưởng thụ / Người trả</label>
               <div
-                onClick={() => setIsPayeeModalOpen(true)}
+                onClick={() => {
+                  setTargetModalForPayee('new');
+                  setIsPayeeModalOpen(true);
+                }}
                 style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
               >
                 <span>{newTx.payee_id ? payees.find(p => p.id === newTx.payee_id)?.payee_name || 'Đã chọn' : 'Chọn người thụ hưởng (Tùy chọn)'}</span>
@@ -1807,6 +1877,12 @@ export default function Transactions() {
                 <span style={{ color: '#718EBF', fontWeight: '500' }}>Danh mục</span>
                 <span style={{ fontWeight: '600' }}>{viewingTx.category?.name || '-'}</span>
               </div>
+              {viewingTx.payee && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                  <span style={{ color: '#718EBF', fontWeight: '500' }}>Người hưởng thụ</span>
+                  <span style={{ fontWeight: '600' }}>{viewingTx.payee.payee_name || viewingTx.payee.name} ({viewingTx.payee.identifier})</span>
+                </div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                 <span style={{ color: '#718EBF', fontWeight: '500' }}>Ngày giao dịch</span>
                 <span style={{ fontWeight: '600' }}>{new Date(viewingTx.transaction_date).toLocaleString('vi-VN')}</span>
@@ -1901,6 +1977,20 @@ export default function Transactions() {
             </div>
 
             <div style={{ marginBottom: '15px' }}>
+              <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Người hưởng thụ / Người trả</label>
+              <div
+                onClick={() => {
+                  setTargetModalForPayee('edit');
+                  setIsPayeeModalOpen(true);
+                }}
+                style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              >
+                <span>{editingTx.payee_id ? payees.find(p => p.id === editingTx.payee_id)?.payee_name || 'Đã chọn' : 'Chọn người thụ hưởng (Tùy chọn)'}</span>
+                <span style={{ color: '#718EBF', fontSize: '12px' }}>▼</span>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '15px' }}>
               <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>{t('notes')}</label>
               <textarea value={editingTx.notes} onChange={e => setEditingTx({ ...editingTx, notes: e.target.value })} placeholder={t('notes_placeholder') || 'Thêm ghi chú...'} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px', minHeight: '80px', resize: 'vertical' }} />
             </div>
@@ -1981,12 +2071,18 @@ export default function Transactions() {
             background: 'var(--bg-color)', width: '100%', maxWidth: '500px', height: '80vh', borderTopLeftRadius: '24px', borderTopRightRadius: '24px',
             display: 'flex', flexDirection: 'column', overflow: 'hidden'
           }} onClick={e => e.stopPropagation()}>
+            <style>{`
+              @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+              }
+            `}</style>
             <div style={{ padding: '20px', borderBottom: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <h3 style={{ margin: 0, fontSize: '18px', fontWeight: '600' }}>Chọn người thụ hưởng</h3>
               <button onClick={() => setIsPayeeModalOpen(false)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#718EBF' }}>&times;</button>
             </div>
 
-            <div style={{ padding: '15px' }}>
+            <div style={{ padding: '15px', borderBottom: '1px solid var(--border-color)' }}>
               <div style={{ position: 'relative' }}>
                 <span style={{ position: 'absolute', left: '15px', top: '50%', transform: 'translateY(-50%)', color: '#718EBF' }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
@@ -1995,10 +2091,55 @@ export default function Transactions() {
                   type="text"
                   placeholder="Tìm kiếm người thụ hưởng..."
                   value={payeeSearchTerm}
-                  onChange={e => setPayeeSearchTerm(e.target.value)}
+                  onChange={e => {
+                    setPayeeSearchTerm(e.target.value);
+                    setSearchSystemError('');
+                  }}
                   style={{ width: '100%', padding: '12px 15px 12px 42px', borderRadius: '12px', border: '1px solid var(--border-color)', background: 'var(--hover-bg)', fontSize: '15px', outline: 'none', color: 'var(--text-main)' }}
                 />
               </div>
+
+              {payeeSearchTerm.trim() && (
+                <button
+                  type="button"
+                  onClick={handleSearchSystemPayee}
+                  disabled={isSearchingSystem}
+                  style={{
+                    width: '100%',
+                    marginTop: '10px',
+                    padding: '12px',
+                    borderRadius: '12px',
+                    backgroundColor: '#1814F3',
+                    color: '#fff',
+                    border: 'none',
+                    cursor: isSearchingSystem ? 'not-allowed' : 'pointer',
+                    fontWeight: '600',
+                    fontSize: '14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    opacity: isSearchingSystem ? 0.7 : 1
+                  }}
+                >
+                  {isSearchingSystem ? (
+                    <>
+                      <span style={{ display: 'inline-block', width: '16px', height: '16px', border: '2px solid #fff', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                      Đang tìm kiếm người nhận trên hệ thống...
+                    </>
+                  ) : (
+                    <>
+                      🔍 Tìm và thêm người nhận "{/^\d{6}$/.test(payeeSearchTerm.trim()) ? `USR${payeeSearchTerm.trim()}` : payeeSearchTerm.trim()}" từ hệ thống
+                    </>
+                  )}
+                </button>
+              )}
+
+              {searchSystemError && (
+                <div style={{ color: '#FE5C73', fontSize: '13px', marginTop: '10px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                  <span>⚠️</span> {searchSystemError}
+                </div>
+              )}
             </div>
 
             <div style={{ flex: 1, overflowY: 'auto', padding: '0 15px 15px' }}>
@@ -2006,7 +2147,11 @@ export default function Transactions() {
                 <div
                   key={p.id}
                   onClick={() => {
-                    setNewTx({ ...newTx, payee_id: p.id });
+                    if (targetModalForPayee === 'new') {
+                      setNewTx({ ...newTx, payee_id: p.id });
+                    } else {
+                      setEditingTx({ ...editingTx, payee_id: p.id });
+                    }
                     setIsPayeeModalOpen(false);
                   }}
                   style={{ display: 'flex', alignItems: 'center', padding: '15px 0', borderBottom: '1px solid var(--border-color)', cursor: 'pointer' }}
