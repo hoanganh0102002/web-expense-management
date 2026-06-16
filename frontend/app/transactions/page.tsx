@@ -644,7 +644,7 @@ export default function Transactions() {
       return;
     }
     const selectedWallet = wallets.find(w => w.id === newTx.wallet_id);
-    if (selectedWallet?.type === 'cash') {
+    if (newTx.is_recurring && selectedWallet?.type === 'cash') {
       alert('Không được phép chọn ví Tiền mặt để thanh toán. Vui lòng chọn ví khác!');
       return;
     }
@@ -657,6 +657,9 @@ export default function Transactions() {
       formData.append('amount', newTx.amount);
       formData.append('type', newTx.type);
       formData.append('wallet_id', newTx.wallet_id);
+      if (newTx.type === 'income') {
+        formData.append('source_type', 'adjustment');
+      }
       if (newTx.category_id) formData.append('category_id', newTx.category_id);
       if (newTx.payee_id) formData.append('payee_id', newTx.payee_id);
       formData.append('transaction_date', new Date(newTx.transaction_date).toISOString());
@@ -808,12 +811,6 @@ export default function Transactions() {
       return;
     }
 
-    const selectedEditWallet = wallets.find(w => w.id === editingTx.wallet_id);
-    if (selectedEditWallet?.type === 'cash') {
-      alert('Không được phép chọn ví Tiền mặt để thanh toán. Vui lòng chọn ví khác!');
-      return;
-    }
-
     setIsSubmittingEdit(true);
     try {
       const formData = new FormData();
@@ -821,6 +818,9 @@ export default function Transactions() {
       formData.append('amount', editingTx.amount);
       formData.append('type', editingTx.type);
       formData.append('wallet_id', editingTx.wallet_id);
+      if (editingTx.type === 'income') {
+        formData.append('source_type', 'adjustment');
+      }
       formData.append('category_id', editingTx.category_id || '');
       formData.append('transaction_date', new Date(editingTx.transaction_date).toISOString());
       formData.append('notes', editingTx.notes || '');
@@ -866,6 +866,13 @@ export default function Transactions() {
       alert('Vui lòng điền các trường bắt buộc');
       return;
     }
+
+    const selectedEditWallet = wallets.find(w => w.id === editingRecurringTx.wallet_id);
+    if (selectedEditWallet?.type === 'cash') {
+      alert('Không được phép chọn ví Tiền mặt để thanh toán. Vui lòng chọn ví khác!');
+      return;
+    }
+
     setIsSubmittingEdit(true);
     try {
       await apiFetch(`/recurring-rules/${editingRecurringTx.id}`, {
@@ -1961,10 +1968,24 @@ export default function Transactions() {
               <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Người hưởng thụ / Người trả</label>
               <div
                 onClick={() => {
+                  if (newTx.is_recurring || newTx.type === 'income') return;
                   setTargetModalForPayee('new');
                   setIsPayeeModalOpen(true);
                 }}
-                style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: '12px',
+                  background: (newTx.is_recurring || newTx.type === 'income') ? 'rgba(0, 0, 0, 0.05)' : 'var(--bg-color)',
+                  color: (newTx.is_recurring || newTx.type === 'income') ? '#9ca3af' : 'var(--text-main)',
+                  fontSize: '15px',
+                  cursor: (newTx.is_recurring || newTx.type === 'income') ? 'not-allowed' : 'pointer',
+                  opacity: (newTx.is_recurring || newTx.type === 'income') ? 0.5 : 1,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}
               >
                 <span>{newTx.payee_id ? payees.find(p => p.id === newTx.payee_id)?.payee_name || 'Đã chọn' : 'Chọn người thụ hưởng (Tùy chọn)'}</span>
                 <span style={{ color: '#718EBF', fontSize: '12px' }}>▼</span>
