@@ -2,7 +2,7 @@
  * API Service - Kết nối Frontend với PHP Laravel
  */
 
-const API_BASE_URL = 'https://exp-mgmt-dev.onrender.com/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://exp-mgmt-dev.onrender.com/api';
 
 // Helper: Lấy token
 const getAuthHeaders = () => {
