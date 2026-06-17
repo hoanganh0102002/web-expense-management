@@ -37,7 +37,7 @@ export default function ForgotPassword() {
                   <path d="M55 75 L55 25 L65 25 L73 60 L81 25 L95 25 L95 75 Z" fill="#343C6A" />
                 </svg>
               </span>
-              <span className="logo-text">SpendWise</span>
+              <span className="logo-text">EM</span>
             </div>
           </Link>
           <h1>Quên mật khẩu?</h1>

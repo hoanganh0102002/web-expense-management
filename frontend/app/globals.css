@@ -888,4 +888,184 @@ body.dark-theme .settings-destructive-btn:hover:not(:disabled) {
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3) !important;
 }
 
+/* ==========================================================================
+   Responsive Styles for Mobile (max-width: 768px)
+   ========================================================================== */
+@media (max-width: 768px) {
+  /* Sidebar Mobile Drawer */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 270px;
+    height: 100vh !important;
+    z-index: 1000 !important;
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.2);
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  /* Hamburger Menu Toggle Button style */
+  .mobile-menu-toggle {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--card-bg);
+    border: 1px solid var(--border-color);
+    color: var(--text-main);
+    position: fixed;
+    top: 25px;
+    left: 16px;
+    z-index: 99;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transition: all 0.2s ease;
+  }
+
+  .mobile-menu-toggle:active {
+    transform: scale(0.9);
+  }
+
+  /* Main Layout Adaptations */
+  .dashboard-container {
+    flex-direction: column;
+  }
+
+  .main-content {
+    width: 100%;
+  }
+
+  /* Navbar adjustments on Mobile */
+  .navbar {
+    padding: 0 16px;
+    height: 90px;
+  }
+
+  .page-title {
+    padding-left: 52px; /* Avoid overlapping hamburger menu */
+    font-size: 18px;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .nav-actions {
+    gap: 10px;
+  }
+
+  .nav-actions .search-bar {
+    display: none; /* Hide desktop search bar on mobile headers */
+  }
+
+  .nav-actions button {
+    display: none !important; /* Hide "+ Add Report" button to save space */
+  }
+
+  .nav-actions span {
+    display: none !important; /* Hide User Display Name */
+  }
+
+  /* Content area adjustment */
+  .content-area {
+    padding: 20px 16px;
+    gap: 20px;
+  }
+
+  /* Balance Overview Adaptations */
+  .balance-overview {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .balance-divider {
+    width: 100%;
+    height: 1px;
+    margin: 4px 0;
+  }
+
+  /* Flex Rows and Columns wrap to single column */
+  .row {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .col-1, .col-2 {
+    width: 100%;
+    flex: none;
+  }
+
+  /* Cards wrapper stacked */
+  .cards-wrapper {
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* Credit Cards */
+  .credit-card {
+    height: 170px;
+    padding: 16px 20px;
+  }
+
+  .card-middle {
+    margin-top: 15px;
+    gap: 25px;
+  }
+
+  /* Make sure transaction list scrolls neatly or shapes well */
+  .transactions-card {
+    height: auto;
+    max-height: 350px;
+    padding: 16px;
+  }
+
+  .transaction-item {
+    padding: 6px 4px;
+  }
+
+  .transaction-item:hover {
+    transform: none; /* Disable shift hover on mobile */
+  }
+
+  .tx-icon {
+    width: 40px;
+    height: 40px;
+    margin-right: 12px;
+  }
+
+  /* Table and data grids horizontal scrolling */
+  table {
+    display: block;
+    width: 100%;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  /* Settings Page responsive adjustments */
+  .settings-group-card {
+    padding: 20px 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  /* AI Assistant Chat Panel occupies full screen */
+  div[style*="maxWidth: '460px'"], 
+  div[style*="max-width: 460px"] {
+    max-width: 100% !important;
+    width: 100% !important;
+    border-left: none !important;
+  }
+}
+
+
 

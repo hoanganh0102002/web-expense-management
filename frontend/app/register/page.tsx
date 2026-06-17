@@ -94,7 +94,7 @@ export default function Register() {
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M4 4h4v16H4zM10 8h4v12h-4zM16 12h4v8h-4z" />
               </svg>
-              SpendWise.
+              EM.
             </div>
             <h2>{t('start_your_journey')}</h2>
             <p>{t('register_hero_desc')}</p>

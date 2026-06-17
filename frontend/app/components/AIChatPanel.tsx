@@ -54,6 +54,25 @@ export default function AIChatPanel() {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num);
   };
 
+  // Helper to scrub/strip SQL queries or code blocks from output
+  const sanitizeMessageContent = (text: string) => {
+    if (!text) return '';
+    
+    // 1. Remove markdown code blocks containing SQL (e.g. ```sql ... ``` or ```SELECT ... ```)
+    let sanitized = text.replace(/```(?:sql)?\s*[\s\S]*?SELECT[\s\S]*?```/gi, '');
+    sanitized = sanitized.replace(/```(?:sql)?\s*[\s\S]*?WITH[\s\S]*?```/gi, '');
+    sanitized = sanitized.replace(/```sql[\s\S]*?```/gi, '');
+    
+    // 2. Remove any inline SELECT/FROM SQL syntax if they somehow slip through
+    // e.g. "SELECT id, name FROM wallets..."
+    sanitized = sanitized.replace(/\bSELECT\s+[\s\S]+?\s+FROM\s+\w+\b/gi, '');
+    
+    // 3. Remove consecutive newlines that might be left after removing blocks
+    sanitized = sanitized.replace(/\n{3,}/g, '\n\n');
+    
+    return sanitized.trim();
+  };
+
   return (
     <>
       {/* Backdrop for closing panel when clicking outside */}
@@ -121,7 +140,7 @@ export default function AIChatPanel() {
             </div>
             <div>
               <h2 style={{ fontSize: '18px', fontWeight: '700', margin: 0, letterSpacing: '0.3px', background: 'linear-gradient(90deg, #818CF8, #C084FC)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-                FINAI Assistant
+                EM AI Assistant
               </h2>
               <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 500 }}>Trợ lý tài chính ảo</span>
             </div>
@@ -199,7 +218,7 @@ export default function AIChatPanel() {
             >
               <div style={{ fontSize: '48px', marginBottom: '16px' }}>💰</div>
               <h3 style={{ fontSize: '18px', fontWeight: '700', color: '#F1F5F9', marginBottom: '8px' }}>
-                Hỏi FINAI bất cứ điều gì!
+                Hỏi EM AI bất cứ điều gì!
               </h3>
               <p style={{ fontSize: '13px', lineHeight: '1.6', marginBottom: '24px', maxWidth: '300px' }}>
                 Tôi có thể đọc dữ liệu thu chi thực tế của bạn để phân tích, vẽ biểu đồ, hoặc tìm kiếm giao dịch nhanh.
@@ -275,7 +294,7 @@ export default function AIChatPanel() {
                     wordBreak: 'break-word'
                   }}
                 >
-                  {msg.content}
+                  {sanitizeMessageContent(msg.content)}
 
                   {/* Render Table database results if present */}
                   {msg.dbResults && msg.dbResults.length > 0 && (
@@ -314,29 +333,6 @@ export default function AIChatPanel() {
                     </div>
                   )}
 
-                  {/* Collapsible SQL Queries */}
-                  {msg.sqlQuery && (
-                    <details style={{ marginTop: '10px', fontSize: '11px', color: '#94A3B8', cursor: 'pointer' }}>
-                      <summary style={{ outline: 'none', userSelect: 'none' }}>
-                        Xem lệnh SQL truy vấn
-                      </summary>
-                      <pre 
-                        style={{
-                          marginTop: '6px',
-                          padding: '10px',
-                          borderRadius: '8px',
-                          background: 'rgba(0, 0, 0, 0.3)',
-                          border: '1px solid rgba(255,255,255,0.05)',
-                          color: '#A7F3D0',
-                          overflowX: 'auto',
-                          whiteSpace: 'pre-wrap',
-                          fontFamily: 'Courier New, Courier, monospace'
-                        }}
-                      >
-                        {msg.sqlQuery}
-                      </pre>
-                    </details>
-                  )}
                 </div>
                 
                 {/* Timestamp */}
@@ -442,7 +438,7 @@ export default function AIChatPanel() {
             <input 
               ref={inputRef}
               type="text"
-              placeholder="Hỏi về chi tiêu của bạn..."
+              placeholder="Hỏi EM về tài chính..."
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               disabled={isTyping}

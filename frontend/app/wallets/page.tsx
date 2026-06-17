@@ -402,7 +402,7 @@ export default function Wallets() {
                 </span>
                 <div style={{ position: 'relative', width: '45px', height: '45px' }}>
                   <img 
-                    src={userData?.profile?.avatar_url || userData?.avatar_url || userData?.avatar || "https://api.dicebear.com/7.x/miniavs/svg?seed=SpendWise&backgroundColor=b6e3f4"} 
+                    src={userData?.profile?.avatar_url || userData?.avatar_url || userData?.avatar || "https://api.dicebear.com/7.x/miniavs/svg?seed=EM&backgroundColor=b6e3f4"} 
                     alt="Avatar" 
                     style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} 
                   />
