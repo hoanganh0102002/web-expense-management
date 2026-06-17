@@ -1171,6 +1171,39 @@ body.dark-theme .settings-destructive-btn:hover:not(:disabled) {
   .settings-group-card {
     padding: 20px 16px;
   }
+  .settings-card-body {
+    padding: 20px !important;
+  }
+  .settings-tabs-wrapper {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    width: 100% !important;
+    margin-bottom: 25px !important;
+  }
+  .settings-tabs-wrapper > div {
+    flex: 1 1 auto !important;
+    min-width: 100px !important;
+    padding: 8px 12px !important;
+    font-size: 13px !important;
+  }
+  .settings-profile-container {
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 30px !important;
+  }
+  .settings-grid {
+    grid-template-columns: 1fr !important;
+    gap: 20px !important;
+    margin-bottom: 20px !important;
+  }
+  .session-item {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 15px !important;
+  }
+  .session-item button {
+    align-self: flex-end;
+  }
 }
 
 @media (max-width: 480px) {
