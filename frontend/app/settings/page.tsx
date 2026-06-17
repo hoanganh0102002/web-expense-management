@@ -232,9 +232,9 @@ export default function Settings() {
             <div style={{ height: '160px', background: 'var(--accent-gradient)', opacity: 0.1, position: 'absolute', top: 0, left: 0, right: 0 }}></div>
             {/* Fading overlay to eliminate the sharp line */}
             <div style={{ height: '60px', background: 'linear-gradient(to bottom, transparent, var(--card-bg))', position: 'absolute', top: '100px', left: 0, right: 0, pointerEvents: 'none' }}></div>
-            <div style={{ padding: '40px', position: 'relative', zIndex: 1 }}>
+            <div className="settings-card-body" style={{ padding: '40px', position: 'relative', zIndex: 1 }}>
               {/* Tabs Navigation (Modern Pill Style) */}
-              <div style={{ 
+              <div className="settings-tabs-wrapper" style={{ 
                 display: 'inline-flex', 
                 gap: '6px', 
                 background: theme === 'dark' ? 'rgba(255, 255, 255, 0.03)' : 'rgba(0, 0, 0, 0.03)', 
@@ -285,7 +285,7 @@ export default function Settings() {
               </div>
 
             {activeTab === 'profile' && (
-              <div style={{ display: 'flex', gap: '60px', alignItems: 'flex-start' }}>
+              <div className="settings-profile-container" style={{ display: 'flex', gap: '60px', alignItems: 'flex-start' }}>
                 {/* Avatar Section */}
                 <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
                   <div style={{ position: 'relative' }}>
@@ -318,7 +318,7 @@ export default function Settings() {
 
                 {/* Form Section */}
                 <div style={{ flex: 1 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', marginBottom: '40px' }}>
+                  <div className="settings-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', marginBottom: '40px' }}>
                     {profileFields.map((f: any, i) => (
                       <div key={i}>
                         <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '600', fontSize: '15px' }}>{f.label}</label>
@@ -372,7 +372,7 @@ export default function Settings() {
 
             {activeTab === 'preferences' && (
               <div style={{ maxWidth: '700px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
+                <div className="settings-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
                   <div>
                     <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '600', fontSize: '15px' }}>{t('currency_label')}</label>
                     <div className="select-wrapper">
@@ -631,7 +631,7 @@ export default function Settings() {
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                       {activeSessions.map((session) => (
-                        <div key={session.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: theme === 'dark' ? 'rgba(255,255,255,0.02)' : '#f8fafc', padding: '15px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                        <div key={session.id} className="session-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: theme === 'dark' ? 'rgba(255,255,255,0.02)' : '#f8fafc', padding: '15px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                             <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(45, 96, 255, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                               <span style={{ fontSize: '20px' }}>{session.device_type === 'desktop' ? '💻' : '📱'}</span>
