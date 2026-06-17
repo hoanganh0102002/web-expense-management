@@ -296,3 +296,318 @@
 .report-history-btn:active {
   transform: translateY(0);
 }
+
+/* Momo Stats UI Styles */
+.momo-stats-card {
+  background: var(--card-bg);
+  border-radius: 24px;
+  padding: 24px;
+  border: 1px solid var(--border-color);
+  margin-bottom: 30px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.02);
+}
+
+.momo-stats-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+
+.momo-stats-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-main);
+  margin: 0;
+}
+
+.momo-view-toggle {
+  display: flex;
+  background: var(--bg-color);
+  border-radius: 12px;
+  padding: 4px;
+  border: 1px solid var(--border-color);
+}
+
+.momo-view-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: #718EBF;
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.momo-view-btn.active {
+  background: #FFF0F5;
+  color: #FE5C73;
+}
+
+.momo-view-btn.active svg {
+  color: #FE5C73;
+}
+
+.momo-month-selector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin-bottom: 24px;
+}
+
+.momo-month-btn {
+  background: transparent;
+  border: none;
+  color: #718EBF;
+  cursor: pointer;
+  padding: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s;
+}
+
+.momo-month-btn:hover {
+  color: var(--text-main);
+}
+
+.momo-month-display {
+  display: flex;
+  align-items: center;
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.momo-type-toggle {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.momo-type-card {
+  flex: 1;
+  border: 2px solid var(--border-color);
+  border-radius: 16px;
+  padding: 16px;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  background: var(--bg-color);
+}
+
+.momo-type-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0,0,0,0.08);
+}
+
+.momo-type-card:hover .momo-type-title svg {
+  transform: scale(1.2) rotate(5deg);
+}
+
+.momo-type-card.expense-active {
+  border-color: #FE5C73;
+  background: rgba(254, 92, 115, 0.05);
+}
+
+.momo-type-card.income-active {
+  border-color: #10B981;
+  background: rgba(16, 185, 129, 0.05);
+}
+
+.momo-type-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #718EBF;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.momo-type-title svg {
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.expense-active .momo-type-title { color: #FE5C73; }
+.income-active .momo-type-title { color: #10B981; }
+
+.trend-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: bold;
+}
+
+.trend-arrow.up {
+  background: rgba(254, 92, 115, 0.15);
+  color: #FE5C73;
+}
+
+.trend-arrow.down {
+  background: rgba(16, 185, 129, 0.15);
+  color: #10B981;
+}
+
+.momo-type-amount {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.momo-comparison-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: rgba(45, 156, 219, 0.08);
+  border-radius: 12px;
+  padding: 12px 16px;
+  color: #2D9CDB;
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 24px;
+}
+
+.momo-top-list {
+  border-top: 1px dashed var(--border-color);
+  padding-top: 24px;
+  margin-top: 10px;
+}
+
+@keyframes listSlideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes progressGrow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+.momo-list-item-animated {
+  animation: listSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0; /* Starts hidden until animation kicks in */
+}
+
+.momo-progress-fill-animated {
+  transform-origin: left;
+  animation: progressGrow 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.momo-list-item-card {
+  cursor: pointer;
+}
+
+.momo-list-item-card:hover {
+  transform: translateY(-4px) !important;
+  box-shadow: 0 12px 24px rgba(0,0,0,0.08) !important;
+  z-index: 10;
+  position: relative;
+}
+
+.momo-list-item-icon {
+  transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.momo-list-item-card:hover .momo-list-item-icon {
+  transform: scale(1.2) rotate(5deg);
+}
+
+@keyframes pulseAlert {
+  0% { box-shadow: 0 0 0 0 rgba(254, 92, 115, 0.5); }
+  70% { box-shadow: 0 0 0 8px rgba(254, 92, 115, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(254, 92, 115, 0); }
+}
+
+.momo-badge-pulse {
+  animation: pulseAlert 2s infinite;
+}
+
+/* Momo Line Chart */
+.momo-line-chart-container {
+  margin: 20px 0 30px;
+  width: 100%;
+  overflow-x: auto;
+  padding-bottom: 20px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-color) transparent;
+}
+
+.momo-line-chart-container::-webkit-scrollbar {
+  height: 6px;
+}
+
+.momo-line-chart-container::-webkit-scrollbar-thumb {
+  background-color: var(--border-color);
+  border-radius: 10px;
+}
+
+.momo-line-scroll-area {
+  min-width: max-content;
+  width: fit-content;
+  margin: 0 auto;
+  padding: 40px 20px 10px;
+}
+
+.momo-line-axis {
+  position: absolute;
+  bottom: -25px;
+  left: 0;
+  width: 100%;
+  font-size: 11px;
+  color: #718EBF;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.momo-line-tooltip {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  background: #1f2937;
+  border-radius: 8px;
+  padding: 8px 12px;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+  pointer-events: none;
+  z-index: 10;
+  white-space: nowrap;
+  animation: tooltipFadeIn 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.momo-line-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 6px;
+  border-style: solid;
+  border-color: #1f2937 transparent transparent transparent;
+}
+
+.momo-line-tooltip-date {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-bottom: 4px;
+}
+
+.momo-line-tooltip-amt {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+@keyframes tooltipFadeIn {
+  from { opacity: 0; transform: translate(-50%, 5px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}

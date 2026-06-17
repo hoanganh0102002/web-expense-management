@@ -226,6 +226,7 @@ const translations: Record<string, Record<string, string>> = {
     rent: "Tiền thuê",
 
     // Budget Extra
+    budget_warning: "CẢNH BÁO NGÂN SÁCH",
     budget_no_expenses: "Chưa phát sinh chi tiêu trong tháng này",
     budget_no_expenses_desc: "Biểu đồ phân tích sẽ tự động hiển thị ngay khi bạn có giao dịch chi tiêu được hoàn tất trong tháng.",
     total_spending_label: "TỔNG CHI",
@@ -593,6 +594,7 @@ const translations: Record<string, Record<string, string>> = {
     rent: "Rent",
 
     // Budget Extra
+    budget_warning: "BUDGET WARNING",
     budget_no_expenses: "No expenses recorded this month",
     budget_no_expenses_desc: "Spending charts will automatically appear as soon as you complete transactions this month.",
     total_spending_label: "TOTAL SPEND",
