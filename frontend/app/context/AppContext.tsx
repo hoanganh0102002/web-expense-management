@@ -1,6 +1,7 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { walletApi, authApi, categoryApi, transactionApi } from '../lib/api';
+import { requestAndRegisterNotificationPermission } from '../lib/firebaseNotification';
 
 type AppContextType = {
   isLoggedIn: boolean;
@@ -52,6 +53,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchWallets();
       fetchCategories();
       fetchTransactions();
+      requestAndRegisterNotificationPermission();
     }
     const savedUser = localStorage.getItem('user_data');
     if (savedUser) {
@@ -208,9 +210,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     fetchWallets();
     fetchCategories();
+    requestAndRegisterNotificationPermission();
   };
 
   const logout = async () => {
+    const fcmToken = typeof window !== 'undefined' ? localStorage.getItem('fcm_device_token') : null;
+    if (fcmToken) {
+      try {
+        await authApi.unregisterDeviceToken(fcmToken);
+      } catch (e) {
+        console.error('Unregister device token error:', e);
+      }
+      localStorage.removeItem('fcm_device_token');
+    }
     const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
     if (token) {
       try {
