@@ -50,6 +50,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const savedLogin = localStorage.getItem('isLoggedIn');
     if (savedLogin === 'true') {
       setIsLoggedIn(true);
+      
+      // Warm up cache from localStorage to prevent wait time/blank pages
+      const cachedWallets = localStorage.getItem('cached_wallets');
+      const cachedCategories = localStorage.getItem('cached_categories');
+      const cachedTransactions = localStorage.getItem('cached_transactions');
+      
+      if (cachedWallets) {
+        try { setWallets(JSON.parse(cachedWallets)); } catch (e) {}
+      }
+      if (cachedCategories) {
+        try { setCategories(JSON.parse(cachedCategories)); } catch (e) {}
+      }
+      if (cachedTransactions) {
+        try { setTransactions(JSON.parse(cachedTransactions)); } catch (e) {}
+      }
+
       fetchWallets();
       fetchCategories();
       fetchTransactions();
@@ -104,10 +120,25 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const fetchTransactions = async (params: any = {}) => {
     if (!localStorage.getItem('access_token')) return;
-    setIsLoadingTransactions(true);
+    
+    // Only set loading if no filters are present and we have no cached transactions
+    const isFiltered = Object.keys(params).length > 0;
+    const hasCache = transactions.length > 0 || localStorage.getItem('cached_transactions');
+    if (!isFiltered && !hasCache) {
+      setIsLoadingTransactions(true);
+    }
+
     try {
       const response = await transactionApi.getAll(params);
-      setTransactions(response.data?.data || response.data || []);
+      const data = response.data?.data || response.data || [];
+      
+      // Update state and cache for default transactions list
+      if (!isFiltered) {
+        setTransactions(data);
+        localStorage.setItem('cached_transactions', JSON.stringify(data));
+      } else {
+        setTransactions(data);
+      }
       return response.data;
     } catch (error: any) {
       if (error.message !== 'Refresh token failed' && !error.message?.includes('Hết phiên đăng nhập')) {
@@ -136,10 +167,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const fetchWallets = async () => {
     if (!localStorage.getItem('access_token')) return;
-    setIsLoadingWallets(true);
+    
+    // Skip visible loading if cached wallets already exist
+    const hasCache = wallets.length > 0 || localStorage.getItem('cached_wallets');
+    if (!hasCache) {
+      setIsLoadingWallets(true);
+    }
+
     try {
       const response = await walletApi.getAll();
-      setWallets(response.data || []);
+      const data = response.data || [];
+      setWallets(data);
+      localStorage.setItem('cached_wallets', JSON.stringify(data));
     } catch (error: any) {
       if (error.message !== 'Refresh token failed' && !error.message?.includes('Hết phiên đăng nhập')) {
         console.error("Lấy danh sách ví thất bại:", error);
@@ -166,10 +205,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const fetchCategories = async () => {
     if (!localStorage.getItem('access_token')) return;
-    setIsLoadingCategories(true);
+    
+    // Skip visible loading if cached categories already exist
+    const hasCache = categories.length > 0 || localStorage.getItem('cached_categories');
+    if (!hasCache) {
+      setIsLoadingCategories(true);
+    }
+
     try {
       const response = await categoryApi.getAll();
-      setCategories(response.data || []);
+      const data = response.data || [];
+      setCategories(data);
+      localStorage.setItem('cached_categories', JSON.stringify(data));
     } catch (error: any) {
       if (error.message !== 'Refresh token failed' && !error.message?.includes('Hết phiên đăng nhập')) {
         console.error("Lấy danh sách danh mục thất bại:", error);
@@ -238,6 +285,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user_data');
+    localStorage.removeItem('cached_wallets');
+    localStorage.removeItem('cached_categories');
+    localStorage.removeItem('cached_transactions');
     setUserData(null);
     setWallets([]);
     setCategories([]);
