@@ -74,15 +74,28 @@ export default function Notifications() {
   const { t } = useLanguage();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newNotif, setNewNotif] = useState({ title: '', desc: '' });
-  const [notificationsList, setNotificationsList] = useState<any[]>([]);
+  const [notificationsList, setNotificationsList] = useState<any[]>(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem('cached_notifications');
+      if (cached) {
+        try { return JSON.parse(cached); } catch (e) {}
+      }
+    }
+    return [];
+  });
   const [isLoading, setIsLoading] = useState(false);
   
   const fetchNotifications = async () => {
     if (!isLoggedIn) return;
-    setIsLoading(true);
+    const hasCache = notificationsList.length > 0 || (typeof window !== 'undefined' && localStorage.getItem('cached_notifications'));
+    if (!hasCache) {
+      setIsLoading(true);
+    }
     try {
       const res = await notificationApi.getAll();
-      setNotificationsList(res.data || []);
+      const list = res.data || [];
+      setNotificationsList(list);
+      localStorage.setItem('cached_notifications', JSON.stringify(list));
     } catch (e) {
       console.error("Lỗi khi tải thông báo:", e);
     } finally {

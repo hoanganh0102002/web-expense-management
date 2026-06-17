@@ -369,11 +369,36 @@ export default function Reports() {
     if (!isLoggedIn) return;
 
     const fetchData = async () => {
-      setIsLoadingTopCategories(true);
-      setIsLoadingTopWallets(true);
-      setIsLoadingTrends6M(true);
-      setIsLoadingInsights(true);
-      setIsLoadingTransactions(true);
+      const cacheKey = `cached_report_${startDate}_${endDate}_${selectedWallet}_${reportType}`;
+      let hasCache = false;
+      if (typeof window !== 'undefined') {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          hasCache = true;
+          try {
+            const parsed = JSON.parse(cached);
+            if (parsed.currentSummary) setCurrentSummary(parsed.currentSummary);
+            if (parsed.prevSummary) setPrevSummary(parsed.prevSummary);
+            if (parsed.trends6M) setTrends6M(parsed.trends6M);
+            if (parsed.budgetMap) setBudgetMap(parsed.budgetMap);
+            if (parsed.transactions) setTransactions(parsed.transactions);
+            if (parsed.insights) setInsights(parsed.insights);
+            if (parsed.topCategories) setTopCategories(parsed.topCategories);
+            if (parsed.topWallets) setTopWallets(parsed.topWallets);
+            if (parsed.dailyData) setDailyData(parsed.dailyData);
+            if (parsed.maxDailyAmt) setMaxDailyAmt(parsed.maxDailyAmt);
+            if (parsed.abnormalDays) setAbnormalDays(parsed.abnormalDays);
+          } catch (e) {}
+        }
+      }
+
+      if (!hasCache) {
+        setIsLoadingTopCategories(true);
+        setIsLoadingTopWallets(true);
+        setIsLoadingTrends6M(true);
+        setIsLoadingInsights(true);
+        setIsLoadingTransactions(true);
+      }
       try {
         const d = new Date(startDate);
         let month = d.getMonth() + 1;
@@ -690,6 +715,37 @@ export default function Reports() {
     const timer = setTimeout(() => { fetchData(); }, 300);
     return () => clearTimeout(timer);
   }, [isLoggedIn, startDate, endDate, selectedWallet, reportType, t, wallets]);
+
+  // Save report cache when data updates
+  useEffect(() => {
+    if (isLoggedIn && typeof window !== 'undefined') {
+      const cacheKey = `cached_report_${startDate}_${endDate}_${selectedWallet}_${reportType}`;
+      if (
+        currentSummary.income !== 0 ||
+        currentSummary.expense !== 0 ||
+        topCategories.length > 0 ||
+        transactions.length > 0
+      ) {
+        localStorage.setItem(cacheKey, JSON.stringify({
+          currentSummary,
+          prevSummary,
+          trends6M,
+          budgetMap,
+          transactions,
+          insights,
+          topCategories,
+          topWallets,
+          dailyData,
+          maxDailyAmt,
+          abnormalDays
+        }));
+      }
+    }
+  }, [
+    currentSummary, prevSummary, trends6M, budgetMap, transactions, insights,
+    topCategories, topWallets, dailyData, maxDailyAmt, abnormalDays,
+    isLoggedIn, startDate, endDate, selectedWallet, reportType
+  ]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
