@@ -47,6 +47,37 @@ const formatDate = (dateStr: string) => {
   }
 };
 
+const getDatesBetween = (startDateStr: string, endDateStr: string): string[] => {
+  const dates: string[] = [];
+  if (!startDateStr || !endDateStr) return dates;
+  let curr = new Date(startDateStr);
+  const end = new Date(endDateStr);
+  while (curr <= end) {
+    const dateString = `${curr.getFullYear()}-${String(curr.getMonth() + 1).padStart(2, '0')}-${String(curr.getDate()).padStart(2, '0')}`;
+    dates.push(dateString);
+    curr.setDate(curr.getDate() + 1);
+  }
+  return dates;
+};
+
+const getMonthsBetween = (startDateStr: string, endDateStr: string): any[] => {
+  const months: any[] = [];
+  if (!startDateStr || !endDateStr) return months;
+  let curr = new Date(startDateStr);
+  curr.setDate(1); // avoid month overflow issues
+  const end = new Date(endDateStr);
+  end.setDate(1);
+  while (curr <= end) {
+    months.push({
+      month: curr.getMonth() + 1,
+      year: curr.getFullYear(),
+      label: `${String(curr.getMonth() + 1).padStart(2, '0')}/${curr.getFullYear()}`
+    });
+    curr.setMonth(curr.getMonth() + 1);
+  }
+  return months;
+};
+
 export default function Dashboard() {
   const router = useRouter();
   const { isLoggedIn, wallets, transactions, isLoadingWallets, userData, categories } = useAppContext();
@@ -96,6 +127,34 @@ export default function Dashboard() {
     });
     return map;
   }, [categories]);
+
+  const mergedTrends = useMemo(() => {
+    if (trendsGroupBy === 'day') {
+      const dates = getDatesBetween(activeStartDate, activeEndDate);
+      return dates.map(dateStr => {
+        const found = trendsData.find(t => t.date === dateStr);
+        const d = new Date(dateStr);
+        return {
+          label: `${d.getDate()}/${d.getMonth() + 1}`,
+          date: dateStr,
+          income: found ? Number(found.income) : 0,
+          expense: found ? Number(found.expense) : 0
+        };
+      });
+    } else {
+      const months = getMonthsBetween(activeStartDate, activeEndDate);
+      return months.map(m => {
+        const found = trendsData.find(t => Number(t.month) === m.month && Number(t.year) === m.year);
+        return {
+          label: m.label,
+          month: m.month,
+          year: m.year,
+          income: found ? Number(found.income) : 0,
+          expense: found ? Number(found.expense) : 0
+        };
+      });
+    }
+  }, [trendsData, trendsGroupBy, activeStartDate, activeEndDate]);
 
   const now = useMemo(() => new Date(), []);
   const currentMonth = now.getMonth() + 1;
@@ -273,102 +332,163 @@ export default function Dashboard() {
       }
     };
 
-    // Fetch category and daily spending stats: We load transactions for the selected range (optionally filtered by wallet)
-    setIsLoadingCategory(true);
-    setIsLoadingDailyTrends(true);
-    transactionApi.getAll({ start_date, end_date, per_page: 2000, wallet_id: selectedWalletId || undefined })
-      .then(res => {
-        const txList = res.data?.data || res.data || [];
-        const grouped: Record<string, any> = {};
-        
-        // Calculate daily trends client-side
-        const dailyMap: Record<string, number> = {};
-        const monthlyMap: Record<string, number> = {};
+    if (selectedWalletId) {
+      // Fetch category and daily spending stats: We load transactions for the selected range filtered by wallet
+      setIsLoadingCategory(true);
+      setIsLoadingDailyTrends(true);
+      setIsLoadingTrends(true);
+      transactionApi.getAll({ start_date, end_date, per_page: 2000, wallet_id: selectedWalletId })
+        .then(res => {
+          const txList = res.data?.data || res.data || [];
+          const grouped: Record<string, any> = {};
+          
+          // Calculate daily trends client-side
+          const dailyMap: Record<string, number> = {};
+          const monthlyMap: Record<string, number> = {};
+          const trendsMap: Record<string, { income: number; expense: number }> = {};
 
-        txList.forEach((tx: any) => {
-          if (tx.type !== 'expense') return;
-          const amt = Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0));
-          if (amt === 0) return;
-          
-          const catId = tx.category_id || 'other';
-          const fullCat = categoriesMap[catId];
-          
-          const catName = fullCat?.name || tx.category?.name || tx.category_name || t('other');
-          const catColor = fullCat?.color || tx.category?.color || '#718EBF';
-          const catIcon = fullCat?.icon || tx.category?.icon || '📁';
-          const parentId = fullCat?.parent_id || tx.category?.parent_id || null;
-          
-          let parentName = fullCat?.parent_name || tx.category?.parent?.name || null;
-          if (!parentName && parentId) {
-            parentName = categoriesMap[parentId]?.name || null;
-          }
-          
-          if (!grouped[catId]) {
-            grouped[catId] = {
-              category_id: catId,
-              category_name: catName,
-              category_color: catColor,
-              category_icon: catIcon,
-              parent_id: parentId,
-              parent_name: parentName,
-              amount: 0
-            };
-          }
-          grouped[catId].amount += amt;
+          txList.forEach((tx: any) => {
+            const amt = Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0));
+            const type = tx.type;
 
-          // Compute daily trends keys
-          const dateStr = tx.transaction_date ? tx.transaction_date.substring(0, 10) : '';
-          if (dateStr) {
-            const localDate = getLocalDateString(tx.transaction_date);
-            dailyMap[localDate] = (dailyMap[localDate] || 0) + amt;
-            
-            const localMonth = getLocalMonthString(tx.transaction_date);
-            monthlyMap[localMonth] = (monthlyMap[localMonth] || 0) + amt;
-          }
-        });
-        
-        setCategoryData(Object.values(grouped));
+            // Categories grouping (only for expense)
+            if (type === 'expense' && amt > 0) {
+              const catId = tx.category_id || 'other';
+              const fullCat = categoriesMap[catId];
+              
+              const catName = fullCat?.name || tx.category?.name || tx.category_name || t('other');
+              const catColor = fullCat?.color || tx.category?.color || '#718EBF';
+              const catIcon = fullCat?.icon || tx.category?.icon || '📁';
+              const parentId = fullCat?.parent_id || tx.category?.parent_id || null;
+              
+              let parentName = fullCat?.parent_name || tx.category?.parent?.name || null;
+              if (!parentName && parentId) {
+                parentName = categoriesMap[parentId]?.name || null;
+              }
+              
+              if (!grouped[catId]) {
+                grouped[catId] = {
+                  category_id: catId,
+                  category_name: catName,
+                  category_color: catColor,
+                  category_icon: catIcon,
+                  parent_id: parentId,
+                  parent_name: parentName,
+                  amount: 0
+                };
+              }
+              grouped[catId].amount += amt;
+            }
 
-        // Format daily trends matching SVG expectations
-        const computedDailyTrends: any[] = [];
-        if (trendsGroupBy === 'day') {
-          Object.entries(dailyMap).forEach(([date, expense]) => {
-            computedDailyTrends.push({ date, expense });
+            // Trends grouping (daily & monthly)
+            const dateStr = tx.transaction_date ? tx.transaction_date.substring(0, 10) : '';
+            if (dateStr) {
+              const localDate = getLocalDateString(tx.transaction_date);
+              const localMonth = getLocalMonthString(tx.transaction_date);
+
+              // Daily/monthly expense for spline
+              if (type === 'expense') {
+                dailyMap[localDate] = (dailyMap[localDate] || 0) + amt;
+                monthlyMap[localMonth] = (monthlyMap[localMonth] || 0) + amt;
+              }
+
+              // Income vs Expense grouped by day/month for column chart
+              const key = trendsGroupBy === 'day' ? localDate : localMonth;
+              if (!trendsMap[key]) {
+                trendsMap[key] = { income: 0, expense: 0 };
+              }
+              if (type === 'income') {
+                trendsMap[key].income += amt;
+              } else if (type === 'expense') {
+                trendsMap[key].expense += amt;
+              }
+            }
           });
-        } else {
-          Object.entries(monthlyMap).forEach(([monthStr, expense]) => {
-            const [year, month] = monthStr.split('-');
-            computedDailyTrends.push({
-              month: parseInt(month, 10),
-              year: parseInt(year, 10),
-              expense
+          
+          setCategoryData(Object.values(grouped));
+
+          // Format daily trends matching SVG expectations
+          const computedDailyTrends: any[] = [];
+          if (trendsGroupBy === 'day') {
+            Object.entries(dailyMap).forEach(([date, expense]) => {
+              computedDailyTrends.push({ date, expense });
             });
-          });
-        }
-        setDailyTrendsData(computedDailyTrends);
-      })
-      .catch(err => console.error("Error fetching categories and trends via transactions:", err))
-      .finally(() => {
-        setIsLoadingCategory(false);
-        setIsLoadingDailyTrends(false);
-      });
+          } else {
+            Object.entries(monthlyMap).forEach(([monthStr, expense]) => {
+              const [year, month] = monthStr.split('-');
+              computedDailyTrends.push({
+                month: parseInt(month, 10),
+                year: parseInt(year, 10),
+                expense
+              });
+            });
+          }
+          setDailyTrendsData(computedDailyTrends);
 
-    // Fetch static 6-month trends
-    setIsLoadingTrends(true);
-    const start6M = new Date(now.getFullYear(), now.getMonth() - 5, 1);
-    const start_date_6m = `${start6M.getFullYear()}-${String(start6M.getMonth() + 1).padStart(2, '0')}-01`;
-    const end_date_6m = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()).padStart(2, '0')}`;
-    
-    reportApi.getTrends(start_date_6m, end_date_6m, 'month')
-      .then(res => {
-        if (res.status === 'success' && res.data) {
-          setTrendsData(res.data || []);
-        }
-      })
-      .catch(err => console.error("Error fetching trends:", err))
-      .finally(() => setIsLoadingTrends(false));
+          // Format trends data for column chart matching API expectations
+          const computedTrends: any[] = [];
+          if (trendsGroupBy === 'day') {
+            Object.entries(trendsMap).forEach(([date, val]) => {
+              const d = new Date(date);
+              computedTrends.push({
+                label: `${d.getDate()}/${d.getMonth() + 1}`,
+                date,
+                income: val.income,
+                expense: val.expense
+              });
+            });
+          } else {
+            Object.entries(trendsMap).forEach(([monthStr, val]) => {
+              const [year, month] = monthStr.split('-');
+              computedTrends.push({
+                label: `${month}/${year}`,
+                month: parseInt(month, 10),
+                year: parseInt(year, 10),
+                income: val.income,
+                expense: val.expense
+              });
+            });
+          }
+          setTrendsData(computedTrends);
+        })
+        .catch(err => console.error("Error fetching categories and trends via transactions:", err))
+        .finally(() => {
+          setIsLoadingCategory(false);
+          setIsLoadingDailyTrends(false);
+          setIsLoadingTrends(false);
+        });
+    } else {
+      // Selected wallet is empty (All wallets) -> Query aggregated backend API
+      setIsLoadingCategory(true);
+      setIsLoadingDailyTrends(true);
+      setIsLoadingTrends(true);
 
-  }, [isLoggedIn, timePeriod, customStartDate, customEndDate, transactions, categoriesMap, selectedWalletId]);
+      // 1. Fetch categories
+      reportApi.getCategories({ start_date, end_date, type: 'expense' })
+        .then(res => {
+          if (res.status === 'success' && res.data) {
+            setCategoryData(res.data.categories || []);
+          }
+        })
+        .catch(err => console.error("Error fetching categories:", err))
+        .finally(() => setIsLoadingCategory(false));
+
+      // 2. Fetch trends (for both columns and line charts)
+      reportApi.getTrends(start_date, end_date, trendsGroupBy)
+        .then(res => {
+          if (res.status === 'success' && res.data) {
+            setTrendsData(res.data || []);
+            setDailyTrendsData(res.data || []);
+          }
+        })
+        .catch(err => console.error("Error fetching trends:", err))
+        .finally(() => {
+          setIsLoadingDailyTrends(false);
+          setIsLoadingTrends(false);
+        });
+    }
+
+  }, [isLoggedIn, timePeriod, customStartDate, customEndDate, transactions, categoriesMap, selectedWalletId, trendsGroupBy]);
 
   const handleCopyBudgets = async () => {
     const fromMonth = currentMonth === 1 ? 12 : currentMonth - 1;
@@ -753,7 +873,7 @@ export default function Dashboard() {
                   <div className="bars-container" style={{
                     position: 'relative',
                     display: 'flex',
-                    gap: '24px',
+                    gap: mergedTrends.length > 15 ? (mergedTrends.length > 25 ? '2px' : '6px') : '24px',
                     alignItems: 'flex-end',
                     justifyContent: 'space-around',
                     height: '200px',
@@ -771,42 +891,22 @@ export default function Dashboard() {
                       <div style={{ borderTop: '1px dashed var(--border-color)', width: '100%', height: '0', opacity: 0.2 }}></div>
                     </div>
 
-                    {!isLoggedIn || trendsData.length === 0 ? (
+                    {!isLoggedIn || mergedTrends.length === 0 ? (
                       <div style={{ display: 'flex', width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', zIndex: 1 }}>
                         <p style={{ color: '#718EBF' }}>{isLoadingTrends ? t('loading') : t('no_transaction_data')}</p>
                       </div>
                     ) : (
                       (() => {
-                        // Generate list of the last 6 months (chronological order)
-                        const last6Months = [];
-                        for (let i = 5; i >= 0; i--) {
-                          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-                          const m = d.getMonth() + 1;
-                          const y = d.getFullYear();
-                          const label = `${String(m).padStart(2, '0')}/${y}`;
-                          last6Months.push({
-                            label,
-                            month: m,
-                            year: y,
-                            income: 0,
-                            expense: 0
-                          });
-                        }
-
-                        // Merge backend data with the empty months list
-                        const mergedTrends = last6Months.map(item => {
-                          const found = trendsData.find(t => Number(t.month) === item.month && Number(t.year) === item.year);
-                          return found ? {
-                            ...item,
-                            income: Number(found.income),
-                            expense: Number(found.expense)
-                          } : item;
-                        });
-
                         const maxVal = Math.max(...mergedTrends.map(t => Math.max(t.income, t.expense)), 1000);
+                        const colWidth = mergedTrends.length > 15 ? (mergedTrends.length > 25 ? '6px' : '10px') : '16px';
+                        const colGap = mergedTrends.length > 15 ? (mergedTrends.length > 25 ? '2px' : '4px') : '6px';
+                        const tooltipPrefix = trendsGroupBy === 'day' ? (t('day_label') || 'Ngày') : (t('month_label_prefix') || 'Tháng');
+
                         return mergedTrends.map((trend, idx) => {
                           const incomeHeight = `${Math.max((trend.income / maxVal) * 100, 2)}%`;
                           const expenseHeight = `${Math.max((trend.expense / maxVal) * 100, 2)}%`;
+                          const showLabel = mergedTrends.length <= 12 || idx % Math.ceil(mergedTrends.length / 6) === 0 || idx === mergedTrends.length - 1;
+
                           return (
                             <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, height: '100%', justifyContent: 'flex-end', zIndex: 1, position: 'relative' }}>
                               
@@ -832,20 +932,20 @@ export default function Dashboard() {
                                   gap: '2px',
                                   alignItems: 'center'
                                 }}>
-                                  <span style={{ fontSize: '9px', opacity: 0.7, textTransform: 'uppercase' }}>{t('month_label_prefix')} {trend.label}</span>
+                                  <span style={{ fontSize: '9px', opacity: 0.7, textTransform: 'uppercase' }}>{tooltipPrefix} {trend.label}</span>
                                   <span style={{ color: hoveredBar.type === 'income' ? '#16DBCC' : '#FF6B81' }}>
                                     {hoveredBar.type === 'income' ? `+ ${formatCurrency(trend.income)}` : `- ${formatCurrency(trend.expense)}`}
                                   </span>
                                 </div>
                               )}
 
-                              <div style={{ display: 'flex', alignItems: 'flex-end', gap: '6px', height: '130px', width: '100%', justifyContent: 'center' }}>
+                              <div style={{ display: 'flex', alignItems: 'flex-end', gap: colGap, height: '130px', width: '100%', justifyContent: 'center' }}>
                                 {/* Income Column */}
                                 <div 
                                   onMouseEnter={() => setHoveredBar({ idx, type: 'income' })}
                                   onMouseLeave={() => setHoveredBar({ idx, type: null })}
                                   style={{
-                                    width: '16px',
+                                    width: colWidth,
                                     height: incomeHeight,
                                     background: 'linear-gradient(180deg, #16DBCC 0%, #0BB5A7 100%)',
                                     borderRadius: '8px 8px 0 0',
@@ -861,7 +961,7 @@ export default function Dashboard() {
                                   onMouseEnter={() => setHoveredBar({ idx, type: 'expense' })}
                                   onMouseLeave={() => setHoveredBar({ idx, type: null })}
                                   style={{
-                                    width: '16px',
+                                    width: colWidth,
                                     height: expenseHeight,
                                     background: 'linear-gradient(180deg, #FF6B81 0%, #FE5C73 100%)',
                                     borderRadius: '8px 8px 0 0',
@@ -873,19 +973,26 @@ export default function Dashboard() {
                                   }}
                                 />
                               </div>
-                              <span style={{
-                                fontSize: '10px',
-                                color: 'var(--text-light)',
-                                marginTop: '12px',
-                                fontWeight: '700',
-                                background: 'var(--border-color)',
-                                padding: '2px 8px',
-                                borderRadius: '10px',
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.5px'
-                              }}>
-                                {trend.label}
-                              </span>
+                              {showLabel && (
+                                <span style={{
+                                  position: 'absolute',
+                                  bottom: '-28px',
+                                  left: '50%',
+                                  transform: 'translateX(-50%)',
+                                  fontSize: '9px',
+                                  color: 'var(--text-light)',
+                                  fontWeight: '700',
+                                  background: 'var(--border-color)',
+                                  padding: '2px 6px',
+                                  borderRadius: '10px',
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.5px',
+                                  whiteSpace: 'nowrap',
+                                  zIndex: 2
+                                }}>
+                                  {trend.label}
+                                </span>
+                              )}
                             </div>
                           );
                         });
@@ -1220,38 +1327,7 @@ export default function Dashboard() {
                   </div>
                 ) : (
                   (() => {
-                    // Helper to get all dates between two dates
-                    const getDatesBetween = (startDateStr: string, endDateStr: string): string[] => {
-                      const dates: string[] = [];
-                      if (!startDateStr || !endDateStr) return dates;
-                      let curr = new Date(startDateStr);
-                      const end = new Date(endDateStr);
-                      while (curr <= end) {
-                        const dateString = `${curr.getFullYear()}-${String(curr.getMonth() + 1).padStart(2, '0')}-${String(curr.getDate()).padStart(2, '0')}`;
-                        dates.push(dateString);
-                        curr.setDate(curr.getDate() + 1);
-                      }
-                      return dates;
-                    };
 
-                    // Helper to get all months between two dates
-                    const getMonthsBetween = (startDateStr: string, endDateStr: string): any[] => {
-                      const months: any[] = [];
-                      if (!startDateStr || !endDateStr) return months;
-                      let curr = new Date(startDateStr);
-                      curr.setDate(1); // avoid month overflow issues
-                      const end = new Date(endDateStr);
-                      end.setDate(1);
-                      while (curr <= end) {
-                        months.push({
-                          month: curr.getMonth() + 1,
-                          year: curr.getFullYear(),
-                          label: `${String(curr.getMonth() + 1).padStart(2, '0')}/${curr.getFullYear()}`
-                        });
-                        curr.setMonth(curr.getMonth() + 1);
-                      }
-                      return months;
-                    };
 
                     const processedDailyTrends: any[] = [];
                     
