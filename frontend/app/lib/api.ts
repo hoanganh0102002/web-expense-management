@@ -336,4 +336,13 @@ export const reportApi = {
   }
 };
 
+// --- AI APIs ---
+export const aiApi = {
+  chat: (prompt: string) => apiFetch('/ai-chat', {
+    method: 'POST',
+    body: JSON.stringify({ prompt })
+  })
+};
+
+
 
