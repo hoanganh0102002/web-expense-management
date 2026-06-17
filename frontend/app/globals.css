@@ -894,7 +894,7 @@ body.dark-theme .settings-destructive-btn:hover:not(:disabled) {
 @media (max-width: 768px) {
   /* Sidebar Mobile Drawer */
   .sidebar {
-    position: fixed;
+    position: fixed !important;
     top: 0;
     left: 0;
     bottom: 0;
