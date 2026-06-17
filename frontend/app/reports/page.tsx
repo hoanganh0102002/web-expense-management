@@ -5,7 +5,7 @@ import Script from 'next/script';
 import Sidebar from '../components/Sidebar';
 import { useAppContext } from '../context/AppContext';
 import { useLanguage } from '../lib/translations';
-import { reportApi, transactionApi } from '../lib/api';
+import { reportApi, transactionApi, budgetApi } from '../lib/api';
 import './reports.css';
 
 
@@ -66,15 +66,40 @@ export default function Reports() {
   
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
-    d.setDate(1);
-    return d.toISOString().split('T')[0];
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
   });
   const [endDate, setEndDate] = useState(() => {
     const d = new Date();
-    d.setMonth(d.getMonth() + 1);
-    d.setDate(0);
-    return d.toISOString().split('T')[0];
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()).padStart(2, '0')}`;
   });
+
+  const handlePrevMonth = () => {
+    const d = new Date(startDate);
+    d.setMonth(d.getMonth() - 1);
+    setStartDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`);
+    setEndDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()).padStart(2, '0')}`);
+  };
+
+  const handleNextMonth = () => {
+    const d = new Date(startDate);
+    d.setMonth(d.getMonth() + 1);
+    setStartDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`);
+    setEndDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()).padStart(2, '0')}`);
+  };
+
+  const getDisplayMonth = () => {
+    const s = new Date(startDate);
+    const e = new Date(endDate);
+    const now = new Date();
+    if (s.getMonth() === now.getMonth() && s.getFullYear() === now.getFullYear() && e.getDate() === new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()) {
+      return 'Tháng này';
+    }
+    if (s.getMonth() === e.getMonth() && s.getFullYear() === e.getFullYear()) {
+      return `Tháng ${s.getMonth() + 1}/${s.getFullYear()}`;
+    }
+    return `${s.getDate()}/${s.getMonth() + 1} - ${e.getDate()}/${e.getMonth() + 1}`;
+  };
+
   const [isExporting, setIsExporting] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
   const [isExportingCSV, setIsExportingCSV] = useState(false);
@@ -83,6 +108,182 @@ export default function Reports() {
   const [selectedType, setSelectedType] = useState('');
 
   const [exportHistory, setExportHistory] = useState<any[]>([]);
+  
+  // Momo UI States
+  const [viewMode, setViewMode] = useState<'allocation' | 'trend'>('allocation');
+  const [reportType, setReportType] = useState<'expense' | 'income'>('expense');
+  const [topCategories, setTopCategories] = useState<any[]>([]);
+  const [isLoadingTopCategories, setIsLoadingTopCategories] = useState(false);
+  const [budgetMap, setBudgetMap] = useState<Record<string, number>>({});
+  
+  const [currentSummary, setCurrentSummary] = useState({ income: 0, expense: 0 });
+  const [prevSummary, setPrevSummary] = useState({ income: 0, expense: 0 });
+  const [hoveredCategory, setHoveredCategory] = useState<number | null>(null);
+
+  // Trend Chart State
+  const [dailyData, setDailyData] = useState<{ day: number, date: string, amount: number }[]>([]);
+  const [maxDailyAmt, setMaxDailyAmt] = useState(0);
+  const [hoveredDay, setHoveredDay] = useState<number | null>(null);
+
+  // List Animation State
+  const [listVisible, setListVisible] = useState(false);
+
+  // Abnormal Spending State
+  const [abnormalDays, setAbnormalDays] = useState<{ day: number, date: string, amount: number, avg: number }[]>([]);
+
+  useEffect(() => {
+    setListVisible(false);
+    const timer = setTimeout(() => {
+      setListVisible(true);
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [reportType, topCategories, viewMode]);
+
+  const formatCurrency = (val: number | string) => {
+    const numericAmount = typeof val === 'string' ? parseFloat(val) : val;
+    if (isNaN(numericAmount)) return '0';
+    return new Intl.NumberFormat('vi-VN').format(numericAmount) + 'đ';
+  };
+
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    const fetchData = async () => {
+      setIsLoadingTopCategories(true);
+      try {
+        const d = new Date(startDate);
+        let month = d.getMonth() + 1;
+        let year = d.getFullYear();
+        if (isNaN(month) || isNaN(year)) {
+          const now = new Date();
+          month = now.getMonth() + 1;
+          year = now.getFullYear();
+        }
+
+        // Prev month dates
+        const prevMonthDate = new Date(year, month - 2, 1);
+        const prevStartDate = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}-01`;
+        const prevEndDate = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}-${String(new Date(prevMonthDate.getFullYear(), prevMonthDate.getMonth() + 1, 0).getDate()).padStart(2, '0')}`;
+
+        // Fetch Summary for both months
+        const [currRes, prevRes] = await Promise.all([
+          reportApi.getSummary(startDate, endDate, selectedWallet || undefined).catch(() => ({ data: { income: 0, expense: 0 } })),
+          reportApi.getSummary(prevStartDate, prevEndDate, selectedWallet || undefined).catch(() => ({ data: { income: 0, expense: 0 } }))
+        ]);
+        
+        setCurrentSummary({ income: currRes.data?.income || 0, expense: currRes.data?.expense || 0 });
+        setPrevSummary({ income: prevRes.data?.income || 0, expense: prevRes.data?.expense || 0 });
+
+        // Fetch budgets
+        const budgetsRes = await budgetApi.getAll(month, year).catch(() => ({ data: [] }));
+        const bMap: Record<string, number> = {};
+        (budgetsRes.data || []).forEach((b: any) => {
+          if (b.category_id) bMap[b.category_id] = parseFloat(b.limit_amount);
+        });
+        setBudgetMap(bMap);
+
+        // Fetch transactions for current month
+        const txRes = await transactionApi.getAll({
+          start_date: startDate,
+          end_date: endDate,
+          limit: 10000,
+          wallet_id: selectedWallet || undefined
+        }).catch(() => ({ data: [] }));
+
+        const txs = Array.isArray(txRes.data) ? txRes.data : (txRes.data?.data || []);
+
+        const categoryTotals: Record<string, any> = {};
+        let totalVal = 0;
+        
+        const expenseFallbackColors = ['#FE5C73', '#FBBF24', '#A78BFA', '#F472B6', '#FB923C', '#E83E8C'];
+        const incomeFallbackColors = ['#10B981', '#38BDF8', '#34D399', '#2DD4BF', '#4ADE80', '#60A5FA'];
+        const fallbackColors = reportType === 'expense' ? expenseFallbackColors : incomeFallbackColors;
+        let colorIdx = 0;
+        
+        txs.forEach((tx: any) => {
+          if (tx.type !== reportType) return;
+          const catId = tx.category_id || 'other';
+          const amount = Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0));
+          if (amount === 0) return;
+
+          totalVal += amount;
+          if (!categoryTotals[catId]) {
+            let catColor = tx.category?.color;
+            if (!catColor) {
+              if (catId === 'other') catColor = '#94A3B8';
+              else {
+                catColor = fallbackColors[colorIdx % fallbackColors.length];
+                colorIdx++;
+              }
+            }
+
+            categoryTotals[catId] = {
+              id: catId,
+              name: tx.category?.name || tx.category_name || t('other') || 'Khác',
+              icon: tx.category?.icon || '📁',
+              color: catColor,
+              amount: 0
+            };
+          }
+          categoryTotals[catId].amount += amount;
+        });
+
+        // Daily Data Calculation
+        const dailyMap: Record<number, number> = {};
+        const daysInMonth = new Date(year, month, 0).getDate();
+        for (let i = 1; i <= daysInMonth; i++) dailyMap[i] = 0;
+
+        txs.forEach((tx: any) => {
+          if (tx.type !== reportType) return;
+          const amt = Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0));
+          if (amt === 0) return;
+          let txDateStr = tx.transaction_date;
+          if (!txDateStr && tx.created_at) txDateStr = tx.created_at.split('T')[0];
+          
+          if (txDateStr) {
+            const parts = txDateStr.split('-');
+            if (parts.length >= 3) {
+              const day = parseInt(parts[2], 10);
+              if (dailyMap[day] !== undefined) {
+                dailyMap[day] += amt;
+              }
+            }
+          }
+        });
+
+        const dailyArr = Object.keys(dailyMap).map(k => ({
+          day: parseInt(k),
+          date: `${String(parseInt(k)).padStart(2, '0')}/${String(month).padStart(2, '0')}/${year}`,
+          amount: dailyMap[parseInt(k)]
+        }));
+
+        setDailyData(dailyArr);
+        setMaxDailyAmt(Math.max(...dailyArr.map(d => d.amount)));
+
+        // Calculate Abnormal Days
+        const dailyAvg = totalVal / daysInMonth;
+        const abnormal = dailyArr.filter(d => d.amount > dailyAvg * 2 && d.amount > 0);
+        abnormal.sort((a, b) => b.amount - a.amount);
+        setAbnormalDays(abnormal.map(d => ({ ...d, avg: dailyAvg })));
+
+        const topList = Object.values(categoryTotals)
+          .map((cat: any) => ({
+            ...cat,
+            percentage: totalVal > 0 ? (cat.amount / totalVal) * 100 : 0
+          }))
+          .sort((a: any, b: any) => b.amount - a.amount);
+          
+        setTopCategories(topList);
+      } catch (err) {
+        console.error("Error fetching data:", err);
+      } finally {
+        setIsLoadingTopCategories(false);
+      }
+    };
+
+    const timer = setTimeout(() => { fetchData(); }, 300);
+    return () => clearTimeout(timer);
+  }, [isLoggedIn, startDate, endDate, selectedWallet, reportType, t]);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -516,7 +717,7 @@ export default function Reports() {
       <Sidebar activeItem="reports" />
       <main className="main-content" style={{background:'var(--bg-color)'}}>
         <nav className="navbar" style={{background:'var(--card-bg)',borderBottom:'1px solid var(--border-color)',backdropFilter:'blur(16px)',position:'sticky',top:0,zIndex:10}}>
-          <h1 className="page-title" style={{color:'var(--text-main)'}}>{t('reports_export')}</h1>
+          <h1 className="page-title" style={{color:'var(--text-main)'}}>Thống kê & Báo cáo</h1>
           <div className="nav-actions">
             {isLoggedIn ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginLeft: '10px' }}>
@@ -535,6 +736,368 @@ export default function Reports() {
         </nav>
         
         <div className="content-area reports-fade-in">
+          {/* MOMO STYLE: TÌNH HÌNH THU CHI CARD */}
+          <div className="momo-stats-card">
+            <div className="momo-stats-header">
+              <h2 className="momo-stats-title">Tình hình thu chi</h2>
+              <div className="momo-view-toggle">
+                <button 
+                  className={`momo-view-btn ${viewMode === 'allocation' ? 'active' : ''}`}
+                  onClick={() => setViewMode('allocation')}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"></path><path d="M22 12A10 10 0 0 0 12 2v10z"></path></svg>
+                  Phân bổ
+                </button>
+                <button 
+                  className={`momo-view-btn ${viewMode === 'trend' ? 'active' : ''}`}
+                  onClick={() => setViewMode('trend')}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                </button>
+              </div>
+            </div>
+
+            <div className="momo-month-selector">
+              <button className="momo-month-btn" onClick={handlePrevMonth}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+              </button>
+              <div className="momo-month-display">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{marginRight: '6px'}}><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                {getDisplayMonth()}
+              </div>
+              <button className="momo-month-btn" onClick={handleNextMonth}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              </button>
+            </div>
+
+            <div className="momo-type-toggle">
+              <div 
+                className={`momo-type-card ${reportType === 'expense' ? 'expense-active' : ''}`}
+                onClick={() => setReportType('expense')}
+              >
+                <div className="momo-type-title">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="17 1 21 5 17 9"></polyline><path d="M3 11V9a4 4 0 0 1 4-4h14"></path></svg>
+                  Chi tiêu 
+                  {currentSummary.expense > prevSummary.expense ? <span className="trend-arrow up">↑</span> : <span className="trend-arrow down">↓</span>}
+                </div>
+                <div className="momo-type-amount">{formatCurrency(currentSummary.expense)}</div>
+              </div>
+              <div 
+                className={`momo-type-card ${reportType === 'income' ? 'income-active' : ''}`}
+                onClick={() => setReportType('income')}
+              >
+                <div className="momo-type-title">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="7 23 3 19 7 15"></polyline><path d="M21 13v2a4 4 0 0 1-4 4H3"></path></svg>
+                  Thu nhập 
+                  {currentSummary.income > prevSummary.income ? <span className="trend-arrow up">↑</span> : <span className="trend-arrow down">↓</span>}
+                </div>
+                <div className="momo-type-amount">{formatCurrency(currentSummary.income)}</div>
+              </div>
+            </div>
+
+            <div className="momo-comparison-banner">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="#2D9CDB" stroke="none"><rect x="4" y="14" width="4" height="6"></rect><rect x="10" y="8" width="4" height="12"></rect><rect x="16" y="2" width="4" height="18"></rect></svg>
+              <span>
+                {(() => {
+                  const curr = reportType === 'expense' ? currentSummary.expense : currentSummary.income;
+                  const prev = reportType === 'expense' ? prevSummary.expense : prevSummary.income;
+                  const diff = curr - prev;
+                  if (diff > 0) return `Tăng ${formatCurrency(diff)} so với cùng kỳ tháng trước`;
+                  if (diff < 0) return `Giảm ${formatCurrency(Math.abs(diff))} so với cùng kỳ tháng trước`;
+                  return 'Tương đương với cùng kỳ tháng trước';
+                })()}
+              </span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{marginLeft: 'auto'}}><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </div>
+
+            {viewMode === 'allocation' && (
+              <div className="momo-chart-container">
+                {(() => {
+                  let currentPercentage = 0;
+                  let svgCircles: any[] = [];
+                  const C = 2 * Math.PI * 90;
+                  const totalAmt = reportType === 'expense' ? currentSummary.expense : currentSummary.income;
+
+                  if (topCategories.length > 0) {
+                    topCategories.forEach((c, i) => {
+                      const dashValue = (c.percentage * C) / 100;
+                      const gapValue = C - dashValue;
+                      const dashArray = `${dashValue} ${gapValue}`;
+                      const dashOffset = -(currentPercentage * C) / 100;
+                      svgCircles.push(
+                        <circle 
+                          key={i} 
+                          cx="120" cy="120" r="90" 
+                          fill="transparent" 
+                          stroke={c.color || (reportType === 'expense' ? '#FE5C73' : '#10B981')} 
+                          strokeWidth={hoveredCategory === i ? "45" : "40"} 
+                          strokeDasharray={dashArray} 
+                          strokeDashoffset={dashOffset}
+                          onMouseEnter={() => setHoveredCategory(i)}
+                          onMouseLeave={() => setHoveredCategory(null)}
+                          style={{ fill: 'transparent', transition: 'stroke-width 0.2s', cursor: 'pointer' }}
+                        />
+                      );
+                      currentPercentage += c.percentage;
+                    });
+                  } else {
+                    svgCircles.push(<circle key="empty" cx="120" cy="120" r="90" fill="transparent" stroke="#f0f0f0" strokeWidth="40" style={{ fill: 'transparent' }} />);
+                  }
+
+                  const hoveredItem = hoveredCategory !== null ? topCategories[hoveredCategory] : null;
+
+                  return (
+                    <div style={{ position: 'relative', width: '240px', height: '240px', margin: '30px auto' }}>
+                      <svg width="240" height="240" viewBox="0 0 240 240" style={{ width: '240px', height: '240px', transform: 'rotate(-90deg)' }}>
+                        {svgCircles}
+                      </svg>
+                      <div style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', width: '120px' }}>
+                        {hoveredItem ? (
+                          <>
+                            <div style={{ fontSize: '20px', fontWeight: 'bold', color: hoveredItem.color }}>{hoveredItem.percentage.toFixed(1)}%</div>
+                            <div style={{ fontSize: '13px', color: '#718EBF', marginTop: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{hoveredItem.name}</div>
+                          </>
+                        ) : (
+                          <>
+                            <div style={{ fontSize: '13px', color: '#718EBF', marginBottom: '4px' }}>Tổng {reportType === 'expense' ? 'chi' : 'thu'}</div>
+                            <div style={{ fontSize: '18px', fontWeight: 'bold', color: 'var(--text-main)' }}>{formatCurrency(totalAmt)}</div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
+
+            {viewMode === 'trend' && (() => {
+              const W = Math.max(800, dailyData.length * 35);
+              const H = 220;
+              const paddingY = 40;
+              const safeMax = maxDailyAmt || 1;
+              const points = dailyData.map((d, i) => {
+                const x = (i / Math.max(1, dailyData.length - 1)) * (W - 40) + 20;
+                const y = H - paddingY - (d.amount / safeMax) * (H - paddingY * 2);
+                return { x, y, day: d.day, date: d.date, amount: d.amount };
+              });
+
+              let pathD = '';
+              if (points.length > 0) {
+                pathD = `M ${points[0].x},${points[0].y}`;
+                for (let i = 0; i < points.length - 1; i++) {
+                  const curr = points[i];
+                  const next = points[i + 1];
+                  const cp1x = curr.x + (next.x - curr.x) / 2;
+                  const cp2x = curr.x + (next.x - curr.x) / 2;
+                  pathD += ` C ${cp1x},${curr.y} ${cp2x},${next.y} ${next.x},${next.y}`;
+                }
+              }
+
+              const fillPathD = points.length > 0 
+                ? `${pathD} L ${points[points.length - 1].x},${H} L ${points[0].x},${H} Z`
+                : '';
+
+              const color = reportType === 'expense' ? '#C62828' : '#10B981';
+              const gradientId = `trend-gradient-${reportType}`;
+
+              const hoveredPoint = hoveredDay !== null ? points.find(p => p.day === hoveredDay) : null;
+
+              return (
+                <div className="momo-line-chart-container">
+                  <div className="momo-line-scroll-area">
+                    <div style={{ position: 'relative', width: W, height: H }}>
+                      <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ width: W, height: H, overflow: 'visible' }}>
+                        <defs>
+                          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor={color} stopOpacity="0.3" />
+                            <stop offset="100%" stopColor={color} stopOpacity="0.0" />
+                          </linearGradient>
+                        </defs>
+                        
+                        {fillPathD && (
+                          <path d={fillPathD} fill={`url(#${gradientId})`} />
+                        )}
+
+                        {hoveredPoint && (
+                          <line 
+                            x1={hoveredPoint.x} y1={hoveredPoint.y} 
+                            x2={hoveredPoint.x} y2={H} 
+                            stroke={color} 
+                            strokeWidth="1.5" 
+                            strokeDasharray="4 4" 
+                            opacity="0.5"
+                          />
+                        )}
+
+                        {pathD && (
+                          <path d={pathD} fill="none" stroke={color} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+                        )}
+
+                        {points.map((p, i) => (
+                          <g key={i}>
+                            {p.amount > 0 && (
+                              <circle cx={p.x} cy={p.y} r="4" fill="#fff" stroke={color} strokeWidth="2" />
+                            )}
+                            {hoveredDay === p.day && (
+                              <circle cx={p.x} cy={p.y} r="8" fill={color} opacity="0.3" />
+                            )}
+                            <rect 
+                              x={p.x - 17.5} y={0} width="35" height={H} 
+                              fill="transparent" 
+                              onMouseEnter={() => setHoveredDay(p.day)}
+                              onMouseLeave={() => setHoveredDay(null)}
+                              style={{ cursor: 'pointer' }}
+                            />
+                          </g>
+                        ))}
+                      </svg>
+
+                      {hoveredPoint && (
+                        <div className="momo-line-tooltip" style={{ left: hoveredPoint.x, top: hoveredPoint.y - 15 }}>
+                          <div className="momo-line-tooltip-date">Ngày {hoveredPoint.day}</div>
+                          <div className="momo-line-tooltip-amt" style={{ color }}>
+                            {reportType === 'expense' && hoveredPoint.amount > 0 ? '-' : ''}{formatCurrency(hoveredPoint.amount)}
+                          </div>
+                        </div>
+                      )}
+                      
+                      <div className="momo-line-axis">
+                        {points.map((p, i) => {
+                          if (p.day === 1 || p.day % 5 === 0 || p.day === points.length) {
+                            return (
+                              <div key={i} style={{ position: 'absolute', left: p.x, transform: 'translateX(-50%)' }}>
+                                Ngày {p.day}
+                              </div>
+                            );
+                          }
+                          return null;
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+            {viewMode === 'trend' && reportType === 'expense' && abnormalDays.length > 0 && abnormalDays[0].avg > 0 && (
+              <div style={{
+                background: 'rgba(254, 92, 115, 0.08)',
+                border: '1px solid rgba(254, 92, 115, 0.3)',
+                borderRadius: '16px',
+                padding: '16px',
+                marginBottom: '20px',
+                display: 'flex',
+                gap: '12px',
+                alignItems: 'flex-start',
+                animation: 'listSlideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards'
+              }}>
+                <div style={{ fontSize: '24px' }}>🚨</div>
+                <div>
+                  <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#FE5C73', marginBottom: '4px' }}>Cảnh báo chi tiêu bất thường</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-main)', lineHeight: '1.5' }}>
+                    Phát hiện <strong>{abnormalDays.length} ngày</strong> chi tiêu vượt xa mức bình thường. Đáng chú ý nhất là <strong>Ngày {abnormalDays[0].day}</strong> bạn đã chi tới <strong>{formatCurrency(abnormalDays[0].amount)}</strong>, cao gấp <strong>{(abnormalDays[0].amount / abnormalDays[0].avg).toFixed(1)} lần</strong> mức trung bình ({formatCurrency(abnormalDays[0].avg)}/ngày).
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="momo-top-list">
+              {isLoadingTopCategories ? (
+                <div style={{ textAlign: 'center', padding: '30px', color: '#718EBF', fontWeight: '500' }}>Đang tải dữ liệu...</div>
+              ) : topCategories.length === 0 ? (
+                <div style={{ textAlign: 'center', padding: '30px', color: '#718EBF', fontWeight: '500' }}>Không có dữ liệu trong tháng này.</div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {topCategories.map((cat, idx) => {
+                    const budgetLimit = budgetMap[cat.id] || 0;
+                    const isOverBudget = reportType === 'expense' && budgetLimit > 0 && cat.amount > budgetLimit;
+                    const progressPct = reportType === 'expense' && budgetLimit > 0 ? Math.min((cat.amount / budgetLimit) * 100, 100) : cat.percentage;
+                    
+                    return (
+                      <div className="momo-list-item-card" key={`${reportType}-${cat.id}-${idx}`} style={{ 
+                        display: 'flex', 
+                        flexDirection: 'column', 
+                        gap: '8px',
+                        padding: '12px 16px',
+                        borderRadius: '16px',
+                        background: isOverBudget ? 'rgba(254, 92, 115, 0.05)' : 'var(--bg-color)',
+                        border: isOverBudget ? '1px solid rgba(254, 92, 115, 0.2)' : '1px solid transparent',
+                        opacity: listVisible ? 1 : 0,
+                        transform: listVisible ? 'translateY(0)' : 'translateY(20px)',
+                        transition: `opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${idx * 0.05}s, transform 0.6s cubic-bezier(0.16, 1, 0.3, 1) ${idx * 0.05}s, box-shadow 0.2s, background 0.2s, border 0.2s`
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <div className="momo-list-item-icon" style={{
+                              width: '40px',
+                              height: '40px',
+                              borderRadius: '12px',
+                              background: cat.color ? `${cat.color}1A` : 'rgba(113, 142, 191, 0.15)',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '20px',
+                              boxShadow: '0 2px 5px rgba(0,0,0,0.05)'
+                            }}>
+                              {parseIcon(cat.icon)}
+                            </div>
+                            <div>
+                              <div style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-main)' }}>{cat.name}</div>
+                              {reportType === 'expense' && budgetLimit > 0 ? (
+                                <div style={{ fontSize: '12px', color: '#718EBF', marginTop: '2px', fontWeight: '500' }}>
+                                  Ngân sách: {formatCurrency(budgetLimit)}
+                                </div>
+                              ) : (
+                                <div style={{ fontSize: '12px', color: '#718EBF', marginTop: '2px', fontWeight: '500' }}>
+                                  Chiếm {cat.percentage.toFixed(1)}%
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: '15px', fontWeight: '800', color: isOverBudget ? '#FE5C73' : (reportType === 'income' ? '#10B981' : 'var(--text-main)') }}>
+                              {formatCurrency(cat.amount)}
+                            </div>
+                            {isOverBudget && (
+                              <div className="momo-badge-pulse" style={{ fontSize: '11px', color: '#fff', background: '#FE5C73', padding: '2px 6px', borderRadius: '8px', display: 'inline-block', marginTop: '4px', fontWeight: 'bold' }}>
+                                Chi lố {formatCurrency(cat.amount - budgetLimit)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div style={{
+                          width: '100%',
+                          height: '6px',
+                          background: 'var(--border-color)',
+                          borderRadius: '3px',
+                          marginTop: '4px',
+                          overflow: 'hidden',
+                          position: 'relative'
+                        }}>
+                          <div style={{
+                            width: listVisible ? `${progressPct}%` : '0%',
+                            height: '100%',
+                            background: isOverBudget ? 'linear-gradient(90deg, #FF6B81 0%, #FE5C73 100%)' : (cat.color || (reportType === 'expense' ? '#718EBF' : '#10B981')),
+                            borderRadius: '3px',
+                            transition: `width 1s cubic-bezier(0.16, 1, 0.3, 1) ${idx * 0.05 + 0.1}s`
+                          }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Export Section title */}
+          <h2 className="report-section-header" style={{marginTop: '40px'}}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#1814F3' }}>
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+            </svg>
+            Xuất Báo Cáo
+          </h2>
+
           {/* FORMATS CARD GRID */}
           <div className="report-cards-grid">
             {/* PDF CARD */}
@@ -586,6 +1149,7 @@ export default function Reports() {
             </div>
           </div>
 
+          {false && <>
           {/* FILTER SECTION */}
           <h2 className="report-section-header">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#1814F3' }}>
@@ -637,6 +1201,104 @@ export default function Reports() {
             </div>
           </div>
 
+          {/* TOP CATEGORIES SECTION (MOMO STYLE) */}
+          <h2 className="report-section-header" style={{ marginTop: '30px' }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#FE5C73' }}>
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+            </svg>
+            Top chi tiêu {startDate && endDate ? `(${startDate} - ${endDate})` : ''}
+          </h2>
+          <div className="report-filter-box" style={{ padding: '20px', background: 'var(--card-bg)', borderRadius: '20px', border: '1px solid var(--border-color)', boxShadow: '0 4px 20px rgba(0,0,0,0.03)', marginBottom: '30px' }}>
+            {isLoadingTopCategories ? (
+              <div style={{ textAlign: 'center', padding: '30px', color: '#718EBF', fontWeight: '500' }}>Đang tải dữ liệu chi tiêu...</div>
+            ) : !isLoggedIn ? (
+              <div style={{ textAlign: 'center', padding: '30px', color: '#718EBF', fontWeight: '500' }}>Vui lòng đăng nhập để xem thống kê.</div>
+            ) : topCategories.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '30px', color: '#718EBF', fontWeight: '500' }}>Không có chi tiêu nào trong thời gian này.</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                {topCategories.map((cat, idx) => {
+                  const budgetLimit = budgetMap[cat.id] || 0;
+                  const isOverBudget = budgetLimit > 0 && cat.amount > budgetLimit;
+                  const progressPct = budgetLimit > 0 ? Math.min((cat.amount / budgetLimit) * 100, 100) : cat.percentage;
+                  
+                  return (
+                    <div key={idx} style={{ 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      gap: '8px',
+                      padding: '12px 16px',
+                      borderRadius: '16px',
+                      background: isOverBudget ? 'rgba(254, 92, 115, 0.05)' : 'transparent',
+                      border: isOverBudget ? '1px solid rgba(254, 92, 115, 0.2)' : '1px solid transparent',
+                      transition: 'all 0.2s ease',
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <div style={{
+                            width: '40px',
+                            height: '40px',
+                            borderRadius: '12px',
+                            background: cat.color ? `${cat.color}1A` : 'rgba(113, 142, 191, 0.15)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '20px',
+                            boxShadow: '0 2px 5px rgba(0,0,0,0.05)'
+                          }}>
+                            {parseIcon(cat.icon)}
+                          </div>
+                          <div>
+                            <div style={{ fontSize: '15px', fontWeight: '700', color: 'var(--text-main)' }}>{cat.name}</div>
+                            {budgetLimit > 0 ? (
+                              <div style={{ fontSize: '12px', color: '#718EBF', marginTop: '2px', fontWeight: '500' }}>
+                                Ngân sách: {new Intl.NumberFormat('vi-VN').format(budgetLimit)} {userData?.preference?.currency || 'VND'}
+                              </div>
+                            ) : (
+                              <div style={{ fontSize: '12px', color: '#718EBF', marginTop: '2px', fontWeight: '500' }}>
+                                Chiếm {cat.percentage.toFixed(1)}% tổng chi
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontSize: '15px', fontWeight: '800', color: isOverBudget ? '#FE5C73' : 'var(--text-main)' }}>
+                            {new Intl.NumberFormat('vi-VN').format(cat.amount)} {userData?.preference?.currency || 'VND'}
+                          </div>
+                          {isOverBudget && (
+                            <div style={{ fontSize: '11px', color: '#fff', background: '#FE5C73', padding: '2px 6px', borderRadius: '8px', display: 'inline-block', marginTop: '4px', fontWeight: 'bold' }}>
+                              Chi lố {new Intl.NumberFormat('vi-VN').format(cat.amount - budgetLimit)}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      {/* Progress Bar */}
+                      <div style={{
+                        width: '100%',
+                        height: '6px',
+                        background: 'var(--border-color)',
+                        borderRadius: '3px',
+                        marginTop: '4px',
+                        overflow: 'hidden',
+                        position: 'relative'
+                      }}>
+                        <div style={{
+                          width: `${progressPct}%`,
+                          height: '100%',
+                          background: isOverBudget ? 'linear-gradient(90deg, #FF6B81 0%, #FE5C73 100%)' : (cat.color || '#718EBF'),
+                          borderRadius: '3px',
+                          transition: 'width 0.5s ease-in-out'
+                        }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          </>}
           {/* HISTORY SECTION */}
           <h2 className="report-section-header">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#1814F3' }}>
