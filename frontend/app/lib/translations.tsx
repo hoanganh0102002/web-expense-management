@@ -21,6 +21,8 @@ const translations: Record<string, Record<string, string>> = {
     logout: "Đăng xuất",
     new_user: "Người dùng mới",
     ai_assistant: "Hỏi Trợ lý AI",
+    expand_sidebar: "Mở rộng thanh bên",
+    collapse_sidebar: "Thu gọn thanh bên",
 
 
     // Common Actions
@@ -392,6 +394,8 @@ const translations: Record<string, Record<string, string>> = {
     logout: "Logout",
     new_user: "New User",
     ai_assistant: "AI Assistant",
+    expand_sidebar: "Expand sidebar",
+    collapse_sidebar: "Collapse sidebar",
 
 
     // Common Actions
