@@ -189,7 +189,7 @@ function LoginForm() {
               <svg viewBox="0 0 24 24" fill="currentColor">
                 <path d="M4 4h4v16H4zM10 8h4v12h-4zM16 12h4v8h-4z" />
               </svg>
-              SpendWise.
+              EM.
             </div>
             <h2>{t('system_login')}</h2>
             <p>{t('social_login_desc')}</p>
@@ -219,7 +219,7 @@ function LoginForm() {
                       placeholder=" " 
                       required 
                     />
-                    <label>Nhập mật khẩu SpendWise</label>
+                    <label>Nhập mật khẩu EM</label>
                   </div>
 
                   <button type="submit" className="login-btn-glow" disabled={loading}>

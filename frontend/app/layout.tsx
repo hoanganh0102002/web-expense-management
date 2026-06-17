@@ -7,7 +7,7 @@ import { AIChatProvider } from './context/AIChatContext'
 import AIChatPanel from './components/AIChatPanel'
 
 export const metadata: Metadata = {
-  title: 'SpendWise',
+  title: 'EM',
   description: 'Quản lý chi tiêu cá nhân',
 }
 

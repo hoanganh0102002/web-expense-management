@@ -21,7 +21,7 @@ const messaging = firebase.messaging();
 messaging.onBackgroundMessage((payload) => {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
 
-  const notificationTitle = payload.notification?.title || "Thông báo SpendWise";
+  const notificationTitle = payload.notification?.title || "Thông báo EM";
   const notificationOptions = {
     body: payload.notification?.body || "Bạn có thông báo mới.",
     icon: '/favicon.ico',
