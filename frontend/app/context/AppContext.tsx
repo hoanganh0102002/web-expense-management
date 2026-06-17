@@ -61,6 +61,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Global listener for 401 errors
     const handleUnauthorized = () => {
       logout();
+      window.location.href = '/login';
     };
     window.addEventListener('auth-unauthorized', handleUnauthorized);
     
@@ -107,7 +108,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setTransactions(response.data?.data || response.data || []);
       return response.data;
     } catch (error: any) {
-      console.error("Lấy danh sách giao dịch thất bại:", error);
+      if (error.message !== 'Refresh token failed' && !error.message?.includes('Hết phiên đăng nhập')) {
+        console.error("Lấy danh sách giao dịch thất bại:", error);
+      }
     } finally {
       setIsLoadingTransactions(false);
     }
@@ -136,7 +139,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const response = await walletApi.getAll();
       setWallets(response.data || []);
     } catch (error: any) {
-      console.error("Lấy danh sách ví thất bại:", error);
+      if (error.message !== 'Refresh token failed' && !error.message?.includes('Hết phiên đăng nhập')) {
+        console.error("Lấy danh sách ví thất bại:", error);
+      }
     } finally {
       setIsLoadingWallets(false);
     }
@@ -164,7 +169,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const response = await categoryApi.getAll();
       setCategories(response.data || []);
     } catch (error: any) {
-      console.error("Lấy danh sách danh mục thất bại:", error);
+      if (error.message !== 'Refresh token failed' && !error.message?.includes('Hết phiên đăng nhập')) {
+        console.error("Lấy danh sách danh mục thất bại:", error);
+      }
     } finally {
       setIsLoadingCategories(false);
     }
@@ -208,8 +215,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (token) {
       try {
         await authApi.logout();
-      } catch (e) {
-        console.error('Logout error:', e);
+      } catch (e: any) {
+        if (e.message !== 'Refresh token failed' && !e.message?.includes('Hết phiên đăng nhập')) {
+          console.error('Logout error:', e);
+        }
       }
     }
     setIsLoggedIn(false);
