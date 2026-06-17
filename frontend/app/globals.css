@@ -118,20 +118,41 @@ input:focus, select:focus {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: var(--card-bg);
-  border: 1px solid var(--border-color);
+  background: transparent;
+  border: none;
   color: var(--text-main);
   position: fixed;
   top: 25px;
   left: 24px;
   z-index: 1001 !important;
   cursor: pointer;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
   transition: all 0.2s ease;
+}
+
+.mobile-menu-toggle:hover {
+  background: rgba(15, 23, 42, 0.08); /* Gmail-like hover circular background */
+}
+
+body.dark-theme .mobile-menu-toggle:hover {
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .mobile-menu-toggle:active {
   transform: scale(0.9);
+}
+
+/* Style when sidebar is open */
+.mobile-menu-toggle.sidebar-open {
+  color: rgba(255, 255, 255, 0.9) !important; /* White color on dark sidebar gradient */
+}
+
+.mobile-menu-toggle.sidebar-open:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Shift sidebar brand when open to accommodate toggle button */
+.sidebar.open .brand {
+  padding-left: 75px !important;
 }
 
 .brand {
@@ -933,6 +954,10 @@ body.dark-theme .settings-destructive-btn:hover:not(:disabled) {
   /* Hamburger Menu Toggle Button style */
   .mobile-menu-toggle {
     left: 16px;
+  }
+
+  .sidebar.open .brand {
+    padding-left: 65px !important;
   }
 
   /* Main Layout Adaptations */

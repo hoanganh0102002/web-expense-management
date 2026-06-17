@@ -34,7 +34,7 @@ export default function Sidebar({ activeItem }: { activeItem: string }) {
     <>
       {/* Mobile Hamburger Toggle Button */}
       <button 
-        className="mobile-menu-toggle" 
+        className={`mobile-menu-toggle ${isMobileOpen ? 'sidebar-open' : ''}`}
         style={{ display: 'none' }} 
         onClick={() => setIsMobileOpen(!isMobileOpen)}
       >
