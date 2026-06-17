@@ -20,6 +20,8 @@ const translations: Record<string, Record<string, string>> = {
     login: "Đăng nhập",
     logout: "Đăng xuất",
     new_user: "Người dùng mới",
+    ai_assistant: "Hỏi Trợ lý AI",
+
 
     // Common Actions
     add_new_category: "+ Tạo danh mục mới",
@@ -389,6 +391,8 @@ const translations: Record<string, Record<string, string>> = {
     login: "Login",
     logout: "Logout",
     new_user: "New User",
+    ai_assistant: "AI Assistant",
+
 
     // Common Actions
     add_new_category: "+ Add New Category",

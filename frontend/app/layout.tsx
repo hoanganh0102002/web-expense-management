@@ -3,6 +3,8 @@ import './globals.css'
 import { AppProvider } from './context/AppContext'
 import { LanguageProvider } from './lib/translations'
 import { ThemeProvider } from './context/ThemeContext'
+import { AIChatProvider } from './context/AIChatContext'
+import AIChatPanel from './components/AIChatPanel'
 
 export const metadata: Metadata = {
   title: 'SpendWise',
@@ -20,7 +22,10 @@ export default function RootLayout({
         <AppProvider>
           <ThemeProvider>
             <LanguageProvider>
-              {children}
+              <AIChatProvider>
+                {children}
+                <AIChatPanel />
+              </AIChatProvider>
             </LanguageProvider>
           </ThemeProvider>
         </AppProvider>
@@ -28,4 +33,5 @@ export default function RootLayout({
     </html>
   )
 }
+
 
