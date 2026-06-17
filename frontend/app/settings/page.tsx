@@ -19,6 +19,41 @@ export default function Settings() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isChangingPwd, setIsChangingPwd] = useState(false);
 
+  // State for Sessions
+  const [activeSessions, setActiveSessions] = useState<any[]>([]);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false);
+
+  React.useEffect(() => {
+    if (activeTab === 'security' && isLoggedIn) {
+      fetchSessions();
+    }
+  }, [activeTab, isLoggedIn]);
+
+  const fetchSessions = async () => {
+    setIsLoadingSessions(true);
+    try {
+      const res = await authApi.getActiveSessions();
+      if (res.data) {
+        setActiveSessions(res.data);
+      }
+    } catch (error) {
+      console.error("Lỗi lấy danh sách phiên đăng nhập:", error);
+    } finally {
+      setIsLoadingSessions(false);
+    }
+  };
+
+  const handleRevokeSession = async (sessionId: string) => {
+    if (!window.confirm("Bạn có chắc chắn muốn đăng xuất thiết bị này?")) return;
+    try {
+      await authApi.revokeSession(sessionId);
+      setActiveSessions(prev => prev.filter(s => s.id !== sessionId));
+      alert("Đã đăng xuất thiết bị thành công!");
+    } catch (error: any) {
+      alert("Lỗi: " + error.message);
+    }
+  };
+
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
       alert(t('fill_all_password'));
@@ -66,6 +101,7 @@ export default function Settings() {
   const [currency, setCurrency] = useState('VND');
   const [timezone, setTimezone] = useState('(GMT+07:00) Bangkok, Hanoi, Jakarta');
   const [language, setLanguage] = useState('Tiếng Việt');
+  const [financialStartDay, setFinancialStartDay] = useState<number>(1);
   const [emailReminder, setEmailReminder] = useState(false);
   const [budgetAlert, setBudgetAlert] = useState(false);
   const [recurringAlert, setRecurringAlert] = useState(false);
@@ -80,6 +116,7 @@ export default function Settings() {
       setCurrency(userData.preference?.currency || 'VND');
       setTimezone(userData.preference?.timezone || '(GMT+07:00) Bangkok, Hanoi, Jakarta');
       setLanguage(userData.preference?.language === 'en' ? 'English' : 'Tiếng Việt');
+      setFinancialStartDay(userData.preference?.financial_start_day || 1);
       
       notificationApi.getPreferences().then(res => {
         if (res.data) {
@@ -103,7 +140,7 @@ export default function Settings() {
     try {
       const payload = fieldSet === 'profile' 
         ? { full_name: fullName }
-        : { currency, timezone, language: language === 'Tiếng Việt' ? 'vi' : 'en', theme };
+        : { currency, timezone, language: language === 'Tiếng Việt' ? 'vi' : 'en', theme, financial_start_day: financialStartDay };
       
       await authApi.updateProfile(payload);
       
@@ -371,6 +408,21 @@ export default function Settings() {
                       </select>
                     </div>
                   </div>
+                  <div>
+                    <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '600', fontSize: '15px' }}>Ngày bắt đầu tháng tài chính</label>
+                    <div className="select-wrapper">
+                      <select 
+                        disabled={!isLoggedIn} 
+                        value={financialStartDay}
+                        onChange={(e) => setFinancialStartDay(Number(e.target.value))}
+                        className="settings-select"
+                      >
+                        {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                          <option key={day} value={day}>Ngày {day} hàng tháng {day === 1 ? '(Mặc định)' : ''}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
                 </div>
                 <div className="settings-group-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '30px' }}>
                   <div>
@@ -570,6 +622,46 @@ export default function Settings() {
                   </div>
                 </div>
                 
+                <div style={{ marginTop: '45px', paddingTop: '30px', borderTop: '1px solid var(--border-color)' }}>
+                  <h3 style={{ color: 'var(--text-main)', marginBottom: '15px', fontSize: '18px' }}>Quản lý phiên đăng nhập</h3>
+                  <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '20px' }}>Danh sách các thiết bị đang đăng nhập vào tài khoản của bạn.</p>
+                  
+                  {isLoadingSessions ? (
+                    <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải danh sách...</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                      {activeSessions.map((session) => (
+                        <div key={session.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: theme === 'dark' ? 'rgba(255,255,255,0.02)' : '#f8fafc', padding: '15px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(45, 96, 255, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <span style={{ fontSize: '20px' }}>{session.device_type === 'desktop' ? '💻' : '📱'}</span>
+                            </div>
+                            <div>
+                              <div style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '15px' }}>
+                                {session.device_name || session.device_type || 'Thiết bị không xác định'}
+                                {session.is_current && <span style={{ marginLeft: '8px', fontSize: '12px', padding: '2px 8px', background: 'rgba(22, 219, 204, 0.1)', color: '#16DBCC', borderRadius: '10px' }}>Hiện tại</span>}
+                              </div>
+                              <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                                IP: {session.ip_address} • Đăng nhập: {new Date(session.created_at).toLocaleDateString('vi-VN')}
+                              </div>
+                            </div>
+                          </div>
+                          {!session.is_current && (
+                            <button 
+                              onClick={() => handleRevokeSession(session.id)}
+                              style={{ background: 'transparent', border: '1px solid #FE5C73', color: '#FE5C73', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', transition: 'all 0.2s' }}
+                              onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(254, 92, 115, 0.1)'; }}
+                              onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                            >
+                              Đăng xuất
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
                 <div style={{ marginTop: '45px', paddingTop: '30px', borderTop: '1px solid var(--border-color)' }}>
                   <h3 style={{ color: '#FE5C73', marginBottom: '10px', fontSize: '18px' }}>{t('delete_account')}</h3>
                   <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '20px' }}>{t('delete_account_warning')}</p>

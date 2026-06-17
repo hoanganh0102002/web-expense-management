@@ -15,13 +15,13 @@ const getAuthHeaders = () => {
 };
 
 let isRefreshing = false;
-let refreshSubscribers: ((token: string) => void)[] = [];
+let refreshSubscribers: ((token: string | null) => void)[] = [];
 
-const subscribeTokenRefresh = (cb: (token: string) => void) => {
+const subscribeTokenRefresh = (cb: (token: string | null) => void) => {
   refreshSubscribers.push(cb);
 };
 
-const onTokenRefreshed = (token: string) => {
+const onTokenRefreshed = (token: string | null) => {
   refreshSubscribers.forEach((cb) => cb(token));
   refreshSubscribers = [];
 };
@@ -91,6 +91,7 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}): Pro
         throw new Error('Refresh token failed');
       } catch (error) {
         isRefreshing = false;
+        onTokenRefreshed(null); // Reject pending subscribers
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new CustomEvent('auth-unauthorized'));
         }
@@ -99,9 +100,13 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}): Pro
     }
 
     // Nếu đang có một request khác đang refresh, chờ nó xong rồi thử lại
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       subscribeTokenRefresh((newToken) => {
-        resolve(apiFetch(endpoint, options));
+        if (!newToken) {
+          reject(new Error('Refresh token failed'));
+        } else {
+          resolve(apiFetch(endpoint, options));
+        }
       });
     });
   }
@@ -157,6 +162,8 @@ export const authApi = {
     });
   },
   deleteAccount: () => apiFetch('/user', { method: 'DELETE' }),
+  getActiveSessions: () => apiFetch('/user/sessions'),
+  revokeSession: (id: string) => apiFetch(`/user/sessions/${id}`, { method: 'DELETE' }),
 };
 
 // --- WALLET APIs ---
