@@ -9,7 +9,7 @@ import { useTheme } from '../context/ThemeContext';
 import './login.css';
 
 // --- CẤU HÌNH GITHUB & GOOGLE ---
-const GITHUB_CLIENT_ID = "Ov23lisCCCkHQx90IibX"; 
+const GITHUB_CLIENT_ID = process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID || "Ov23lisCCCkHQx90IibX"; 
 const GITHUB_REDIRECT_URI = typeof window !== 'undefined' ? `${window.location.origin}/login` : '';
 
 const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
