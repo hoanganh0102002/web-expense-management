@@ -90,69 +90,103 @@ input:focus, select:focus {
 
 /* Sidebar */
 .sidebar {
-  position: fixed !important;
+  position: sticky !important;
   top: 0;
   left: 0;
   bottom: 0;
   width: 270px;
   height: 100vh !important;
   z-index: 1000 !important;
-  transform: translateX(-100%);
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 10px 0 30px rgba(0, 0, 0, 0.2);
+  transform: none !important;
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: none;
   background: var(--sidebar-gradient);
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
 }
 
-.sidebar.open {
-  transform: translateX(0) !important;
+/* Collapsed Sidebar on Desktop */
+.sidebar.collapsed {
+  width: 80px !important;
 }
 
-/* Hamburger Menu Toggle Button style */
-.mobile-menu-toggle {
-  display: flex !important;
+.sidebar.collapsed .brand {
+  padding: 0 !important;
+  justify-content: center !important;
+}
+
+.sidebar.collapsed .desktop-menu-toggle {
+  margin-right: 0 !important;
+}
+
+.sidebar.collapsed .menu-item {
+  padding: 12px 0 !important;
+  margin: 5px 10px !important;
+  justify-content: center !important;
+}
+
+.sidebar.collapsed .menu-icon {
+  margin-right: 0 !important;
+}
+
+.sidebar.collapsed .menu-label {
+  display: none !important;
+}
+
+.sidebar.collapsed .menu-item:hover {
+  transform: scale(1.05) !important;
+}
+
+.sidebar.collapsed .menu-item.active {
+  transform: scale(1.05) !important;
+}
+
+.sidebar.collapsed .sidebar-footer {
+  padding: 20px 10px !important;
+}
+
+.sidebar.collapsed .logout-btn {
+  padding: 12px 0 !important;
+  justify-content: center !important;
+  border-radius: 12px !important;
+}
+
+.sidebar.collapsed .logout-icon {
+  margin-right: 0 !important;
+}
+
+.sidebar.collapsed .logout-text {
+  display: none !important;
+}
+
+/* Desktop Menu Toggle Button styling */
+.desktop-menu-toggle {
+  display: flex;
   align-items: center;
   justify-content: center;
   width: 40px;
   height: 40px;
   border-radius: 50%;
   background: transparent;
-  border: none;
-  color: var(--text-main);
-  position: fixed;
-  top: 25px;
-  left: 24px;
-  z-index: 1001 !important;
+  color: var(--sidebar-text);
   cursor: pointer;
   transition: all 0.2s ease;
+  border: none;
+  margin-right: 10px;
 }
 
-.mobile-menu-toggle:hover {
-  background: rgba(15, 23, 42, 0.08); /* Gmail-like hover circular background */
-}
-
-body.dark-theme .mobile-menu-toggle:hover {
+.desktop-menu-toggle:hover {
   background: rgba(255, 255, 255, 0.1);
 }
 
-.mobile-menu-toggle:active {
+.desktop-menu-toggle:active {
   transform: scale(0.9);
 }
 
-/* Style when sidebar is open */
-.mobile-menu-toggle.sidebar-open {
-  color: rgba(255, 255, 255, 0.9) !important; /* White color on dark sidebar gradient */
-}
-
-.mobile-menu-toggle.sidebar-open:hover {
-  background: rgba(255, 255, 255, 0.15) !important;
-}
-
-/* Shift sidebar brand when open to accommodate toggle button */
-.sidebar.open .brand {
-  padding-left: 75px !important;
+/* Hide floating mobile toggle by default on desktop */
+.mobile-menu-toggle {
+  display: none !important;
 }
 
 .brand {
@@ -240,7 +274,7 @@ body.dark-theme .mobile-menu-toggle:hover {
   font-size: 24px;
   font-weight: 600;
   color: var(--text-main);
-  padding-left: 60px; /* Avoid overlapping hamburger menu */
+  padding-left: 0; /* Align perfectly on desktop */
 }
 
 .nav-actions {
@@ -953,11 +987,67 @@ body.dark-theme .settings-destructive-btn:hover:not(:disabled) {
 @media (max-width: 768px) {
   /* Hamburger Menu Toggle Button style */
   .mobile-menu-toggle {
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: transparent;
+    border: none;
+    color: var(--text-main);
+    position: fixed;
+    top: 25px;
     left: 16px;
+    z-index: 1001 !important;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .mobile-menu-toggle:hover {
+    background: rgba(15, 23, 42, 0.08);
+  }
+
+  body.dark-theme .mobile-menu-toggle:hover {
+    background: rgba(255, 255, 255, 0.1);
+  }
+
+  .mobile-menu-toggle:active {
+    transform: scale(0.9);
+  }
+
+  .mobile-menu-toggle.sidebar-open {
+    color: rgba(255, 255, 255, 0.9) !important;
+  }
+
+  .mobile-menu-toggle.sidebar-open:hover {
+    background: rgba(255, 255, 255, 0.15) !important;
+  }
+
+  /* Sidebar Drawer style on mobile */
+  .sidebar {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 270px !important;
+    height: 100vh !important;
+    z-index: 1000 !important;
+    transform: translateX(-100%) !important;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.2) !important;
+  }
+
+  .sidebar.open {
+    transform: translateX(0) !important;
   }
 
   .sidebar.open .brand {
-    padding-left: 65px !important;
+    padding-left: 75px !important;
+  }
+
+  .desktop-menu-toggle {
+    display: none !important;
   }
 
   /* Main Layout Adaptations */

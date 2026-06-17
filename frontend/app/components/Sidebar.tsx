@@ -11,6 +11,20 @@ export default function Sidebar({ activeItem }: { activeItem: string }) {
   const router = useRouter();
   const { isOpen, setIsOpen } = useAIChat();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('sidebar_collapsed') === 'true';
+    }
+    return false;
+  });
+
+  const toggleCollapse = () => {
+    const newValue = !isCollapsed;
+    setIsCollapsed(newValue);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('sidebar_collapsed', String(newValue));
+    }
+  };
 
   const handleLogout = () => {
     logout();
@@ -65,21 +79,33 @@ export default function Sidebar({ activeItem }: { activeItem: string }) {
         />
       )}
 
-      <aside className={`sidebar ${isMobileOpen ? 'open' : ''}`} style={{ display: 'flex', flexDirection: 'column', height: '100vh', position: 'sticky', top: 0 }}>
-        {/* Brand logo section ... */}
-        <div className="brand" style={{ display: 'flex', alignItems: 'center' }}>
-          <span className="brand-icon" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', marginRight: '10px' }}>
-            <svg viewBox="0 0 24 24" fill="none" style={{ width: '100%', height: '100%' }}>
-              <defs>
-                <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="#60A5FA" />
-                  <stop offset="100%" stopColor="#3B82F6" />
-                </linearGradient>
-              </defs>
-              <path d="M4 4h4v16H4zM10 8h4v12h-4zM16 12h4v8h-4z" fill="url(#logoGrad)" />
+      <aside className={`sidebar ${isMobileOpen ? 'open' : ''} ${isCollapsed ? 'collapsed' : ''}`} style={{ display: 'flex', flexDirection: 'column', height: '100vh', position: 'sticky', top: 0 }}>
+        {/* Brand logo section */}
+        <div className="brand">
+          <button 
+            type="button"
+            className="desktop-menu-toggle"
+            onClick={toggleCollapse}
+            title={isCollapsed ? t('expand_sidebar') || "Expand" : t('collapse_sidebar') || "Collapse"}
+          >
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" strokeWidth="2.5">
+              <path d="M4 6h16M4 12h16M4 18h16" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
+          </button>
+          <span className="brand-logo-container" style={{ display: isCollapsed ? 'none' : 'inline-flex', alignItems: 'center' }}>
+            <span className="brand-icon" style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', marginRight: '10px' }}>
+              <svg viewBox="0 0 24 24" fill="none" style={{ width: '100%', height: '100%' }}>
+                <defs>
+                  <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stopColor="#60A5FA" />
+                    <stop offset="100%" stopColor="#3B82F6" />
+                  </linearGradient>
+                </defs>
+                <path d="M4 4h4v16H4zM10 8h4v12h-4zM16 12h4v8h-4z" fill="url(#logoGrad)" />
+              </svg>
+            </span>
+            <span style={{ fontWeight: '800', fontSize: '24px', letterSpacing: '0.5px' }}>EM</span>
           </span>
-          <span style={{ fontWeight: '800', fontSize: '24px', letterSpacing: '0.5px' }}>EM</span>
         </div>
         <ul className="menu" style={{ flex: 1 }}>
           {menuItems.map(item => {
@@ -102,7 +128,7 @@ export default function Sidebar({ activeItem }: { activeItem: string }) {
                   <span className="menu-icon" style={{ color: isOpen ? '#A855F7' : 'inherit' }}>
                     <svg viewBox="0 0 24 24" fill="currentColor"><path d={item.icon} /></svg>
                   </span>
-                  {item.label}
+                  <span className="menu-label">{item.label}</span>
                 </li>
               );
             }
@@ -112,7 +138,7 @@ export default function Sidebar({ activeItem }: { activeItem: string }) {
                   <span className="menu-icon">
                     <svg viewBox="0 0 24 24" fill="currentColor"><path d={item.icon} /></svg>
                   </span>
-                  {item.label}
+                  <span className="menu-label">{item.label}</span>
                 </li>
               </Link>
             );
@@ -120,12 +146,12 @@ export default function Sidebar({ activeItem }: { activeItem: string }) {
         </ul>
 
         {isLoggedIn && (
-          <div style={{ padding: '20px 35px', marginTop: 'auto', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+          <div className="sidebar-footer" style={{ padding: '20px 35px', marginTop: 'auto', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
             <button className="logout-btn" onClick={handleLogout}>
               <span className="logout-icon">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
               </span>
-              {t('logout')}
+              <span className="logout-text">{t('logout')}</span>
             </button>
           </div>
         )}
