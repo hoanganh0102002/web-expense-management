@@ -167,6 +167,14 @@ export const authApi = {
   deleteAccount: () => apiFetch('/user', { method: 'DELETE' }),
   getActiveSessions: () => apiFetch('/user/sessions'),
   revokeSession: (id: string) => apiFetch(`/user/sessions/${id}`, { method: 'DELETE' }),
+  registerDeviceToken: (deviceToken: string) => apiFetch('/user/device-token', {
+    method: 'POST',
+    body: JSON.stringify({ device_token: deviceToken, device_type: 'web' })
+  }),
+  unregisterDeviceToken: (deviceToken: string) => apiFetch('/user/device-token', {
+    method: 'DELETE',
+    body: JSON.stringify({ device_token: deviceToken })
+  }),
 };
 
 // --- WALLET APIs ---
