@@ -142,7 +142,7 @@ export default function Categories() {
           borderBottom: '1px solid var(--border-color)'
         }}>
           <div>
-            <h1 style={{
+            <h1 className="page-title" style={{
               fontSize: '22px',
               fontWeight: '700',
               color: 'var(--text-main)',
