@@ -128,6 +128,9 @@ export const authApi = {
     const redirect_uri = typeof window !== 'undefined' ? `${window.location.origin}/login` : '';
     return apiFetch('/auth/social', { method: 'POST', body: JSON.stringify({ provider, token, redirect_uri }) });
   },
+  linkSocial: (linkToken: string, password: string) => {
+    return apiFetch('/auth/link-social', { method: 'POST', body: JSON.stringify({ link_token: linkToken, password }) });
+  },
   logout: () => apiFetch('/logout', { method: 'POST' }),
   logoutAll: (userId?: string) => apiFetch('/logout-all', { 
     method: 'POST',
