@@ -305,10 +305,18 @@ export const reportApi = {
     if (walletId) url += `&wallet_id=${walletId}`;
     return apiFetch(url);
   },
-  getCategories: (month: number, year: number, type?: string) => {
-    let url = `/reports/categories?month=${month}&year=${year}`;
-    if (type) url += `&type=${type}`;
-    return apiFetch(url);
+  getCategories: (monthOrParams: number | { month?: number; year?: number; start_date?: string; end_date?: string; type?: string }, year?: number, type?: string) => {
+    if (typeof monthOrParams === 'object') {
+      const query = new URLSearchParams();
+      Object.entries(monthOrParams).forEach(([key, val]) => {
+        if (val !== undefined && val !== null) query.append(key, String(val));
+      });
+      return apiFetch(`/reports/categories?${query.toString()}`);
+    } else {
+      let url = `/reports/categories?month=${monthOrParams}&year=${year}`;
+      if (type) url += `&type=${type}`;
+      return apiFetch(url);
+    }
   },
   getTrends: (startDate: string, endDate: string, groupBy?: 'day' | 'month') => {
     let url = `/reports/trends?start_date=${startDate}&end_date=${endDate}`;
