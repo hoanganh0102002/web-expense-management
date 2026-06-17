@@ -493,34 +493,47 @@ export default function Budget() {
   // Fetch budgets
   const fetchBudgets = async () => {
     if (!isLoggedIn) return;
-    setIsLoading(true);
+    
+    const cacheKey = `cached_budget_data_${month}_${year}`;
+    const hasCache = budgetsList.length > 0 || (typeof window !== 'undefined' && localStorage.getItem(cacheKey));
+    if (!hasCache) {
+      setIsLoading(true);
+    }
+
     try {
       const res = await budgetApi.getAll(month, year);
-      setBudgetsList(res.data || []);
+      const resBudgetsList = res.data || [];
+      setBudgetsList(resBudgetsList);
 
       // Fetch all transactions for this month to calculate real-time used_amount
       const pad = (n: number) => n.toString().padStart(2, '0');
       const totalDays = new Date(year, month, 0).getDate();
       const start_date = `${year}-${pad(month)}-01`;
       const end_date = `${year}-${pad(month)}-${pad(totalDays)}`;
+      
+      let resCurrentTransactions = [];
       try {
         const transRes = await transactionApi.getAll({
           start_date,
           end_date,
           per_page: 1000
         });
-        setCurrentMonthTransactions(transRes.data?.data || transRes.data || []);
+        resCurrentTransactions = transRes.data?.data || transRes.data || [];
+        setCurrentMonthTransactions(resCurrentTransactions);
       } catch (transErr) {
         console.error('Error fetching current month transactions:', transErr);
-        setCurrentMonthTransactions([]);
       }
 
       // Fetch previous month's budgets for comparison
       const prevM = month === 1 ? 12 : month - 1;
       const prevY = month === 1 ? year - 1 : year;
+      
+      let resPrevBudgetsList = [];
+      let resPrevTransactions = [];
       try {
         const prevRes = await budgetApi.getAll(prevM, prevY);
-        setPrevBudgetsList(prevRes.data || []);
+        resPrevBudgetsList = prevRes.data || [];
+        setPrevBudgetsList(resPrevBudgetsList);
 
         const prevTotalDays = new Date(prevY, prevM, 0).getDate();
         const prev_start_date = `${prevY}-${pad(prevM)}-01`;
@@ -530,11 +543,20 @@ export default function Budget() {
           end_date: prev_end_date,
           per_page: 1000
         });
-        setPrevMonthTransactions(prevTransRes.data?.data || prevTransRes.data || []);
+        resPrevTransactions = prevTransRes.data?.data || prevTransRes.data || [];
+        setPrevMonthTransactions(resPrevTransactions);
       } catch (prevErr) {
         console.error('Error fetching previous month budgets/transactions:', prevErr);
-        setPrevBudgetsList([]);
-        setPrevMonthTransactions([]);
+      }
+
+      // Save to localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(cacheKey, JSON.stringify({
+          budgetsList: resBudgetsList,
+          prevBudgetsList: resPrevBudgetsList,
+          currentMonthTransactions: resCurrentTransactions,
+          prevMonthTransactions: resPrevTransactions
+        }));
       }
     } catch (error) {
       console.error('Error fetching budgets:', error);
@@ -542,6 +564,23 @@ export default function Budget() {
       setIsLoading(false);
     }
   };
+
+  // Immediate load from cache when month/year changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const cacheKey = `cached_budget_data_${month}_${year}`;
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (parsed.budgetsList) setBudgetsList(parsed.budgetsList);
+          if (parsed.prevBudgetsList) setPrevBudgetsList(parsed.prevBudgetsList);
+          if (parsed.currentMonthTransactions) setCurrentMonthTransactions(parsed.currentMonthTransactions);
+          if (parsed.prevMonthTransactions) setPrevMonthTransactions(parsed.prevMonthTransactions);
+        } catch (e) {}
+      }
+    }
+  }, [month, year]);
 
   useEffect(() => {
     if (isLoggedIn) {

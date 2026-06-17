@@ -160,12 +160,30 @@ export default function Dashboard() {
   const currentMonth = now.getMonth() + 1;
   const currentYear = now.getFullYear();
 
+  // Load cache for budgets list when component mounts or month changes
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem(`cached_dashboard_budgets_${currentMonth}_${currentYear}`);
+      if (cached) {
+        try {
+          setBudgetsList(JSON.parse(cached));
+        } catch (e) {}
+      }
+    }
+  }, [currentMonth, currentYear]);
+
   useEffect(() => {
     if (isLoggedIn) {
-      setIsLoadingBudget(true);
+      const cacheKey = `cached_dashboard_budgets_${currentMonth}_${currentYear}`;
+      const hasCache = budgetsList.length > 0 || (typeof window !== 'undefined' && localStorage.getItem(cacheKey));
+      if (!hasCache) {
+        setIsLoadingBudget(true);
+      }
       budgetApi.getAll(currentMonth, currentYear)
         .then(res => {
-          setBudgetsList(res.data || []);
+          const list = res.data || [];
+          setBudgetsList(list);
+          localStorage.setItem(cacheKey, JSON.stringify(list));
         })
         .catch(err => {
           console.error("Error fetching budgets on dashboard:", err);
@@ -175,6 +193,28 @@ export default function Dashboard() {
         });
     }
   }, [isLoggedIn, currentMonth, currentYear, transactions]);
+
+  // Save dashboard statistics cache when data updates
+  useEffect(() => {
+    if (isLoggedIn && typeof window !== 'undefined') {
+      const cacheKey = `cached_dashboard_stats_${selectedWalletId}_${timePeriod}_${customStartDate}_${customEndDate}_${trendsGroupBy}`;
+      if (
+        summaryData.income !== 0 ||
+        summaryData.expense !== 0 ||
+        categoryData.length > 0 ||
+        trendsData.length > 0 ||
+        dailyTrendsData.length > 0
+      ) {
+        localStorage.setItem(cacheKey, JSON.stringify({
+          summaryData,
+          lastMonthSummary,
+          categoryData,
+          trendsData,
+          dailyTrendsData
+        }));
+      }
+    }
+  }, [summaryData, lastMonthSummary, categoryData, trendsData, dailyTrendsData, isLoggedIn, selectedWalletId, timePeriod, customStartDate, customEndDate, trendsGroupBy]);
 
   // Fetch report data based on time period
   useEffect(() => {
@@ -291,8 +331,27 @@ export default function Dashboard() {
     setActiveEndDate(end_date);
     setTrendsGroupBy(trendsGroupBy);
 
+    const cacheKey = `cached_dashboard_stats_${selectedWalletId}_${timePeriod}_${customStartDate}_${customEndDate}_${trendsGroupBy}`;
+    let hasCache = false;
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        hasCache = true;
+        try {
+          const parsed = JSON.parse(cached);
+          if (parsed.summaryData) setSummaryData(parsed.summaryData);
+          if (parsed.lastMonthSummary) setLastMonthSummary(parsed.lastMonthSummary);
+          if (parsed.categoryData) setCategoryData(parsed.categoryData);
+          if (parsed.trendsData) setTrendsData(parsed.trendsData);
+          if (parsed.dailyTrendsData) setDailyTrendsData(parsed.dailyTrendsData);
+        } catch (e) {}
+      }
+    }
+
     // Fetch summary
-    setIsLoadingSummary(true);
+    if (!hasCache) {
+      setIsLoadingSummary(true);
+    }
     reportApi.getSummary(start_date, end_date, selectedWalletId || undefined)
       .then(res => {
         if (res.status === 'success' && res.data) {
@@ -334,9 +393,11 @@ export default function Dashboard() {
 
     if (selectedWalletId) {
       // Fetch category and daily spending stats: We load transactions for the selected range filtered by wallet
-      setIsLoadingCategory(true);
-      setIsLoadingDailyTrends(true);
-      setIsLoadingTrends(true);
+      if (!hasCache) {
+        setIsLoadingCategory(true);
+        setIsLoadingDailyTrends(true);
+        setIsLoadingTrends(true);
+      }
       transactionApi.getAll({ start_date, end_date, per_page: 2000, wallet_id: selectedWalletId })
         .then(res => {
           const txList = res.data?.data || res.data || [];
@@ -459,9 +520,11 @@ export default function Dashboard() {
         });
     } else {
       // Selected wallet is empty (All wallets) -> Query aggregated backend API
-      setIsLoadingCategory(true);
-      setIsLoadingDailyTrends(true);
-      setIsLoadingTrends(true);
+      if (!hasCache) {
+        setIsLoadingCategory(true);
+        setIsLoadingDailyTrends(true);
+        setIsLoadingTrends(true);
+      }
 
       // 1. Fetch categories
       reportApi.getCategories({ start_date, end_date, type: 'expense' })
@@ -505,7 +568,9 @@ export default function Dashboard() {
         });
         alert(t('copy_budget_success').replace('{count}', (res.data?.length || 0).toString()));
         const budgetsRes = await budgetApi.getAll(currentMonth, currentYear);
-        setBudgetsList(budgetsRes.data || []);
+        const list = budgetsRes.data || [];
+        setBudgetsList(list);
+        localStorage.setItem(`cached_dashboard_budgets_${currentMonth}_${currentYear}`, JSON.stringify(list));
       } catch (error: any) {
         alert(error.message || t('copy_budget_error'));
       } finally {

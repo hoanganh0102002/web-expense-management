@@ -285,14 +285,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user_data');
-    localStorage.removeItem('cached_wallets');
-    localStorage.removeItem('cached_categories');
-    localStorage.removeItem('cached_transactions');
+    if (typeof window !== 'undefined') {
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('cached_') || key === 'transactions')) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+    }
     setUserData(null);
     setWallets([]);
     setCategories([]);
     setTransactions([]);
-    localStorage.removeItem('transactions');
   };
 
   const logoutAll = async () => {
