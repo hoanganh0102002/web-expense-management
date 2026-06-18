@@ -316,11 +316,11 @@ export default function Transactions() {
 
   const downloadSampleCsv = () => {
     const sampleWallet = wallets && wallets.length > 0 ? wallets[0].name : "Tiền mặt";
-    
+
     // Flatten categories quickly to find one expense and one income
     let expCat = "Ăn uống";
     let incCat = "Lương";
-    
+
     if (categories && categories.length > 0) {
       const exp = categories.find((c: any) => c.type === 'expense');
       if (exp) expCat = exp.name;
@@ -330,7 +330,7 @@ export default function Transactions() {
 
     const todayStr = new Date().toISOString().split('T')[0];
     const csvContent = `\uFEFFNgày;Loại;Số tiền;Ví;Danh mục;Tiêu đề;Ghi chú;Đơn vị\n${todayStr};Chi tiêu;50000;${sampleWallet};${expCat};Ăn sáng;Bún bò;VND\n${todayStr};Thu nhập;15000000;${sampleWallet};${incCat};Lương tháng này;;VND`;
-    
+
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");

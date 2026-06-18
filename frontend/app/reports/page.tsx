@@ -266,6 +266,21 @@ export default function Reports() {
 
   const { isLoggedIn, userData, categories, wallets } = useAppContext();
   const { t } = useLanguage();
+
+  const categoriesMap = React.useMemo(() => {
+    const map: Record<string, any> = {};
+    if (categories) {
+      categories.forEach((parent: any) => {
+        map[String(parent.id)] = parent;
+        if (parent.children) {
+          parent.children.forEach((child: any) => {
+            map[String(child.id)] = { ...child, parent_id: parent.id, parent_name: parent.name, parent_icon: parent.icon, parent_color: parent.color };
+          });
+        }
+      });
+    }
+    return map;
+  }, [categories]);
   
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
@@ -445,7 +460,7 @@ export default function Reports() {
         const txRes = await transactionApi.getAll({
           start_date: startDate,
           end_date: endDate,
-          limit: 10000,
+          per_page: 10000,
           wallet_id: selectedWallet || undefined
         }).catch(() => ({ data: [] }));
 
@@ -573,13 +588,32 @@ export default function Reports() {
         
         txs.forEach((tx: any) => {
           if (tx.type !== reportType) return;
-          const catId = tx.category_id || 'other';
+          const rawCatId = String(tx.category_id || 'other');
           const amount = Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0));
           if (amount === 0) return;
 
           totalVal += amount;
+
+          // Group by parent category
+          const catInfo = categoriesMap[rawCatId];
+          const isChild = catInfo && catInfo.parent_id && catInfo.parent_id !== null;
+          const catId = isChild ? String(catInfo.parent_id) : rawCatId;
+
           if (!categoryTotals[catId]) {
+            let catName = tx.category?.name || tx.category_name || t('other') || 'Khác';
             let catColor = tx.category?.color;
+            let catIcon = tx.category?.icon || '📁';
+
+            if (isChild) {
+               catName = catInfo.parent_name || catName;
+               catColor = catInfo.parent_color || catColor;
+               catIcon = catInfo.parent_icon || catIcon;
+            } else if (catInfo) {
+               catName = catInfo.name || catName;
+               catColor = catInfo.color || catColor;
+               catIcon = catInfo.icon || catIcon;
+            }
+
             if (!catColor) {
               if (catId === 'other') catColor = '#94A3B8';
               else {
@@ -590,8 +624,8 @@ export default function Reports() {
 
             categoryTotals[catId] = {
               id: catId,
-              name: tx.category?.name || tx.category_name || t('other') || 'Khác',
-              icon: tx.category?.icon || '📁',
+              name: catName,
+              icon: catIcon,
               color: catColor,
               amount: 0
             };
@@ -714,7 +748,7 @@ export default function Reports() {
 
     const timer = setTimeout(() => { fetchData(); }, 300);
     return () => clearTimeout(timer);
-  }, [isLoggedIn, startDate, endDate, selectedWallet, reportType, t, wallets]);
+  }, [isLoggedIn, startDate, endDate, selectedWallet, reportType, t, wallets, categoriesMap]);
 
   // Save report cache when data updates
   useEffect(() => {
@@ -874,7 +908,7 @@ export default function Reports() {
       const res = await transactionApi.getAll({ 
         start_date: startDate, 
         end_date: endDate, 
-        limit: 10000,
+        per_page: 10000,
         category_id: selectedCategory || undefined,
         wallet_id: selectedWallet || undefined,
         type: selectedType || undefined
@@ -924,8 +958,15 @@ export default function Reports() {
             <td style="text-align:center;">${datePart}</td>
             <td style="text-align:center;">${timePart}</td>
             <td>${t.type === 'income' ? 'Thu nhập' : 'Chi tiêu'}</td>
-            <td style="text-align:right;">${new Intl.NumberFormat('vi-VN').format(Number(t.amount) || 0)}</td>
-            <td>${t.category?.name || t.category_name || ''}</td>
+            <td>${new Intl.NumberFormat('vi-VN').format(Number(t.amount) || 0)}</td>
+            <td>${(() => {
+              const catId = String(t.category_id || 'other');
+              const catInfo = categoriesMap[catId];
+              if (catInfo && catInfo.parent_id) {
+                return catInfo.parent_name + ' - ' + (t.category?.name || t.category_name || catInfo.name);
+              }
+              return t.category?.name || t.category_name || '';
+            })()}</td>
             <td>${t.wallet?.name || t.wallet_name || ''}</td>
             <td style="text-align:center;">${!(t.category?.name || t.category_name) ? 'x' : ''}</td>
             <td>${t.description || t.note || ''}</td>
@@ -967,7 +1008,7 @@ export default function Reports() {
       const res = await transactionApi.getAll({ 
         start_date: startDate, 
         end_date: endDate, 
-        limit: 10000,
+        per_page: 10000,
         category_id: selectedCategory || undefined,
         wallet_id: selectedWallet || undefined,
         type: selectedType || undefined
@@ -995,7 +1036,12 @@ export default function Reports() {
         
         const type = t.type === 'income' ? 'Thu nhập' : 'Chi tiêu';
         const amount = new Intl.NumberFormat('vi-VN').format(Number(t.amount) || 0);
-        const category = t.category?.name || t.category_name || '';
+        let category = t.category?.name || t.category_name || '';
+        const catId = String(t.category_id || 'other');
+        const catInfo = categoriesMap[catId];
+        if (catInfo && catInfo.parent_id) {
+          category = catInfo.parent_name + ' - ' + category;
+        }
         const wallet = t.wallet?.name || t.wallet_name || '';
         const isInternal = !(t.category?.name || t.category_name) ? 'x' : '';
         const note = t.description || t.note || '';
@@ -1041,7 +1087,7 @@ export default function Reports() {
       const txRes = await transactionApi.getAll({ 
         start_date: startDate, 
         end_date: endDate, 
-        limit: 10000,
+        per_page: 10000,
         category_id: selectedCategory || undefined,
         wallet_id: selectedWallet || undefined,
         type: selectedType || undefined
@@ -1278,7 +1324,15 @@ export default function Reports() {
       const categoryExpenseTotals: Record<string, number> = {};
       let totalExpenseAmount = 0;
       expenseTxs.forEach((t: any) => {
-         const catName = t.category?.name || t.category_name || 'Khác';
+         const catId = String(t.category_id || 'other');
+         const catInfo = categoriesMap[catId];
+         let catName = t.category?.name || t.category_name || 'Khác';
+         if (catInfo && catInfo.parent_id) {
+           catName = catInfo.parent_name;
+         } else if (catInfo) {
+           catName = catInfo.name;
+         }
+         
          const amount = Number(t.amount) || 0;
          if (!categoryExpenseTotals[catName]) categoryExpenseTotals[catName] = 0;
          categoryExpenseTotals[catName] += amount;
@@ -1295,7 +1349,15 @@ export default function Reports() {
       const categoryIncomeTotals: Record<string, number> = {};
       let totalIncomeAmount = 0;
       incomeTxs.forEach((t: any) => {
-         const catName = t.category?.name || t.category_name || 'Khác';
+         const catId = String(t.category_id || 'other');
+         const catInfo = categoriesMap[catId];
+         let catName = t.category?.name || t.category_name || 'Khác';
+         if (catInfo && catInfo.parent_id) {
+           catName = catInfo.parent_name;
+         } else if (catInfo) {
+           catName = catInfo.name;
+         }
+
          const amount = Number(t.amount) || 0;
          if (!categoryIncomeTotals[catName]) categoryIncomeTotals[catName] = 0;
          categoryIncomeTotals[catName] += amount;
@@ -1604,7 +1666,12 @@ export default function Reports() {
                     }
                     
                     const note = t.title || t.description || t.note || '';
-                    const categoryName = t.category?.name || t.category_name || 'Không phân mục';
+                    let categoryName = t.category?.name || t.category_name || 'Không phân mục';
+                    const catIdStr = String(t.category_id || 'other');
+                    const catInfoObj = categoriesMap[catIdStr];
+                    if (catInfoObj && catInfoObj.parent_id) {
+                      categoryName = catInfoObj.parent_name + ' - ' + categoryName;
+                    }
                     const walletName = t.wallet?.name || t.wallet_name || 'Ví đã xóa';
                     const typeStr = t.type === 'income' ? 'Thu' : 'Chi';
                     
