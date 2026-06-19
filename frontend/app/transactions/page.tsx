@@ -188,20 +188,15 @@ export default function Transactions() {
     wallets,
     categories,
     userData,
-    fetchWallets
+    fetchWallets,
+    hasUnreadNotifications,
+    unreadNotificationsCount
   } = useAppContext();
   const { t, tCategory } = useLanguage();
   const formatCurrency = (amount: number | string) => {
     const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     if (isNaN(numericAmount)) return '0';
-    const currencyCode = userData?.preference?.currency || 'VND';
-    let locale = 'vi-VN';
-    if (currencyCode === 'USD') locale = 'en-US';
-    else if (currencyCode === 'EUR') locale = 'de-DE';
-    else if (currencyCode === 'GBP') locale = 'en-GB';
-    else if (currencyCode === 'JPY') locale = 'ja-JP';
-
-    return new Intl.NumberFormat(locale, { style: 'currency', currency: currencyCode }).format(numericAmount);
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(numericAmount);
   };
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -245,6 +240,39 @@ export default function Transactions() {
   });
 
   const [payees, setPayees] = useState<any[]>([]);
+
+  const isCashWallet = useMemo(() => {
+    const w = wallets.find(x => x.id === newTx.wallet_id);
+    return w?.type === 'cash';
+  }, [newTx.wallet_id, wallets]);
+
+  const isEditCashWallet = useMemo(() => {
+    if (!editingTx) return false;
+    const w = wallets.find(x => x.id === editingTx.wallet_id);
+    return w?.type === 'cash';
+  }, [editingTx?.wallet_id, wallets]);
+
+  useEffect(() => {
+    if (isCashWallet) {
+      setNewTx((prev: any) => {
+        if (prev.is_recurring || prev.payee_id) {
+          return { ...prev, is_recurring: false, payee_id: '' };
+        }
+        return prev;
+      });
+    }
+  }, [isCashWallet]);
+
+  useEffect(() => {
+    if (isEditCashWallet && editingTx) {
+      setEditingTx((prev: any) => {
+        if (prev && prev.payee_id) {
+          return { ...prev, payee_id: '' };
+        }
+        return prev;
+      });
+    }
+  }, [isEditCashWallet]);
   const [isPayeeModalOpen, setIsPayeeModalOpen] = useState(false);
   const [payeeSearchTerm, setPayeeSearchTerm] = useState('');
   const [isSearchingSystem, setIsSearchingSystem] = useState(false);
@@ -646,8 +674,15 @@ export default function Transactions() {
       return;
     }
     const selectedWallet = wallets.find(w => w.id === newTx.wallet_id);
-    if (newTx.is_recurring && selectedWallet?.type === 'cash') {
+    const isCashWallet = selectedWallet?.type === 'cash';
+
+    if (newTx.is_recurring && isCashWallet) {
       alert('Không được phép chọn ví Tiền mặt để thanh toán. Vui lòng chọn ví khác!');
+      return;
+    }
+
+    if (!isCashWallet && !newTx.payee_id) {
+      alert('Giao dịch online cần có người hưởng thụ. Vui lòng chọn người thụ hưởng!');
       return;
     }
 
@@ -810,6 +845,13 @@ export default function Transactions() {
   const submitEdit = async () => {
     if (!editingTx.title || !editingTx.amount || !editingTx.wallet_id) {
       alert('Vui lòng điền các trường bắt buộc');
+      return;
+    }
+    const selectedWallet = wallets.find(w => w.id === editingTx.wallet_id);
+    const isCashWallet = selectedWallet?.type === 'cash';
+
+    if (!isCashWallet && !editingTx.payee_id) {
+      alert('Giao dịch online cần có người hưởng thụ. Vui lòng chọn người thụ hưởng!');
       return;
     }
 
@@ -1015,8 +1057,29 @@ export default function Transactions() {
             <button style={{ background: '#1814F3', color: '#fff', padding: '10px 20px', borderRadius: '24px', fontWeight: '600', border: 'none', cursor: 'pointer', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={handleAdd}>
               {t('add_transaction')}
             </button>
-            <Link href="/notifications" style={{ background: '#F5F7FA', width: '45px', height: '45px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffb300', cursor: 'pointer', fontSize: '20px', textDecoration: 'none' }}>
+            <Link href="/notifications" style={{ background: '#F5F7FA', width: '45px', height: '45px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffb300', cursor: 'pointer', fontSize: '20px', textDecoration: 'none', position: 'relative' }}>
               🔔
+              {isLoggedIn && hasUnreadNotifications && unreadNotificationsCount > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: '-2px',
+                  right: '-2px',
+                  minWidth: '16px',
+                  height: '16px',
+                  background: '#FE5C73',
+                  color: '#fff',
+                  borderRadius: '10px',
+                  border: '2px solid #fff',
+                  fontSize: '9px',
+                  fontWeight: '800',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0 4px'
+                }}>
+                  {unreadNotificationsCount}
+                </span>
+              )}
             </Link>
             {isLoggedIn ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
@@ -1889,18 +1952,20 @@ export default function Transactions() {
           <div style={{ background: 'var(--card-bg)', borderRadius: '24px', padding: '30px', width: '550px', maxWidth: '95%', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', maxHeight: '90vh', overflowY: 'auto' }}>
             <h2 style={{ color: 'var(--text-main)', marginBottom: '24px', fontSize: '22px', fontWeight: '700' }}>{t('add_new_transaction')}</h2>
 
-            <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <input
-                type="checkbox"
-                id="is_recurring"
-                checked={newTx.is_recurring}
-                onChange={e => setNewTx({ ...newTx, is_recurring: e.target.checked })}
-                style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#1814F3' }}
-              />
-              <label htmlFor="is_recurring" style={{ color: 'var(--text-main)', fontSize: '15px', fontWeight: '500', cursor: 'pointer' }}>
-                Tạo giao dịch định kỳ (Tự động lặp lại)
-              </label>
-            </div>
+            {!isCashWallet && (
+              <div style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <input
+                  type="checkbox"
+                  id="is_recurring"
+                  checked={newTx.is_recurring}
+                  onChange={e => setNewTx({ ...newTx, is_recurring: e.target.checked })}
+                  style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#1814F3' }}
+                />
+                <label htmlFor="is_recurring" style={{ color: 'var(--text-main)', fontSize: '15px', fontWeight: '500', cursor: 'pointer' }}>
+                  Tạo giao dịch định kỳ (Tự động lặp lại)
+                </label>
+              </div>
+            )}
 
             {newTx.is_recurring && (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
@@ -1946,7 +2011,7 @@ export default function Transactions() {
               <div>
                 <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>{t('wallets')} *</label>
                 <select value={newTx.wallet_id} onChange={e => setNewTx({ ...newTx, wallet_id: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}>
-                  {wallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  {wallets.filter(w => !newTx.is_recurring || w.type !== 'cash').map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                 </select>
               </div>
             </div>
@@ -1969,33 +2034,33 @@ export default function Transactions() {
               </div>
             </div>
 
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Người hưởng thụ / Người trả</label>
-              <div
-                onClick={() => {
-                  if (newTx.is_recurring || newTx.type === 'income') return;
-                  setTargetModalForPayee('new');
-                  setIsPayeeModalOpen(true);
-                }}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  border: '1px solid var(--border-color)',
-                  borderRadius: '12px',
-                  background: (newTx.is_recurring || newTx.type === 'income') ? 'rgba(0, 0, 0, 0.05)' : 'var(--bg-color)',
-                  color: (newTx.is_recurring || newTx.type === 'income') ? '#9ca3af' : 'var(--text-main)',
-                  fontSize: '15px',
-                  cursor: (newTx.is_recurring || newTx.type === 'income') ? 'not-allowed' : 'pointer',
-                  opacity: (newTx.is_recurring || newTx.type === 'income') ? 0.5 : 1,
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center'
-                }}
-              >
-                <span>{newTx.payee_id ? payees.find(p => p.id === newTx.payee_id)?.payee_name || 'Đã chọn' : 'Chọn người thụ hưởng (Tùy chọn)'}</span>
-                <span style={{ color: '#718EBF', fontSize: '12px' }}>▼</span>
+            {!isCashWallet && (
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Người hưởng thụ / Người trả *</label>
+                <div
+                  onClick={() => {
+                    setTargetModalForPayee('new');
+                    setIsPayeeModalOpen(true);
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: '12px',
+                    background: 'var(--bg-color)',
+                    color: 'var(--text-main)',
+                    fontSize: '15px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}
+                >
+                  <span>{newTx.payee_id ? payees.find(p => p.id === newTx.payee_id)?.payee_name || 'Đã chọn' : 'Chọn người thụ hưởng (Bắt buộc)'}</span>
+                  <span style={{ color: '#718EBF', fontSize: '12px' }}>▼</span>
+                </div>
               </div>
-            </div>
+            )}
 
             <div style={{ marginBottom: '15px' }}>
               <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>{t('notes')}</label>
@@ -2083,7 +2148,7 @@ export default function Transactions() {
               <div>
                 <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Ví *</label>
                 <select value={editingRecurringTx.wallet_id} onChange={e => setEditingRecurringTx({ ...editingRecurringTx, wallet_id: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}>
-                  {wallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  {wallets.filter(w => w.type !== 'cash').map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                 </select>
               </div>
             </div>
@@ -2339,19 +2404,21 @@ export default function Transactions() {
               </div>
             </div>
 
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Người hưởng thụ / Người trả</label>
-              <div
-                onClick={() => {
-                  setTargetModalForPayee('edit');
-                  setIsPayeeModalOpen(true);
-                }}
-                style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-              >
-                <span>{editingTx.payee_id ? payees.find(p => p.id === editingTx.payee_id)?.payee_name || 'Đã chọn' : 'Chọn người thụ hưởng (Tùy chọn)'}</span>
-                <span style={{ color: '#718EBF', fontSize: '12px' }}>▼</span>
+            {!isEditCashWallet && (
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Người hưởng thụ / Người trả *</label>
+                <div
+                  onClick={() => {
+                    setTargetModalForPayee('edit');
+                    setIsPayeeModalOpen(true);
+                  }}
+                  style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                >
+                  <span>{editingTx.payee_id ? payees.find(p => p.id === editingTx.payee_id)?.payee_name || 'Đã chọn' : 'Chọn người thụ hưởng (Bắt buộc)'}</span>
+                  <span style={{ color: '#718EBF', fontSize: '12px' }}>▼</span>
+                </div>
               </div>
-            </div>
+            )}
 
             <div style={{ marginBottom: '15px' }}>
               <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>{t('notes')}</label>

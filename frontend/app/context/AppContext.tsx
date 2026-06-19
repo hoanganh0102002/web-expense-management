@@ -1,6 +1,6 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { walletApi, authApi, categoryApi, transactionApi } from '../lib/api';
+import { walletApi, authApi, categoryApi, transactionApi, notificationApi } from '../lib/api';
 import { requestAndRegisterNotificationPermission } from '../lib/firebaseNotification';
 
 type AppContextType = {
@@ -32,6 +32,11 @@ type AppContextType = {
   createCategory: (data: any) => Promise<void>;
   updateCategory: (id: string, data: any) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
+
+  // Thông báo chưa đọc
+  hasUnreadNotifications: boolean;
+  unreadNotificationsCount: number;
+  fetchUnreadNotificationsCount: () => Promise<void>;
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -45,6 +50,35 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [isLoadingWallets, setIsLoadingWallets] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
+  const [unreadNotificationsCount, setUnreadNotificationsCount] = useState(0);
+
+  // Warm up notification state from cache if available
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const cachedNotifs = localStorage.getItem('cached_notifications');
+      if (cachedNotifs) {
+        try {
+          const parsed = JSON.parse(cachedNotifs);
+          const unreadList = parsed.filter((n: any) => n.read_at === null);
+          setUnreadNotificationsCount(unreadList.length);
+          setHasUnreadNotifications(unreadList.length > 0);
+        } catch (e) {}
+      }
+    }
+  }, []);
+
+  const fetchUnreadNotificationsCount = async () => {
+    if (!localStorage.getItem('access_token')) return;
+    try {
+      const res = await notificationApi.getAll();
+      const list = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+      const unreadList = list.filter((n: any) => n.read_at === null);
+      setUnreadNotificationsCount(unreadList.length);
+      setHasUnreadNotifications(unreadList.length > 0);
+      localStorage.setItem('cached_notifications', JSON.stringify(list));
+    } catch (e) {}
+  };
 
   useEffect(() => {
     const savedLogin = localStorage.getItem('isLoggedIn');
@@ -69,6 +103,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchWallets();
       fetchCategories();
       fetchTransactions();
+      fetchUnreadNotificationsCount();
       requestAndRegisterNotificationPermission();
     }
     const savedUser = localStorage.getItem('user_data');
@@ -257,6 +292,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     fetchWallets();
     fetchCategories();
+    fetchUnreadNotificationsCount();
     requestAndRegisterNotificationPermission();
   };
 
@@ -299,6 +335,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setWallets([]);
     setCategories([]);
     setTransactions([]);
+    setHasUnreadNotifications(false);
+    setUnreadNotificationsCount(0);
   };
 
   const logoutAll = async () => {
@@ -323,7 +361,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       isLoggedIn, userData, login, logout, logoutAll, updateUserPreference, updateUserProfile,
       transactions, isLoadingTransactions, fetchTransactions, createTransaction, deleteTransaction,
       wallets, isLoadingWallets, fetchWallets, createWallet, updateWallet, deleteWallet,
-      categories, isLoadingCategories, fetchCategories, createCategory, updateCategory, deleteCategory
+      categories, isLoadingCategories, fetchCategories, createCategory, updateCategory, deleteCategory,
+      hasUnreadNotifications, unreadNotificationsCount, fetchUnreadNotificationsCount
     }}>
       {children}
     </AppContext.Provider>

@@ -80,7 +80,7 @@ const getMonthsBetween = (startDateStr: string, endDateStr: string): any[] => {
 
 export default function Dashboard() {
   const router = useRouter();
-  const { isLoggedIn, wallets, transactions, isLoadingWallets, userData, categories } = useAppContext();
+  const { isLoggedIn, wallets, transactions, isLoadingWallets, userData, categories, hasUnreadNotifications, unreadNotificationsCount } = useAppContext();
   const { t } = useLanguage();
   const [showWalletBalance, setShowWalletBalance] = useState(true);
   const [selectedWalletId, setSelectedWalletId] = useState<string>('');
@@ -102,6 +102,7 @@ export default function Dashboard() {
   const [dailyTrendsData, setDailyTrendsData] = useState<any[]>([]);
   const [isLoadingDailyTrends, setIsLoadingDailyTrends] = useState(false);
   const [hoveredDailyPoint, setHoveredDailyPoint] = useState<number | null>(null);
+  const [chartMode, setChartMode] = useState<'expense' | 'income' | 'balance'>('expense');
   const [hoveredTopCategory, setHoveredTopCategory] = useState<number | null>(null);
   const [timePeriod, setTimePeriod] = useState<'week' | 'month' | 'quarter' | 'year' | 'custom'>('month');
   const [customStartDate, setCustomStartDate] = useState('');
@@ -109,6 +110,53 @@ export default function Dashboard() {
   const [activeStartDate, setActiveStartDate] = useState('');
   const [activeEndDate, setActiveEndDate] = useState('');
   const [trendsGroupBy, setTrendsGroupBy] = useState<'day' | 'month'>('day');
+
+  // Category Transaction Modal States
+  const [transactionModalCategory, setTransactionModalCategory] = useState<any | null>(null);
+  const [modalTransactions, setModalTransactions] = useState<any[]>([]);
+  const [isLoadingModalTransactions, setIsLoadingModalTransactions] = useState(false);
+
+  const handleOpenCategoryTransactions = (cat: any) => {
+    setTransactionModalCategory(cat);
+    setIsLoadingModalTransactions(true);
+    setModalTransactions([]);
+
+    // Find all categories matching the ID (including child category IDs if allocationType === 'parent')
+    const catIds = [cat.category_id];
+    if (allocationType === 'parent') {
+      categories.forEach((c: any) => {
+        if (c.id === cat.category_id) {
+          if (c.children) {
+            c.children.forEach((sub: any) => {
+              catIds.push(sub.id);
+            });
+          }
+        }
+      });
+    }
+
+    transactionApi.getAll({
+      start_date: activeStartDate || undefined,
+      end_date: activeEndDate || undefined,
+      wallet_id: selectedWalletId || undefined,
+      per_page: 2000
+    })
+      .then(res => {
+        const txList = res.data?.data || res.data || [];
+        const filtered = txList.filter((tx: any) => {
+          if (tx.type !== 'expense') return false;
+          const txCatId = tx.category_id || 'other';
+          return catIds.includes(txCatId);
+        });
+        setModalTransactions(filtered);
+      })
+      .catch(err => {
+        console.error("Error loading category transactions:", err);
+      })
+      .finally(() => {
+        setIsLoadingModalTransactions(false);
+      });
+  };
 
   // Reset selected category index when toggle views or data updates
   useEffect(() => {
@@ -689,14 +737,7 @@ export default function Dashboard() {
   const formatCurrency = (amount: number | string) => {
     const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     if (isNaN(numericAmount)) return '0';
-    const currencyCode = userData?.preference?.currency || 'VND';
-    let locale = 'vi-VN';
-    if (currencyCode === 'USD') locale = 'en-US';
-    else if (currencyCode === 'EUR') locale = 'de-DE';
-    else if (currencyCode === 'GBP') locale = 'en-GB';
-    else if (currencyCode === 'JPY') locale = 'ja-JP';
-    
-    return new Intl.NumberFormat(locale, { style: 'currency', currency: currencyCode }).format(numericAmount);
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(numericAmount);
   };
 
   const displayName = userData?.profile?.full_name || userData?.full_name || userData?.name || t('new_user');
@@ -730,8 +771,29 @@ export default function Dashboard() {
             >
               {t('add_report')}
             </button>
-            <Link href="/notifications" style={{background: '#F5F7FA', width: '45px', height: '45px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffb300', cursor: 'pointer', fontSize: '20px', textDecoration: 'none'}}>
+            <Link href="/notifications" style={{background: '#F5F7FA', width: '45px', height: '45px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffb300', cursor: 'pointer', fontSize: '20px', textDecoration: 'none', position: 'relative'}}>
               🔔
+              {isLoggedIn && hasUnreadNotifications && unreadNotificationsCount > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: '-2px',
+                  right: '-2px',
+                  minWidth: '16px',
+                  height: '16px',
+                  background: '#FE5C73',
+                  color: '#fff',
+                  borderRadius: '10px',
+                  border: '2px solid #fff',
+                  fontSize: '9px',
+                  fontWeight: '800',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0 4px'
+                }}>
+                  {unreadNotificationsCount}
+                </span>
+              )}
             </Link>
             {isLoggedIn ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
@@ -1266,7 +1328,10 @@ export default function Dashboard() {
                                   key={idx} 
                                   onMouseEnter={() => setHoveredCategory(idx)}
                                   onMouseLeave={() => setHoveredCategory(null)}
-                                  onClick={() => setSelectedCategoryIdx(idx)}
+                                  onClick={() => {
+                                    setSelectedCategoryIdx(idx);
+                                    handleOpenCategoryTransactions(cat);
+                                  }}
                                   style={{ 
                                     display: 'flex',
                                     flexDirection: 'column',
@@ -1366,10 +1431,41 @@ export default function Dashboard() {
 
           <div className="row" style={{ marginTop: '24px' }}>
             <div className="col-2" style={{ flex: 2 }}>
-              <div className="section-header">
-                <h2 className="section-title">
-                  {t('daily_spending_trend') || 'Xu hướng chi tiêu hàng ngày'}
+              <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                <h2 className="section-title" style={{ margin: 0 }}>
+                  {t('daily_spending_trend')}
                 </h2>
+                
+                {/* Visual Toggles */}
+                <div style={{ display: 'inline-flex', background: 'var(--border-color)', padding: '3px', borderRadius: '20px', gap: '2px', backdropFilter: 'blur(10px)' }}>
+                  {[
+                    { key: 'expense', label: 'Chi tiêu', color: '#FE5C73' },
+                    { key: 'income', label: 'Thu nhập', color: '#10B981' },
+                    { key: 'balance', label: 'Số dư lũy kế', color: '#2D60FF' }
+                  ].map(tab => {
+                    const isSelected = chartMode === tab.key;
+                    return (
+                      <button
+                        key={tab.key}
+                        onClick={() => setChartMode(tab.key as any)}
+                        style={{
+                          background: isSelected ? 'var(--card-bg)' : 'transparent',
+                          color: isSelected ? tab.color : 'var(--text-muted)',
+                          border: 'none',
+                          padding: '6px 14px',
+                          borderRadius: '16px',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s ease',
+                          boxShadow: isSelected ? '0 2px 8px rgba(0,0,0,0.08)' : 'none'
+                        }}
+                      >
+                        {tab.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
               <div className="chart-card" style={{ 
                 padding: '24px 30px', 
@@ -1380,7 +1476,7 @@ export default function Dashboard() {
                 justifyContent: 'center',
                 overflow: 'visible'
               }}>
-                {!isLoggedIn || dailyTrendsData.length === 0 ? (
+                {!isLoggedIn || mergedTrends.length === 0 ? (
                   <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '20px 0', textAlign: 'center' }}>
                     <span style={{ fontSize: '36px' }}>📈</span>
                     <span style={{ color: 'var(--text-main)', fontWeight: '600', fontSize: '14px' }}>
@@ -1392,44 +1488,43 @@ export default function Dashboard() {
                   </div>
                 ) : (
                   (() => {
-
-
                     const processedDailyTrends: any[] = [];
+                    let runningBalance = 0;
                     
-                    if (trendsGroupBy === 'day') {
-                      const dateStrings = getDatesBetween(activeStartDate, activeEndDate);
-                      dateStrings.forEach((dateString) => {
-                        const found = dailyTrendsData.find(item => item.date === dateString);
-                        const dVal = new Date(dateString);
-                        processedDailyTrends.push({
-                          day: dVal.getDate(),
-                          label: `${dVal.getDate()}/${dVal.getMonth() + 1}`,
-                          expense: found ? Math.abs(Number(found.expense)) : 0,
-                        });
+                    mergedTrends.forEach((trend) => {
+                      const inc = Number(trend.income) || 0;
+                      const exp = Number(trend.expense) || 0;
+                      const net = inc - exp;
+                      runningBalance += net;
+                      
+                      processedDailyTrends.push({
+                        day: trend.label.split('/')[0],
+                        label: trend.label,
+                        expense: exp,
+                        income: inc,
+                        balance: runningBalance,
+                        value: chartMode === 'expense' 
+                          ? exp 
+                          : chartMode === 'income' 
+                            ? inc 
+                            : runningBalance
                       });
-                    } else {
-                      const months = getMonthsBetween(activeStartDate, activeEndDate);
-                      months.forEach((m) => {
-                        const found = dailyTrendsData.find(item => item.month === m.month && item.year === m.year);
-                        processedDailyTrends.push({
-                          day: m.month,
-                          label: m.label,
-                          expense: found ? Math.abs(Number(found.expense)) : 0,
-                        });
-                      });
-                    }
+                    });
 
-                    const maxExpense = Math.max(...processedDailyTrends.map(t => t.expense), 100000);
+                    const minY = Math.min(...processedDailyTrends.map(t => t.value), 0);
+                    const maxY = Math.max(...processedDailyTrends.map(t => t.value), 100000);
+                    const valRange = maxY - minY || 1;
+
                     const getX = (idx: number) => {
                       const len = processedDailyTrends.length;
                       if (len <= 1) return 450;
                       return (idx / (len - 1)) * 900;
                     };
-                    const getY = (amount: number) => 170 - (amount / maxExpense) * 135;
+                    const getY = (val: number) => 170 - ((val - minY) / valRange) * 135;
 
                     const points = processedDailyTrends.map((t, idx) => ({
                       x: getX(idx),
-                      y: getY(t.expense)
+                      y: getY(t.value)
                     }));
 
                     // Generate a smooth Catmull-Rom cubic bezier spline path
@@ -1448,10 +1543,10 @@ export default function Dashboard() {
                         let cp2y = p.y - (next.y - prev.y) / 6;
 
                         // Clamp control points Y to avoid overshoot outside local min/max values
-                        const minY = Math.min(prev.y, p.y) - 15;
-                        const maxY = Math.max(prev.y, p.y) + 15;
-                        cp1y = Math.max(minY, Math.min(maxY, cp1y));
-                        cp2y = Math.max(minY, Math.min(maxY, cp2y));
+                        const ctrlMinY = Math.min(prev.y, p.y);
+                        const ctrlMaxY = Math.max(prev.y, p.y);
+                        cp1y = Math.max(ctrlMinY, Math.min(ctrlMaxY, cp1y));
+                        cp2y = Math.max(ctrlMinY, Math.min(ctrlMaxY, cp2y));
                         
                         return `${acc} C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p.x.toFixed(1)} ${p.y.toFixed(1)}`;
                       }, "");
@@ -1461,19 +1556,50 @@ export default function Dashboard() {
                       ? `${dPath} L ${points[points.length - 1].x.toFixed(1)} 170 L ${points[0].x.toFixed(1)} 170 Z`
                       : '';
 
+                    let chartColor = '#FF6B81'; 
+                    let gradId = 'expenseGrad';
+                    let glowId = 'glow';
+                    
+                    if (chartMode === 'income') {
+                      chartColor = '#10B981';
+                      gradId = 'incomeGrad';
+                      glowId = 'glowIncome';
+                    } else if (chartMode === 'balance') {
+                      chartColor = '#2D60FF';
+                      gradId = 'balanceGrad';
+                      glowId = 'glowBalance';
+                    }
+
                     return (
                       <div style={{ position: 'relative', width: '100%', height: '100%' }}>
                         <svg viewBox="0 0 900 210" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
                           <defs>
-                            {/* Area Gradient */}
+                            {/* Area Gradients */}
                             <linearGradient id="expenseGrad" x1="0" y1="0" x2="0" y2="1">
                               <stop offset="0%" stopColor="#FF6B81" stopOpacity="0.45"/>
                               <stop offset="50%" stopColor="#FF6B81" stopOpacity="0.15"/>
                               <stop offset="100%" stopColor="#FF6B81" stopOpacity="0.00"/>
                             </linearGradient>
-                            {/* Glow Filter */}
+                            <linearGradient id="incomeGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#10B981" stopOpacity="0.45"/>
+                              <stop offset="50%" stopColor="#10B981" stopOpacity="0.15"/>
+                              <stop offset="100%" stopColor="#10B981" stopOpacity="0.00"/>
+                            </linearGradient>
+                            <linearGradient id="balanceGrad" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#2D60FF" stopOpacity="0.45"/>
+                              <stop offset="50%" stopColor="#2D60FF" stopOpacity="0.15"/>
+                              <stop offset="100%" stopColor="#2D60FF" stopOpacity="0.00"/>
+                            </linearGradient>
+                            
+                            {/* Glow Filters */}
                             <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
                               <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#FF6B81" floodOpacity="0.3"/>
+                            </filter>
+                            <filter id="glowIncome" x="-20%" y="-20%" width="140%" height="140%">
+                              <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#10B981" floodOpacity="0.3"/>
+                            </filter>
+                            <filter id="glowBalance" x="-20%" y="-20%" width="140%" height="140%">
+                              <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#2D60FF" floodOpacity="0.3"/>
                             </filter>
                           </defs>
 
@@ -1503,24 +1629,24 @@ export default function Dashboard() {
                           </g>
 
                           {/* Area under the path */}
-                          <path d={dArea} fill="url(#expenseGrad)" />
+                          <path d={dArea} fill={`url(#${gradId})`} />
 
                           {/* The line itself with glow */}
-                          <path d={dPath} fill="none" stroke="#FF6B81" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" filter="url(#glow)" />
+                          <path d={dPath} fill="none" stroke={chartColor} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" filter={`url(#${glowId})`} />
 
                           {/* Tiny dots on days with transactions */}
-                          {processedDailyTrends.map((t, idx) => {
-                            if (t.expense === 0) return null;
+                          {chartMode !== 'balance' && processedDailyTrends.map((t, idx) => {
+                            if (t.value === 0) return null;
                             return (
                               <circle
                                 key={idx}
                                 cx={getX(idx)}
-                                cy={getY(t.expense)}
+                                cy={getY(t.value)}
                                 r="4"
-                                fill="#FF6B81"
+                                fill={chartColor}
                                 stroke="var(--card-bg)"
                                 strokeWidth="1.5"
-                                style={{ filter: 'drop-shadow(0px 1px 3px rgba(255,107,129,0.4))' }}
+                                style={{ filter: `drop-shadow(0px 1px 3px ${chartColor}60)` }}
                                 pointerEvents="none"
                               />
                             );
@@ -1533,7 +1659,7 @@ export default function Dashboard() {
                               y1="35"
                               x2={getX(hoveredDailyPoint as number)}
                               y2="170"
-                              stroke="#FF6B81"
+                              stroke={chartColor}
                               strokeWidth="1.5"
                               strokeDasharray="3 3"
                               opacity="0.8"
@@ -1545,12 +1671,12 @@ export default function Dashboard() {
                           {hoveredDailyPoint !== null && (
                             <circle
                               cx={getX(hoveredDailyPoint as number)}
-                              cy={getY(processedDailyTrends[hoveredDailyPoint as number].expense)}
+                              cy={getY(processedDailyTrends[hoveredDailyPoint as number].value)}
                               r="6"
-                              fill="#FF6B81"
+                              fill={chartColor}
                               stroke="#fff"
                               strokeWidth="2.5"
-                              style={{ filter: 'drop-shadow(0px 2px 6px rgba(255,107,129,0.6))' }}
+                              style={{ filter: `drop-shadow(0px 2px 6px ${chartColor}80)` }}
                               pointerEvents="none"
                             />
                           )}
@@ -1596,9 +1722,9 @@ export default function Dashboard() {
                           {hoveredDailyPoint !== null && (() => {
                             const item = processedDailyTrends[hoveredDailyPoint as number];
                             const xVal = getX(hoveredDailyPoint as number);
-                            const yVal = getY(item.expense);
+                            const yVal = getY(item.value);
                             
-                            const tooltipWidth = 140;
+                            const tooltipWidth = 150;
                             const tooltipHeight = 52;
                             
                             // Center the tooltip horizontally, clamp within SVG bounds [10, 890]
@@ -1610,6 +1736,15 @@ export default function Dashboard() {
                             const showBelow = yVal < 75;
                             const ty = showBelow ? yVal + 15 : yVal - tooltipHeight - 15;
                             
+                            let amtStr = '';
+                            if (chartMode === 'expense') {
+                              amtStr = `-${formatCurrency(item.expense)}`;
+                            } else if (chartMode === 'income') {
+                              amtStr = `+${formatCurrency(item.income)}`;
+                            } else {
+                              amtStr = `${item.balance >= 0 ? '+' : ''}${formatCurrency(item.balance)}`;
+                            }
+
                             return (
                               <g pointerEvents="none">
                                 {/* Tooltip Shadow Overlay */}
@@ -1642,11 +1777,11 @@ export default function Dashboard() {
                                   x={tx + tooltipWidth / 2}
                                   y={ty + 38}
                                   textAnchor="middle"
-                                  fill="#FF6B81"
+                                  fill={chartColor}
                                   fontSize="13"
                                   fontWeight="700"
                                 >
-                                  -{formatCurrency(item.expense)}
+                                  {amtStr}
                                 </text>
                               </g>
                             );
@@ -2032,18 +2167,7 @@ export default function Dashboard() {
                               }}>
                                 {wType.label}
                               </span>
-                              {w.currency_code && w.currency_code !== 'VND' && (
-                                <span style={{
-                                  fontSize: '10px',
-                                  fontWeight: '600',
-                                  color: 'var(--text-light)',
-                                  background: 'var(--border-color)',
-                                  padding: '1px 5px',
-                                  borderRadius: '4px'
-                                }}>
-                                  {w.currency_code}
-                                </span>
-                              )}
+
                             </div>
                           </div>
                           
@@ -2067,6 +2191,121 @@ export default function Dashboard() {
           </div>
         </div>
       </main>
+
+      {/* Category Transactions Modal */}
+      {transactionModalCategory && (
+        <div className="dashboard-modal-overlay" onClick={() => setTransactionModalCategory(null)}>
+          <div className="dashboard-modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="dashboard-modal-header">
+              <div className="dashboard-modal-header-info">
+                <div>
+                  <h3 className="dashboard-modal-title">Chi tiết chi tiêu</h3>
+                  <div className="dashboard-modal-subtitle">
+                    {timePeriod === 'custom'
+                      ? `${activeStartDate} - ${activeEndDate}`
+                      : timePeriod === 'week' ? 'Tuần này'
+                      : timePeriod === 'month' ? 'Tháng này'
+                      : timePeriod === 'quarter' ? 'Quý này' : 'Năm nay'}
+                    {selectedWalletId && ` • ${wallets.find(w => w.id === selectedWalletId)?.name || 'Ví của tôi'}`}
+                  </div>
+                </div>
+              </div>
+              <button className="dashboard-modal-close" onClick={() => setTransactionModalCategory(null)}>
+                &times;
+              </button>
+            </div>
+            
+            <div className="dashboard-modal-body">
+              {/* Category Info Banner */}
+              <div className="dashboard-modal-category-card">
+                <div className="dashboard-modal-category-title-area">
+                  <div 
+                    className="dashboard-modal-category-icon-box"
+                    style={{ 
+                      background: transactionModalCategory.category_color ? `${transactionModalCategory.category_color}1A` : 'rgba(113, 142, 191, 0.1)',
+                      color: transactionModalCategory.category_color || '#718EBF'
+                    }}
+                  >
+                    {parseIcon(transactionModalCategory.category_icon) || '📁'}
+                  </div>
+                  <div className="dashboard-modal-category-details">
+                    <h4>{transactionModalCategory.category_name}</h4>
+                    <span>{modalTransactions.length} giao dịch</span>
+                  </div>
+                </div>
+                <div className="dashboard-modal-category-amount" style={{ color: '#FE5C73' }}>
+                  -{formatCurrency(transactionModalCategory.amount)}
+                </div>
+              </div>
+
+              {/* Transactions List */}
+              {isLoadingModalTransactions ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 0', gap: '12px' }}>
+                  <div className="spinner" style={{
+                    width: '32px',
+                    height: '32px',
+                    borderRadius: '50%',
+                    border: '3px solid var(--border-color)',
+                    borderTopColor: 'var(--active-blue)',
+                    animation: 'spin 1s linear infinite'
+                  }} />
+                  <span style={{ fontSize: '13px', color: 'var(--text-light)', fontWeight: '600' }}>
+                    Đang tải danh sách giao dịch...
+                  </span>
+                </div>
+              ) : modalTransactions.length === 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 0', gap: '8px', textAlign: 'center' }}>
+                  <span style={{ fontSize: '40px' }}>💸</span>
+                  <span style={{ fontWeight: '700', fontSize: '14px', color: 'var(--text-main)' }}>Không tìm thấy giao dịch nào</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-light)', maxWidth: '240px' }}>
+                    Không có giao dịch ghi chép chi tiêu nào thuộc danh mục này trong khoảng thời gian đã chọn.
+                  </span>
+                </div>
+              ) : (
+                <div>
+                  {modalTransactions.map((tx: any) => {
+                    const txDate = new Date(tx.transaction_date);
+                    const day = txDate.getDate();
+                    const monthStr = `T${txDate.getMonth() + 1}`;
+                    const timeStr = txDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+                    const walletName = wallets.find(w => w.id === tx.wallet_id)?.name || 'Tài khoản chính';
+                    
+                    return (
+                      <div key={tx.id} className="dashboard-modal-tx-item">
+                        <div className="dashboard-modal-tx-info">
+                          <div className="dashboard-modal-tx-date-badge">
+                            <span className="dashboard-modal-tx-date-day">{day}</span>
+                            <span className="dashboard-modal-tx-date-month">{monthStr}</span>
+                          </div>
+                          <div className="dashboard-modal-tx-text">
+                            <h5 className="dashboard-modal-tx-title" title={tx.title || tx.notes || 'Giao dịch'}>
+                              {tx.title || tx.notes || 'Giao dịch'}
+                            </h5>
+                            <div className="dashboard-modal-tx-sub">
+                              <span>{timeStr}</span>
+                              <span>•</span>
+                              <span className="dashboard-modal-tx-wallet-tag">{walletName}</span>
+                              {tx.notes && (
+                                <>
+                                  <span>•</span>
+                                  <span style={{ fontStyle: 'italic' }}>{tx.notes}</span>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="dashboard-modal-tx-amount expense">
+                          -{formatCurrency(tx.amount)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

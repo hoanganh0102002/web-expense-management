@@ -74,14 +74,7 @@ const BudgetDoughnutChart = ({ data }: { data: { name: string; value: number; co
   const formatCurrency = (amount: number | string) => {
     const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     if (isNaN(numericAmount)) return '0';
-    const currencyCode = userData?.preference?.currency || 'VND';
-    let locale = 'vi-VN';
-    if (currencyCode === 'USD') locale = 'en-US';
-    else if (currencyCode === 'EUR') locale = 'de-DE';
-    else if (currencyCode === 'GBP') locale = 'en-GB';
-    else if (currencyCode === 'JPY') locale = 'ja-JP';
-    
-    return new Intl.NumberFormat(locale, { style: 'currency', currency: currencyCode }).format(numericAmount);
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(numericAmount);
   };
   
   if (total === 0) {
@@ -672,14 +665,7 @@ export default function Budget() {
   const formatCurrency = (amount: number | string) => {
     const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     if (isNaN(numericAmount)) return '0';
-    const currencyCode = userData?.preference?.currency || 'VND';
-    let locale = 'vi-VN';
-    if (currencyCode === 'USD') locale = 'en-US';
-    else if (currencyCode === 'EUR') locale = 'de-DE';
-    else if (currencyCode === 'GBP') locale = 'en-GB';
-    else if (currencyCode === 'JPY') locale = 'ja-JP';
-    
-    return new Intl.NumberFormat(locale, { style: 'currency', currency: currencyCode }).format(numericAmount);
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(numericAmount);
   };
   const fmt = (n: number) => formatCurrency(n);
 

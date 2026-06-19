@@ -148,6 +148,72 @@ const formatCurrencyShort = (val: number) => {
   return val.toFixed(0);
 };
 
+const getBalanceRanges = (period: 'week' | 'month' | 'year', baseDateStr: string) => {
+  const baseDate = new Date(baseDateStr);
+  const ranges = [];
+  
+  if (period === 'week') {
+    const day = baseDate.getDay();
+    const diffToMonday = day === 0 ? -6 : 1 - day;
+    const currentMonday = new Date(baseDate);
+    currentMonday.setDate(baseDate.getDate() + diffToMonday);
+    
+    for (let i = 4; i >= 0; i--) {
+      const mon = new Date(currentMonday);
+      mon.setDate(currentMonday.getDate() - i * 7);
+      const sun = new Date(mon);
+      sun.setDate(mon.getDate() + 6);
+      
+      const pad = (n: number) => String(n).padStart(2, '0');
+      const startStr = `${mon.getFullYear()}-${pad(mon.getMonth() + 1)}-${pad(mon.getDate())}`;
+      const endStr = `${sun.getFullYear()}-${pad(sun.getMonth() + 1)}-${pad(sun.getDate())}`;
+      const label = `${mon.getDate()}/${mon.getMonth() + 1}-${sun.getDate()}/${sun.getMonth() + 1}`;
+      ranges.push({ startStr, endStr, label, isDisplayed: i < 4 });
+    }
+  } else if (period === 'month') {
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(baseDate.getFullYear(), baseDate.getMonth() - i, 1);
+      const startStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+      const lastDay = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+      const endStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+      const label = `Thg ${d.getMonth() + 1}`;
+      ranges.push({ startStr, endStr, label, isDisplayed: i < 5 });
+    }
+  } else {
+    const currentYear = baseDate.getFullYear();
+    for (let i = 4; i >= 0; i--) {
+      const yr = currentYear - i;
+      const startStr = `${yr}-01-01`;
+      const endStr = `${yr}-12-31`;
+      const label = `Năm ${yr}`;
+      ranges.push({ startStr, endStr, label, isDisplayed: i < 4 });
+    }
+  }
+  
+  return ranges;
+};
+
+const getDateBlock = (r: any, period: 'week' | 'month' | 'year') => {
+  const d = new Date(r.startStr);
+  if (period === 'week') {
+    return {
+      top: `${d.getDate()}/${d.getMonth() + 1}`,
+      bottom: `${d.getFullYear()}`
+    };
+  } else if (period === 'month') {
+    return {
+      top: `${d.getMonth() + 1}`,
+      bottom: `${d.getFullYear()}`
+    };
+  } else {
+    return {
+      top: `${d.getFullYear()}`,
+      bottom: ''
+    };
+  }
+};
+
+
 const generateFinancialInsights = (
   curr: { income: number; expense: number },
   prev: { income: number; expense: number },
@@ -264,7 +330,7 @@ const generateFinancialInsights = (
 
 export default function Reports() {
 
-  const { isLoggedIn, userData, categories, wallets } = useAppContext();
+  const { isLoggedIn, userData, categories, wallets, hasUnreadNotifications, unreadNotificationsCount } = useAppContext();
   const { t } = useLanguage();
 
   const categoriesMap = React.useMemo(() => {
@@ -326,7 +392,86 @@ export default function Reports() {
   const [selectedType, setSelectedType] = useState('');
 
   const [exportHistory, setExportHistory] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'analytics' | 'budgets' | 'transactions' | 'export'>('analytics');
+  const [activeTab, setActiveTab] = useState<'analytics' | 'balance_trend' | 'budgets' | 'transactions' | 'export'>('analytics');
+  
+  // Balance Trend Tab States
+  const [balancePeriod, setBalancePeriod] = useState<'week' | 'month' | 'year'>('week');
+  const [balanceType, setBalanceType] = useState<'income' | 'expense' | 'net'>('expense');
+  const [selectedBalancePeriodIdx, setSelectedBalancePeriodIdx] = useState<number>(-1);
+  const [balanceTransactions, setBalanceTransactions] = useState<any[]>([]);
+  const [isLoadingBalance, setIsLoadingBalance] = useState<boolean>(false);
+  const [compareSamePeriod, setCompareSamePeriod] = useState<boolean>(true);
+  const [categoryLevel, setCategoryLevel] = useState<'parent' | 'child'>('child');
+
+  // Compute ranges based on active balancePeriod and endDate
+  const balanceRanges = React.useMemo(() => {
+    return getBalanceRanges(balancePeriod, endDate);
+  }, [balancePeriod, endDate]);
+
+  // Set selected period index to the last range on mount or when period changes
+  useEffect(() => {
+    if (balanceRanges.length > 0) {
+      setSelectedBalancePeriodIdx(balanceRanges.length - 1);
+    }
+  }, [balanceRanges]);
+
+  // Fetch transactions for the balance trend overall range
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    
+    const fetchBalanceData = async () => {
+      setIsLoadingBalance(true);
+      try {
+        const overallStart = balanceRanges[0].startStr;
+        const overallEnd = balanceRanges[balanceRanges.length - 1].endStr;
+        
+        const res = await transactionApi.getAll({
+          start_date: overallStart,
+          end_date: overallEnd,
+          per_page: 10000,
+          wallet_id: selectedWallet || undefined
+        });
+        
+        const txs = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+        setBalanceTransactions(txs);
+      } catch (err) {
+        console.error("Error fetching balance transactions:", err);
+      } finally {
+        setIsLoadingBalance(false);
+      }
+    };
+    
+    fetchBalanceData();
+  }, [isLoggedIn, balanceRanges, selectedWallet]);
+
+  // Compute all data points for all ranges (including preceding comparison range)
+  const computedRanges = React.useMemo(() => {
+    return balanceRanges.map((r, idx) => {
+      const txsInRange = balanceTransactions.filter(tx => {
+        let txDateStr = tx.transaction_date;
+        if (!txDateStr && tx.created_at) txDateStr = tx.created_at.split('T')[0];
+        return txDateStr && txDateStr >= r.startStr && txDateStr <= r.endStr;
+      });
+      
+      let income = 0;
+      let expense = 0;
+      txsInRange.forEach(tx => {
+        const amt = Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0));
+        if (tx.type === 'income') income += amt;
+        else if (tx.type === 'expense') expense += amt;
+      });
+      const net = income - expense;
+      
+      return {
+        ...r,
+        originalIdx: idx,
+        income,
+        expense,
+        net,
+        txs: txsInRange
+      };
+    });
+  }, [balanceRanges, balanceTransactions]);
   
   // Momo UI States
   const [viewMode, setViewMode] = useState<'allocation' | 'trend'>('allocation');
@@ -1729,6 +1874,32 @@ export default function Reports() {
         <nav className="navbar" style={{background:'var(--card-bg)',borderBottom:'1px solid var(--border-color)',backdropFilter:'blur(16px)',position:'sticky',top:0,zIndex:10}}>
           <h1 className="page-title" style={{color:'var(--text-main)'}}>Thống kê & Báo cáo</h1>
           <div className="nav-actions">
+            {isLoggedIn && (
+              <Link href="/notifications" style={{background: '#F5F7FA', width: '45px', height: '45px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffb300', cursor: 'pointer', fontSize: '20px', textDecoration: 'none', position: 'relative', marginRight: '10px'}}>
+                🔔
+                {hasUnreadNotifications && unreadNotificationsCount > 0 && (
+                  <span style={{
+                    position: 'absolute',
+                    top: '-2px',
+                    right: '-2px',
+                    minWidth: '16px',
+                    height: '16px',
+                    background: '#FE5C73',
+                    color: '#fff',
+                    borderRadius: '10px',
+                    border: '2px solid #fff',
+                    fontSize: '9px',
+                    fontWeight: '800',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0 4px'
+                  }}>
+                    {unreadNotificationsCount}
+                  </span>
+                )}
+              </Link>
+            )}
             {isLoggedIn ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginLeft: '10px' }}>
                 <span style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '15px' }}>
@@ -1819,7 +1990,16 @@ export default function Reports() {
                 <line x1="12" y1="20" x2="12" y2="4" />
                 <line x1="6" y1="20" x2="6" y2="14" />
               </svg>
-              Biểu đồ & Gợi ý
+              Thống kê
+            </button>
+            <button 
+              className={`reports-tab-btn ${activeTab === 'balance_trend' ? 'active' : ''}`}
+              onClick={() => setActiveTab('balance_trend')}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+              </svg>
+              Biến động số dư
             </button>
             <button 
               className={`reports-tab-btn ${activeTab === 'budgets' ? 'active' : ''}`}
@@ -1830,7 +2010,7 @@ export default function Reports() {
                 <path d="M12 8v8" />
                 <path d="M8 12h8" />
               </svg>
-              Ngân sách & Hạn mức
+              Ngân sách
             </button>
             <button 
               className={`reports-tab-btn ${activeTab === 'transactions' ? 'active' : ''}`}
@@ -1853,7 +2033,7 @@ export default function Reports() {
                 <polyline points="7 10 12 15 17 10" />
                 <line x1="12" y1="15" x2="12" y2="3" />
               </svg>
-              Xuất báo cáo & Lịch sử
+              Xuất báo cáo
             </button>
           </div>
 
@@ -2515,11 +2695,25 @@ export default function Reports() {
 
               {/* 6-Month Historical Income vs Expense Bar Chart */}
               <div className="momo-stats-card" style={{ marginTop: '24px' }}>
-                <div className="momo-stats-header">
+                <div className="momo-stats-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                   <h2 className="momo-stats-title">
                     <span style={{ marginRight: '8px' }}>📊</span>
                     Xu hướng thu chi 6 tháng qua
                   </h2>
+                  <div style={{ display: 'flex', gap: '16px', fontSize: '12px', fontWeight: '600' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '2px', background: '#10B981' }}></span>
+                      <span style={{ color: 'var(--text-light)' }}>Thu nhập</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ display: 'inline-block', width: '10px', height: '10px', borderRadius: '2px', background: '#FE5C73' }}></span>
+                      <span style={{ color: 'var(--text-light)' }}>Chi tiêu</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ display: 'inline-block', width: '12px', height: '3px', background: '#2D60FF', borderRadius: '2px' }}></span>
+                      <span style={{ color: 'var(--text-light)' }}>Số dư lũy kế</span>
+                    </div>
+                  </div>
                 </div>
                 
                 {isLoadingTrends6M ? (
@@ -2528,35 +2722,74 @@ export default function Reports() {
                   <div style={{ textAlign: 'center', padding: '40px', color: '#718EBF', fontWeight: '500' }}>Không có dữ liệu 6 tháng qua.</div>
                 ) : (
                   <div className="momo-bar-chart-container">
-                    <div style={{ minWidth: '500px', height: '240px', position: 'relative', padding: '20px 10px 10px' }}>
+                    <div style={{ width: '500px', height: '240px', position: 'relative', padding: '20px 10px 10px', margin: '0 auto' }}>
                       {(() => {
-                        const maxVal = Math.max(...trends6M.map(d => Math.max(d.income, d.expense)), 1);
+                        let runningBalance = 0;
+                        const trendsWithBalance = trends6M.map(item => {
+                          const inc = Number(item.income) || 0;
+                          const exp = Number(item.expense) || 0;
+                          const net = inc - exp;
+                          runningBalance += net;
+                          return {
+                            ...item,
+                            income: inc,
+                            expense: exp,
+                            balance: runningBalance
+                          };
+                        });
+
+                        const minY = Math.min(...trendsWithBalance.map(d => d.balance), 0);
+                        const maxY = Math.max(...trendsWithBalance.map(d => Math.max(d.income, d.expense, d.balance)), 1000);
+                        const valRange = maxY - minY || 1;
+                        
+                        const getY = (val: number) => 160 - ((val - minY) / valRange) * 140;
+                        const zeroY = getY(0);
+
+                        const linePoints = trendsWithBalance.map((item, i) => {
+                          const groupX = 40 + i * (440 / trendsWithBalance.length);
+                          return {
+                            x: groupX + 28,
+                            y: getY(item.balance)
+                          };
+                        });
+
+                        let dPath = '';
+                        if (linePoints.length > 0) {
+                          dPath = linePoints.reduce((acc, p, idx) => {
+                            return idx === 0 ? `M ${p.x.toFixed(1)} ${p.y.toFixed(1)}` : `${acc} L ${p.x.toFixed(1)} ${p.y.toFixed(1)}`;
+                          }, '');
+                        }
                         
                         return (
                           <>
                             <svg width="500" height="200" viewBox="0 0 500 200" style={{ width: '500px', height: '200px', overflow: 'visible' }}>
                               {/* Grid lines */}
                               <line x1="40" y1="20" x2="480" y2="20" stroke="var(--border-color)" strokeDasharray="4 4" />
-                              <line x1="40" y1="80" x2="480" y2="80" stroke="var(--border-color)" strokeDasharray="4 4" />
-                              <line x1="40" y1="140" x2="480" y2="140" stroke="var(--border-color)" strokeDasharray="4 4" />
+                              <line x1="40" y1="90" x2="480" y2="90" stroke="var(--border-color)" strokeDasharray="4 4" />
                               <line x1="40" y1="160" x2="480" y2="160" stroke="var(--border-color)" strokeWidth="1" />
+                              {minY < 0 && (
+                                <line x1="40" y1={zeroY} x2="480" y2={zeroY} stroke="var(--text-light)" strokeWidth="1" opacity="0.4" strokeDasharray="2 2" />
+                              )}
                               
                               {/* Labels */}
-                              <text x="35" y="24" textAnchor="end" fill="#718EBF" fontSize="10" fontWeight="bold">{formatCurrencyShort(maxVal)}</text>
-                              <text x="35" y="84" textAnchor="end" fill="#718EBF" fontSize="10" fontWeight="bold">{formatCurrencyShort(maxVal * 0.5)}</text>
-                              <text x="35" y="144" textAnchor="end" fill="#718EBF" fontSize="10" fontWeight="bold">0</text>
+                              <text x="35" y="24" textAnchor="end" fill="#718EBF" fontSize="10" fontWeight="bold">{formatCurrencyShort(maxY)}</text>
+                              <text x="35" y="94" textAnchor="end" fill="#718EBF" fontSize="10" fontWeight="bold">{formatCurrencyShort(minY + valRange * 0.5)}</text>
+                              <text x="35" y="164" textAnchor="end" fill="#718EBF" fontSize="10" fontWeight="bold">{formatCurrencyShort(minY)}</text>
                               
-                              {trends6M.map((item, i) => {
-                                const groupX = 40 + i * (440 / 6);
-                                const incH = (item.income / maxVal) * 130;
-                                const expH = (item.expense / maxVal) * 130;
+                              {trendsWithBalance.map((item, i) => {
+                                const groupX = 40 + i * (440 / trendsWithBalance.length);
+                                const incY = getY(item.income);
+                                const expY = getY(item.expense);
+                                
+                                const incH = zeroY - incY;
+                                const expH = zeroY - expY;
                                 
                                 return (
                                   <g key={i} onMouseEnter={() => setHoveredBarIdx(i)} onMouseLeave={() => setHoveredBarIdx(null)} style={{ cursor: 'pointer' }}>
                                     {/* Income Bar */}
                                     <rect 
                                       x={groupX + 10} 
-                                      y={160 - incH} 
+                                      y={incY} 
                                       width="16" 
                                       height={Math.max(incH, 2)} 
                                       fill="#10B981" 
@@ -2566,7 +2799,7 @@ export default function Reports() {
                                     {/* Expense Bar */}
                                     <rect 
                                       x={groupX + 30} 
-                                      y={160 - expH} 
+                                      y={expY} 
                                       width="16" 
                                       height={Math.max(expH, 2)} 
                                       fill="#FE5C73" 
@@ -2597,12 +2830,43 @@ export default function Reports() {
                                   </g>
                                 );
                               })}
+
+                              {/* Cumulative Balance Trend Line overlay */}
+                              {dPath && (
+                                <path 
+                                  d={dPath} 
+                                  fill="none" 
+                                  stroke="#2D60FF" 
+                                  strokeWidth="3.5" 
+                                  strokeLinecap="round" 
+                                  strokeLinejoin="round" 
+                                  style={{ filter: 'drop-shadow(0px 3px 6px rgba(45,96,255,0.45))' }}
+                                />
+                              )}
+
+                              {/* Tiny dots on cumulative balance line */}
+                              {trendsWithBalance.map((item, i) => {
+                                const groupX = 40 + i * (440 / trendsWithBalance.length);
+                                return (
+                                  <circle
+                                    key={`dot-${i}`}
+                                    cx={groupX + 28}
+                                    cy={getY(item.balance)}
+                                    r="4.5"
+                                    fill="#2D60FF"
+                                    stroke="var(--card-bg)"
+                                    strokeWidth="2"
+                                    style={{ filter: 'drop-shadow(0px 1.5px 3px rgba(45,96,255,0.4))' }}
+                                    pointerEvents="none"
+                                  />
+                                );
+                              })}
                             </svg>
 
                             {/* Column tooltip */}
-                            {hoveredBarIdx !== null && trends6M[hoveredBarIdx] && (() => {
-                              const item = trends6M[hoveredBarIdx];
-                              const groupX = 40 + hoveredBarIdx * (440 / 6) + 28;
+                            {hoveredBarIdx !== null && trendsWithBalance[hoveredBarIdx] && (() => {
+                              const item = trendsWithBalance[hoveredBarIdx];
+                              const groupX = 40 + hoveredBarIdx * (440 / trendsWithBalance.length) + 28;
                               const net = item.income - item.expense;
                               return (
                                 <div className="momo-line-tooltip" style={{ 
@@ -2619,7 +2883,7 @@ export default function Reports() {
                                   color: '#fff',
                                   display: 'flex',
                                   flexDirection: 'column',
-                                  width: '150px'
+                                  width: '170px'
                                 }}>
                                   <div className="momo-line-tooltip-date" style={{ color: '#9ca3af', fontSize: '11px', marginBottom: '4px', textAlign: 'center' }}>Tháng {item.label}</div>
                                   <div style={{ color: '#10B981', display: 'flex', gap: '8px', fontSize: '12px', justifyContent: 'space-between' }}>
@@ -2641,6 +2905,19 @@ export default function Reports() {
                                   }}>
                                     <span>Tích lũy:</span> <span>{net >= 0 ? '+' : ''}{formatCurrency(net)}</span>
                                   </div>
+                                  <div style={{ 
+                                    color: '#2D60FF', 
+                                    display: 'flex', 
+                                    gap: '8px', 
+                                    fontSize: '12px', 
+                                    borderTop: '1px solid #4b5563', 
+                                    paddingTop: '4px', 
+                                    marginTop: '4px', 
+                                    fontWeight: 'bold',
+                                    justifyContent: 'space-between'
+                                  }}>
+                                    <span>Số dư lũy kế:</span> <span>{item.balance >= 0 ? '+' : ''}{formatCurrency(item.balance)}</span>
+                                  </div>
                                 </div>
                               );
                             })()}
@@ -2649,6 +2926,783 @@ export default function Reports() {
                       })()}
                     </div>
                   </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB: BALANCE TRENDS */}
+          {activeTab === 'balance_trend' && (
+            <div className="reports-fade-in">
+              <div className="momo-stats-card">
+                {/* 1. Period Selector ("Theo tuần", "Theo tháng", "Theo năm") */}
+                <div style={{
+                  display: 'flex',
+                  background: 'var(--bg-color)',
+                  borderRadius: '20px',
+                  padding: '4px',
+                  border: '1px solid var(--border-color)',
+                  width: 'fit-content',
+                  margin: '0 auto 20px',
+                  gap: '4px'
+                }}>
+                  <button 
+                    style={{
+                      background: balancePeriod === 'week' ? 'var(--card-bg)' : 'transparent',
+                      border: 'none',
+                      borderRadius: '16px',
+                      padding: '8px 18px',
+                      fontWeight: '700',
+                      fontSize: '13.5px',
+                      color: balancePeriod === 'week' ? '#1814F3' : '#718EBF',
+                      cursor: 'pointer',
+                      boxShadow: balancePeriod === 'week' ? '0 2px 6px rgba(0,0,0,0.05)' : 'none',
+                      transition: 'all 0.2s'
+                    }}
+                    onClick={() => setBalancePeriod('week')}
+                  >
+                    Theo tuần
+                  </button>
+                  <button 
+                    style={{
+                      background: balancePeriod === 'month' ? 'var(--card-bg)' : 'transparent',
+                      border: 'none',
+                      borderRadius: '16px',
+                      padding: '8px 18px',
+                      fontWeight: '700',
+                      fontSize: '13.5px',
+                      color: balancePeriod === 'month' ? '#1814F3' : '#718EBF',
+                      cursor: 'pointer',
+                      boxShadow: balancePeriod === 'month' ? '0 2px 6px rgba(0,0,0,0.05)' : 'none',
+                      transition: 'all 0.2s'
+                    }}
+                    onClick={() => setBalancePeriod('month')}
+                  >
+                    Theo tháng
+                  </button>
+                  <button 
+                    style={{
+                      background: balancePeriod === 'year' ? 'var(--card-bg)' : 'transparent',
+                      border: 'none',
+                      borderRadius: '16px',
+                      padding: '8px 18px',
+                      fontWeight: '700',
+                      fontSize: '13.5px',
+                      color: balancePeriod === 'year' ? '#1814F3' : '#718EBF',
+                      cursor: 'pointer',
+                      boxShadow: balancePeriod === 'year' ? '0 2px 6px rgba(0,0,0,0.05)' : 'none',
+                      transition: 'all 0.2s'
+                    }}
+                    onClick={() => setBalancePeriod('year')}
+                  >
+                    Theo năm
+                  </button>
+                </div>
+
+                {/* 2. Type Selector ("Thu nhập", "Chi tiêu", "Chênh lệch") */}
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-around',
+                  borderBottom: '1px solid var(--border-color)',
+                  marginBottom: '20px'
+                }}>
+                  <button 
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      padding: '12px 20px',
+                      fontWeight: '700',
+                      fontSize: '14.5px',
+                      color: balanceType === 'income' ? '#1814F3' : '#718EBF',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      borderBottom: '3px solid',
+                      borderBottomColor: balanceType === 'income' ? '#1814F3' : 'transparent'
+                    }}
+                    onClick={() => setBalanceType('income')}
+                  >
+                    Thu nhập
+                  </button>
+                  <button 
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      padding: '12px 20px',
+                      fontWeight: '700',
+                      fontSize: '14.5px',
+                      color: balanceType === 'expense' ? '#1814F3' : '#718EBF',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      borderBottom: '3px solid',
+                      borderBottomColor: balanceType === 'expense' ? '#1814F3' : 'transparent'
+                    }}
+                    onClick={() => setBalanceType('expense')}
+                  >
+                    Chi tiêu
+                  </button>
+                  <button 
+                    style={{
+                      background: 'transparent',
+                      border: 'none',
+                      padding: '12px 20px',
+                      fontWeight: '700',
+                      fontSize: '14.5px',
+                      color: balanceType === 'net' ? '#1814F3' : '#718EBF',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      borderBottom: '3px solid',
+                      borderBottomColor: balanceType === 'net' ? '#1814F3' : 'transparent'
+                    }}
+                    onClick={() => setBalanceType('net')}
+                  >
+                    Chênh lệch
+                  </button>
+                </div>
+
+                {/* 3. Summary Content for Active Range */}
+                {(() => {
+                  const currRange = computedRanges.find(r => r.originalIdx === selectedBalancePeriodIdx);
+                  const prevRange = currRange ? computedRanges[currRange.originalIdx - 1] : null;
+                  
+                  if (!currRange) {
+                    return (
+                      <div style={{ textAlign: 'center', padding: '20px', color: '#718EBF' }}>
+                        Đang tính toán dữ liệu...
+                      </div>
+                    );
+                  }
+
+                  let totalVal = 0;
+                  let totalLabel = '';
+                  if (balanceType === 'income') {
+                    totalVal = currRange.income;
+                    totalLabel = balancePeriod === 'week' ? 'Tổng thu tuần' : (balancePeriod === 'month' ? 'Tổng thu tháng' : 'Tổng thu năm');
+                  } else if (balanceType === 'expense') {
+                    totalVal = currRange.expense;
+                    totalLabel = balancePeriod === 'week' ? 'Tổng chi tuần' : (balancePeriod === 'month' ? 'Tổng chi tháng' : 'Tổng chi năm');
+                  } else {
+                    totalVal = currRange.net;
+                    totalLabel = balancePeriod === 'week' ? 'Tổng chênh lệch tuần' : (balancePeriod === 'month' ? 'Tổng chênh lệch tháng' : 'Tổng chênh lệch năm');
+                  }
+
+                  // Calculate comparison
+                  let compText = '';
+                  let isCompGood = true;
+                  let hasComp = false;
+
+                  if (prevRange) {
+                    hasComp = true;
+                    let currVal = 0;
+                    let prevVal = 0;
+                    if (balanceType === 'income') {
+                      currVal = currRange.income;
+                      prevVal = prevRange.income;
+                    } else if (balanceType === 'expense') {
+                      currVal = currRange.expense;
+                      prevVal = prevRange.expense;
+                    } else {
+                      currVal = currRange.net;
+                      prevVal = prevRange.net;
+                    }
+
+                    const diff = currVal - prevVal;
+                    const diffAbs = Math.abs(diff);
+                    
+                    if (balanceType === 'expense') {
+                      isCompGood = diff < 0;
+                      const verb = diff < 0 ? 'Giảm' : 'Tăng';
+                      const arrow = diff < 0 ? '↓' : '↑';
+                      compText = `${arrow} ${verb} ${formatCurrencyLocal(diffAbs)} so với cùng kỳ ${prevRange.label}`;
+                    } else if (balanceType === 'income') {
+                      isCompGood = diff >= 0;
+                      const verb = diff >= 0 ? 'Tăng' : 'Giảm';
+                      const arrow = diff >= 0 ? '↑' : '↓';
+                      compText = `${arrow} ${verb} ${formatCurrencyLocal(diffAbs)} so với cùng kỳ ${prevRange.label}`;
+                    } else {
+                      isCompGood = diff >= 0;
+                      const verb = diff >= 0 ? 'Tăng' : 'Giảm';
+                      const arrow = diff >= 0 ? '↑' : '↓';
+                      compText = `${arrow} ${verb} ${formatCurrencyLocal(diffAbs)} so với cùng kỳ ${prevRange.label}`;
+                    }
+                  }
+
+                  return (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '24px' }}>
+                      <div style={{ fontSize: '14px', color: '#718EBF', fontWeight: '600' }}>{totalLabel}</div>
+                      <div style={{ fontSize: '32px', fontWeight: '800', color: 'var(--text-main)', margin: '6px 0' }}>
+                        {formatCurrencyLocal(totalVal)}
+                      </div>
+                      
+                      {hasComp && (
+                        <div style={{
+                          background: isCompGood ? 'rgba(16, 185, 129, 0.08)' : 'rgba(254, 92, 115, 0.08)',
+                          color: isCompGood ? '#10B981' : '#FE5C73',
+                          border: isCompGood ? '1px solid rgba(16, 185, 129, 0.15)' : '1px solid rgba(254, 92, 115, 0.15)',
+                          borderRadius: '20px',
+                          padding: '6px 16px',
+                          fontSize: '13px',
+                          fontWeight: '700',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          marginTop: '4px'
+                        }}>
+                          {compText}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* 4. "Biến động" Comparison Toggle Row */}
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '0 8px',
+                  marginBottom: '20px'
+                }}>
+                  <span style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-main)' }}>Biến động</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '13px', color: '#718EBF', fontWeight: '600' }}>So với cùng kỳ</span>
+                    <label style={{
+                      position: 'relative',
+                      display: 'inline-block',
+                      width: '46px',
+                      height: '24px',
+                      cursor: 'pointer'
+                    }}>
+                      <input 
+                        type="checkbox" 
+                        checked={compareSamePeriod}
+                        onChange={e => setCompareSamePeriod(e.target.checked)}
+                        style={{ opacity: 0, width: 0, height: 0 }}
+                      />
+                      <span style={{
+                        position: 'absolute',
+                        top: 0, left: 0, right: 0, bottom: 0,
+                        backgroundColor: compareSamePeriod ? '#1814F3' : '#E4E7EB',
+                        borderRadius: '24px',
+                        transition: '0.3s'
+                      }}>
+                        <span style={{
+                          position: 'absolute',
+                          content: '""',
+                          height: '18px', width: '18px',
+                          left: compareSamePeriod ? '24px' : '4px',
+                          bottom: '3px',
+                          backgroundColor: 'white',
+                          borderRadius: '50%',
+                          transition: '0.3s'
+                        }} />
+                      </span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* 5. SVG Bar Chart */}
+                <div className="momo-bar-chart-container" style={{ overflowY: 'hidden', marginBottom: '24px' }}>
+                  {(() => {
+                    const displayed = computedRanges.filter(r => r.isDisplayed);
+                    if (displayed.length === 0) return null;
+
+                    const width = 500;
+                    const height = 220;
+                    const paddingLeft = 50;
+                    const paddingRight = 20;
+                    const paddingTop = 35;
+                    const paddingBottom = 35;
+                    const plotW = width - paddingLeft - paddingRight;
+                    const plotH = height - paddingTop - paddingBottom;
+                    const N = displayed.length;
+
+                    let values = displayed.map(r => {
+                      if (balanceType === 'income') return r.income;
+                      if (balanceType === 'expense') return r.expense;
+                      return r.net;
+                    });
+
+                    let maxVal = Math.max(...values, 1000);
+                    let minVal = Math.min(...values, 0);
+
+                    let zeroY = height - paddingBottom;
+                    let scale = 1;
+                    
+                    if (balanceType === 'net') {
+                      const maxAbs = Math.max(...values.map(Math.abs), 1000);
+                      zeroY = paddingTop + plotH / 2;
+                      scale = (plotH / 2) / maxAbs;
+                      maxVal = maxAbs;
+                      minVal = -maxAbs;
+                    } else {
+                      scale = plotH / maxVal;
+                    }
+
+                    let yTicks: number[] = [];
+                    if (balanceType === 'net') {
+                      yTicks = [-maxVal, -maxVal * 0.5, 0, maxVal * 0.5, maxVal];
+                    } else {
+                      yTicks = [0, maxVal * 0.25, maxVal * 0.5, maxVal * 0.75, maxVal];
+                    }
+
+                    return (
+                      <div style={{ width: '500px', height: '220px', position: 'relative', margin: '0 auto' }}>
+                        <svg width="500" height="220" viewBox={`0 0 ${width} ${height}`} style={{ width: '500px', height: '220px', overflow: 'visible' }}>
+                          <defs>
+                            {/* Income gradients */}
+                            <linearGradient id="incomeActive" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#10B981" />
+                              <stop offset="100%" stopColor="#059669" />
+                            </linearGradient>
+                            <linearGradient id="incomeInactive" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="rgba(16, 185, 129, 0.25)" />
+                              <stop offset="100%" stopColor="rgba(16, 185, 129, 0.15)" />
+                            </linearGradient>
+
+                            {/* Expense gradients */}
+                            <linearGradient id="expenseActive" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#FE5C73" />
+                              <stop offset="100%" stopColor="#E11D48" />
+                            </linearGradient>
+                            <linearGradient id="expenseInactive" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="rgba(254, 92, 115, 0.25)" />
+                              <stop offset="100%" stopColor="rgba(254, 92, 115, 0.15)" />
+                            </linearGradient>
+                          </defs>
+
+                          {yTicks.map((tick, i) => {
+                            let y = zeroY;
+                            if (balanceType === 'net') {
+                              y = zeroY - tick * scale;
+                            } else {
+                              y = zeroY - tick * scale;
+                            }
+                            return (
+                              <g key={i}>
+                                <line 
+                                  x1={paddingLeft} 
+                                  y1={y} 
+                                  x2={width - paddingRight} 
+                                  y2={y} 
+                                  stroke="var(--border-color)" 
+                                  strokeDasharray={tick === 0 && balanceType === 'net' ? 'none' : '4 4'} 
+                                  strokeWidth={tick === 0 && balanceType === 'net' ? 1.5 : 1}
+                                />
+                                <text 
+                                  x={paddingLeft - 8} 
+                                  y={y + 3} 
+                                  textAnchor="end" 
+                                  fill="#718EBF" 
+                                  fontSize="9" 
+                                  fontWeight="700"
+                                >
+                                  {formatCurrencyShort(tick)}
+                                </text>
+                              </g>
+                            );
+                          })}
+
+                          <text 
+                            x={paddingLeft - 8} 
+                            y={paddingTop - 10} 
+                            textAnchor="end" 
+                            fill="#718EBF" 
+                            fontSize="9" 
+                            fontWeight="700"
+                          >
+                            (Tr)
+                          </text>
+
+                          {displayed.map((r, i) => {
+                            const val = balanceType === 'income' ? r.income : (balanceType === 'expense' ? r.expense : r.net);
+                            const x = paddingLeft + (i + 0.5) * (plotW / N);
+                            const barW = Math.max(16, (plotW / N) * 0.4);
+                            
+                            let barY = zeroY;
+                            let barH = 0;
+                            
+                            if (balanceType === 'net') {
+                              if (val >= 0) {
+                                barH = val * scale;
+                                barY = zeroY - barH;
+                              } else {
+                                barH = Math.abs(val) * scale;
+                                barY = zeroY;
+                              }
+                            } else {
+                              barH = val * scale;
+                              barY = zeroY - barH;
+                            }
+
+                            const displayBarH = Math.max(2, barH);
+                            const displayBarY = val < 0 && balanceType === 'net' ? barY : zeroY - displayBarH;
+
+                            const isActive = selectedBalancePeriodIdx === r.originalIdx;
+                            
+                            let fillUrl = '';
+                            if (balanceType === 'income') {
+                              fillUrl = isActive ? 'url(#incomeActive)' : 'url(#incomeInactive)';
+                            } else if (balanceType === 'expense') {
+                              fillUrl = isActive ? 'url(#expenseActive)' : 'url(#expenseInactive)';
+                            } else {
+                              if (val >= 0) {
+                                fillUrl = isActive ? 'url(#incomeActive)' : 'url(#incomeInactive)';
+                              } else {
+                                fillUrl = isActive ? 'url(#expenseActive)' : 'url(#expenseInactive)';
+                              }
+                            }
+
+                            const activeColorLabel = balanceType === 'income' ? '#10B981' : (balanceType === 'expense' ? '#FE5C73' : (val >= 0 ? '#10B981' : '#FE5C73'));
+
+                            const tooltipW = 55;
+                            const tooltipH = 22;
+                            const tooltipX = x;
+                            const tooltipY = displayBarY - 8;
+
+                            return (
+                              <g key={r.label} style={{ cursor: 'pointer' }} onClick={() => setSelectedBalancePeriodIdx(r.originalIdx)}>
+                                <rect 
+                                  x={x - (plotW / N) / 2} 
+                                  y={paddingTop} 
+                                  width={plotW / N} 
+                                  height={plotH} 
+                                  fill="transparent"
+                                />
+
+                                <rect 
+                                  x={x - barW / 2} 
+                                  y={displayBarY} 
+                                  width={barW} 
+                                  height={displayBarH} 
+                                  rx={4} 
+                                  ry={4} 
+                                  fill={fillUrl}
+                                  style={{ transition: 'all 0.3s' }}
+                                />
+
+                                {isActive && (
+                                  <g>
+                                    <rect 
+                                      x={tooltipX - tooltipW / 2} 
+                                      y={tooltipY - tooltipH} 
+                                      width={tooltipW} 
+                                      height={tooltipH} 
+                                      rx={6} 
+                                      fill="#1f2937" 
+                                    />
+                                    <polygon 
+                                      points={`${tooltipX - 4},${tooltipY} ${tooltipX + 4},${tooltipY} ${tooltipX},${tooltipY + 4}`} 
+                                      fill="#1f2937" 
+                                    />
+                                    <text 
+                                      x={tooltipX} 
+                                      y={tooltipY - tooltipH / 2 + 3} 
+                                      fill="#fff" 
+                                      fontSize="9.5" 
+                                      fontWeight="800" 
+                                      textAnchor="middle"
+                                    >
+                                      {formatCurrencyShort(val)}
+                                    </text>
+                                  </g>
+                                )}
+
+                                <text 
+                                  x={x} 
+                                  y={height - 12} 
+                                  textAnchor="middle" 
+                                  fill={isActive ? activeColorLabel : '#718EBF'} 
+                                  fontSize="10.5" 
+                                  fontWeight="800"
+                                >
+                                  {r.label}
+                                </text>
+                              </g>
+                            );
+                          })}
+                        </svg>
+                      </div>
+                    );
+                  })()}
+                </div>
+
+                {/* 6. List details below the chart */}
+                {isLoadingBalance ? (
+                  <div style={{ textAlign: 'center', padding: '30px', color: '#718EBF', fontWeight: '500' }}>
+                    Đang tải dữ liệu biến động...
+                  </div>
+                ) : balanceType === 'net' ? (
+                  (() => {
+                    const displayed = computedRanges.filter(r => r.isDisplayed);
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '15px' }}>
+                        <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-main)', marginBottom: '4px' }}>
+                          Lịch sử chênh lệch thu chi
+                        </div>
+                        {displayed.slice().reverse().map((item) => {
+                          const dateBlock = getDateBlock(item, balancePeriod);
+                          const isNegative = item.net < 0;
+                          
+                          return (
+                            <div 
+                              key={item.label}
+                              style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                padding: '12px 16px',
+                                borderRadius: '16px',
+                                background: 'var(--card-bg)',
+                                border: '1px solid var(--border-color)',
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                                <div style={{
+                                  background: 'var(--bg-color)',
+                                  borderRadius: '12px',
+                                  width: '50px',
+                                  height: '50px',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontWeight: '700',
+                                  color: '#718EBF',
+                                  border: '1px solid var(--border-color)'
+                                }}>
+                                  <span style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-main)', lineHeight: 1.1 }}>
+                                    {dateBlock.top}
+                                  </span>
+                                  {dateBlock.bottom && (
+                                    <span style={{ fontSize: '9px', color: '#718EBF', marginTop: '2px' }}>
+                                      {dateBlock.bottom}
+                                    </span>
+                                  )}
+                                </div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  <div style={{ fontSize: '13px', fontWeight: '600', color: '#718EBF' }}>
+                                    Thu <span style={{ color: '#10B981', fontWeight: '700' }}>{formatCurrencyLocal(item.income)}</span>
+                                  </div>
+                                  <div style={{ fontSize: '13px', fontWeight: '600', color: '#718EBF' }}>
+                                    Chi <span style={{ color: '#FE5C73', fontWeight: '700' }}>{formatCurrencyLocal(item.expense)}</span>
+                                  </div>
+                                </div>
+                              </div>
+                              <div style={{ textAlign: 'right' }}>
+                                <div style={{ fontSize: '11px', color: '#718EBF', fontWeight: '600', marginBottom: '2px' }}>
+                                  Còn lại
+                                </div>
+                                <div style={{ 
+                                  fontSize: '15px', 
+                                  fontWeight: '800', 
+                                  color: isNegative ? '#FE5C73' : '#10B981' 
+                                }}>
+                                  {item.net >= 0 ? '+' : ''}{formatCurrencyLocal(item.net)}
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })()
+                ) : (
+                  (() => {
+                    const currRange = computedRanges.find(r => r.originalIdx === selectedBalancePeriodIdx);
+                    const prevRange = currRange ? computedRanges[currRange.originalIdx - 1] : null;
+                    
+                    const breakdown = (() => {
+                      if (!currRange) return [];
+                      
+                      const activeTxs = currRange.txs.filter(tx => tx.type === balanceType);
+                      const prevTxs = prevRange ? prevRange.txs.filter(tx => tx.type === balanceType) : [];
+                      
+                      const activeGroup: Record<string, number> = {};
+                      const prevGroup: Record<string, number> = {};
+                      let totalActive = 0;
+                      
+                      activeTxs.forEach(tx => {
+                        const amt = Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0));
+                        const catId = String(tx.category_id || 'other');
+                        
+                        let targetId = catId;
+                        if (categoryLevel === 'parent') {
+                          const catInfo = categoriesMap[catId];
+                          if (catInfo && catInfo.parent_id) {
+                            targetId = String(catInfo.parent_id);
+                          }
+                        }
+                        
+                        activeGroup[targetId] = (activeGroup[targetId] || 0) + amt;
+                        totalActive += amt;
+                      });
+                      
+                      prevTxs.forEach(tx => {
+                        const amt = Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0));
+                        const catId = String(tx.category_id || 'other');
+                        
+                        let targetId = catId;
+                        if (categoryLevel === 'parent') {
+                          const catInfo = categoriesMap[catId];
+                          if (catInfo && catInfo.parent_id) {
+                            targetId = String(catInfo.parent_id);
+                          }
+                        }
+                        
+                        prevGroup[targetId] = (prevGroup[targetId] || 0) + amt;
+                      });
+                      
+                      const list = Object.keys(activeGroup).map(catId => {
+                        const amount = activeGroup[catId];
+                        const prevAmount = prevGroup[catId] || 0;
+                        const delta = amount - prevAmount;
+                        const percentage = totalActive > 0 ? (amount / totalActive) * 100 : 0;
+                        
+                        const catInfo = categoriesMap[catId];
+                        let name = 'Khác';
+                        let icon = '📁';
+                        let color = '#94A3B8';
+                        
+                        if (catId !== 'other' && catInfo) {
+                          name = catInfo.name || name;
+                          icon = catInfo.icon || icon;
+                          color = catInfo.color || color;
+                        }
+                        
+                        return {
+                          id: catId,
+                          name,
+                          icon,
+                          color,
+                          amount,
+                          prevAmount,
+                          delta,
+                          percentage
+                        };
+                      });
+                      
+                      return list.sort((a, b) => b.amount - a.amount);
+                    })();
+
+                    const renderDelta = (delta: number) => {
+                      if (delta === 0) return <span style={{ color: '#718EBF' }}>Không đổi</span>;
+                      const isExpense = balanceType === 'expense';
+                      const isPositive = delta > 0;
+                      
+                      const isGood = (isExpense && !isPositive) || (!isExpense && isPositive);
+                      const color = isGood ? '#10B981' : '#FE5C73';
+                      const sign = isPositive ? 'Tăng' : 'Giảm';
+                      const formattedVal = formatCurrencyShort(Math.abs(delta));
+                      
+                      return (
+                        <span style={{ color, fontWeight: '700' }}>
+                          {isPositive ? '↑' : '↓'} {sign} {formattedVal}
+                        </span>
+                      );
+                    };
+
+                    return (
+                      <div>
+                        <div style={{
+                          display: 'flex',
+                          background: 'var(--bg-color)',
+                          borderRadius: '12px',
+                          padding: '4px',
+                          border: '1px solid var(--border-color)',
+                          width: 'fit-content',
+                          margin: '15px auto 5px'
+                        }}>
+                          <button 
+                            style={{
+                              padding: '6px 16px',
+                              borderRadius: '8px',
+                              border: 'none',
+                              background: categoryLevel === 'child' ? 'var(--card-bg)' : 'transparent',
+                              color: categoryLevel === 'child' ? '#1814F3' : '#718EBF',
+                              fontWeight: '700',
+                              fontSize: '12.5px',
+                              cursor: 'pointer',
+                              boxShadow: categoryLevel === 'child' ? '0 2px 6px rgba(0,0,0,0.05)' : 'none',
+                              transition: 'all 0.2s'
+                            }}
+                            onClick={() => setCategoryLevel('child')}
+                          >
+                            Danh mục con
+                          </button>
+                          <button 
+                            style={{
+                              padding: '6px 16px',
+                              borderRadius: '8px',
+                              border: 'none',
+                              background: categoryLevel === 'parent' ? 'var(--card-bg)' : 'transparent',
+                              color: categoryLevel === 'parent' ? '#1814F3' : '#718EBF',
+                              fontWeight: '700',
+                              fontSize: '12.5px',
+                              cursor: 'pointer',
+                              boxShadow: categoryLevel === 'parent' ? '0 2px 6px rgba(0,0,0,0.05)' : 'none',
+                              transition: 'all 0.2s'
+                            }}
+                            onClick={() => setCategoryLevel('parent')}
+                          >
+                            Danh mục cha
+                          </button>
+                        </div>
+
+                        {breakdown.length === 0 ? (
+                          <div style={{ textAlign: 'center', padding: '30px', color: '#718EBF', fontWeight: '500' }}>
+                            Không có dữ liệu trong kỳ này.
+                          </div>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '15px' }}>
+                            {breakdown.map((item) => (
+                              <div 
+                                key={item.id}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  padding: '12px 16px',
+                                  borderRadius: '16px',
+                                  background: 'var(--card-bg)',
+                                  border: '1px solid var(--border-color)',
+                                  boxShadow: '0 2px 8px rgba(0,0,0,0.02)',
+                                  cursor: 'pointer'
+                                }}
+                                className="momo-list-item-card"
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                  <div style={{
+                                    width: '40px',
+                                    height: '40px',
+                                    borderRadius: '12px',
+                                    background: `${item.color}1A`,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontSize: '20px'
+                                  }}>
+                                    {parseIcon(item.icon)}
+                                  </div>
+                                  <div>
+                                    <div style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-main)' }}>{item.name}</div>
+                                    <div style={{ fontSize: '11px', color: '#718EBF', display: 'flex', gap: '8px', marginTop: '2px' }}>
+                                      <span>{item.percentage.toFixed(1)}%</span>
+                                      <span>•</span>
+                                      {renderDelta(item.delta)}
+                                    </div>
+                                  </div>
+                                </div>
+                                <div style={{ fontSize: '15px', fontWeight: '800', color: 'var(--text-main)' }}>
+                                  {formatCurrencyLocal(item.amount)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()
                 )}
               </div>
             </div>
