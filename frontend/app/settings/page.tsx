@@ -8,7 +8,7 @@ import { useLanguage } from '../lib/translations';
 import { useTheme } from '../context/ThemeContext';
 
 export default function Settings() {
-  const { isLoggedIn, userData, logout, logoutAll, updateUserPreference, updateUserProfile } = useAppContext();
+  const { isLoggedIn, userData, logout, logoutAll, updateUserPreference, updateUserProfile, hasUnreadNotifications, unreadNotificationsCount } = useAppContext();
   const { t, setLanguage: changeGlobalLanguage } = useLanguage();
   const { theme, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState('profile');
@@ -18,6 +18,9 @@ export default function Settings() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isChangingPwd, setIsChangingPwd] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // State for Sessions
   const [activeSessions, setActiveSessions] = useState<any[]>([]);
@@ -140,7 +143,7 @@ export default function Settings() {
     try {
       const payload = fieldSet === 'profile' 
         ? { full_name: fullName }
-        : { currency, timezone, language: language === 'Tiếng Việt' ? 'vi' : 'en', theme, financial_start_day: financialStartDay };
+        : { currency: 'VND', timezone, language: language === 'Tiếng Việt' ? 'vi' : 'en', theme, financial_start_day: financialStartDay };
       
       await authApi.updateProfile(payload);
       
@@ -183,11 +186,23 @@ export default function Settings() {
   };
 
   // Lấy dữ liệu thật từ userData
-  const profileFields = [
-    { label: t('full_name'), value: fullName, setter: setFullName },
-    { label: t('email'), value: userData?.email || t('not_updated'), disabled: true },
-    { label: t('phone'), value: userData?.phone || '0', disabled: true },
-    { label: t('address'), value: userData?.address || t('not_updated'), disabled: true },
+  const profileFields: { label: string; value: string; setter?: (val: string) => void; disabled?: boolean; icon?: React.ReactNode }[] = [
+    { 
+      label: t('full_name'), 
+      value: fullName, 
+      setter: setFullName,
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      )
+    },
+    { 
+      label: t('email'), 
+      value: userData?.email || t('not_updated'), 
+      disabled: true,
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      )
+    },
   ];
 
   const displayName = userData?.profile?.full_name || userData?.full_name || userData?.name || t('new_user');
@@ -200,8 +215,29 @@ export default function Settings() {
           <h1 className="page-title" style={{ color: 'var(--text-main)', fontWeight: '800' }}>{t('settings_customize')}</h1>
           <div className="nav-actions" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
             {/* Notification Icon */}
-            <Link href="/notifications" style={{background: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : '#F5F7FA', width: '45px', height: '45px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffb300', cursor: 'pointer', fontSize: '20px', textDecoration: 'none'}}>
+            <Link href="/notifications" style={{background: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : '#F5F7FA', width: '45px', height: '45px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffb300', cursor: 'pointer', fontSize: '20px', textDecoration: 'none', position: 'relative'}}>
               🔔
+              {isLoggedIn && hasUnreadNotifications && unreadNotificationsCount > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: '-2px',
+                  right: '-2px',
+                  minWidth: '16px',
+                  height: '16px',
+                  background: '#FE5C73',
+                  color: '#fff',
+                  borderRadius: '10px',
+                  border: theme === 'dark' ? '2px solid #0f172a' : '2px solid #fff',
+                  fontSize: '9px',
+                  fontWeight: '800',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0 4px'
+                }}>
+                  {unreadNotificationsCount}
+                </span>
+              )}
             </Link>
             {isLoggedIn ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
@@ -218,12 +254,9 @@ export default function Settings() {
         </nav>
 
         <div className="content-area">
-          <div style={{ 
-            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.04) 0%, rgba(99, 102, 241, 0) 50%), var(--card-bg)', 
+          <div className="premium-card-settings" style={{ 
             borderRadius: '32px', 
             padding: '0', 
-            boxShadow: '0 20px 50px rgba(0,0,0,0.3)', 
-            border: '1px solid var(--border-color)', 
             position: 'relative', 
             overflow: 'hidden',
             backdropFilter: 'blur(30px)'
@@ -246,15 +279,22 @@ export default function Settings() {
                 zIndex: 2
               }}>
                 {[
-                  { k: 'profile', l: t('personal_info') },
-                  { k: 'preferences', l: t('display_options') },
-                  { k: 'security', l: t('security') },
+                  { k: 'profile', l: t('personal_info'), icon: (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                  ) },
+                  { k: 'preferences', l: t('display_options'), icon: (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                  ) },
+                  { k: 'security', l: t('security'), icon: (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  ) },
                 ].map(tab => {
                   const isActive = activeTab === tab.k;
                   return (
                     <div
                       key={tab.k}
                       onClick={() => setActiveTab(tab.k)}
+                      className="settings-tab-item"
                       style={{
                         padding: '10px 24px',
                         color: isActive 
@@ -271,13 +311,14 @@ export default function Settings() {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        minWidth: '130px',
+                        minWidth: '145px',
                         boxShadow: (isActive && theme !== 'dark') ? '0 4px 12px rgba(0,0,0,0.05)' : 'none',
                         border: isActive 
                           ? (theme === 'dark' ? '1px solid rgba(99, 102, 241, 0.3)' : '1px solid rgba(45, 96, 255, 0.1)')
                           : '1px solid transparent'
                       }}
                     >
+                      {tab.icon}
                       {tab.l}
                     </div>
                   );
@@ -287,13 +328,13 @@ export default function Settings() {
             {activeTab === 'profile' && (
               <div className="settings-profile-container" style={{ display: 'flex', gap: '60px', alignItems: 'flex-start' }}>
                 {/* Avatar Section */}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px', minWidth: '200px' }}>
                   <div style={{ position: 'relative' }}>
-                    <div style={{ width: '130px', height: '130px', borderRadius: '50%', padding: '4px', border: `2px solid var(--active-blue)` }}>
+                    <div className="avatar-ring-glow" style={{ width: '130px', height: '130px', borderRadius: '50%', padding: '4px' }}>
                       <img
                         src={userData?.profile?.avatar_url || userData?.avatar_url || userData?.avatar || "https://api.dicebear.com/7.x/miniavs/svg?seed=EM&backgroundColor=b6e3f4"}
                         alt="Profile"
-                        style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
+                        style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', background: 'var(--card-bg)' }}
                       />
                     </div>
                     <input 
@@ -306,30 +347,70 @@ export default function Settings() {
                     <button 
                       onClick={() => fileInputRef.current?.click()}
                       disabled={isUpdating}
-                      style={{ position: 'absolute', bottom: '5px', right: '5px', background: 'var(--active-blue)', border: 'none', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 10px rgba(0,0,0,0.1)', opacity: isUpdating ? 0.7 : 1 }}>
+                      style={{ 
+                        position: 'absolute', 
+                        bottom: '5px', 
+                        right: '5px', 
+                        background: 'linear-gradient(135deg, #6366F1 0%, #16DBCC 100%)', 
+                        border: 'none', 
+                        width: '36px', 
+                        height: '36px', 
+                        borderRadius: '50%', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        cursor: 'pointer', 
+                        boxShadow: '0 4px 15px rgba(99, 102, 241, 0.4)', 
+                        opacity: isUpdating ? 0.7 : 1,
+                        transition: 'all 0.3s ease'
+                      }}
+                    >
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
                     </button>
                   </div>
                   <div style={{ textAlign: 'center' }}>
-                    <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '18px' }}>{displayName}</h3>
-                    <p style={{ margin: '4px 0 0', color: 'var(--text-light)', fontSize: '13px' }}>{userData?.email || t('email_not_verified')}</p>
+                    <h3 style={{ margin: 0, color: 'var(--text-main)', fontSize: '20px', fontWeight: '800' }}>{displayName}</h3>
+                    <p style={{ margin: '6px 0 0', color: 'var(--text-light)', fontSize: '13px' }}>{userData?.email || t('email_not_verified')}</p>
+                    {isLoggedIn && (
+                      <span style={{ 
+                        display: 'inline-flex', 
+                        alignItems: 'center', 
+                        gap: '5px', 
+                        marginTop: '10px', 
+                        fontSize: '11px', 
+                        fontWeight: '700', 
+                        color: '#10B981', 
+                        background: 'rgba(16, 185, 129, 0.08)', 
+                        padding: '4px 12px', 
+                        borderRadius: '20px',
+                        border: '1px solid rgba(16, 185, 129, 0.12)'
+                      }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                        Thành viên EM
+                      </span>
+                    )}
                   </div>
                 </div>
 
                 {/* Form Section */}
                 <div style={{ flex: 1 }}>
                   <div className="settings-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', marginBottom: '40px' }}>
-                    {profileFields.map((f: any, i) => (
+                    {profileFields.map((f, i) => (
                       <div key={i}>
-                        <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '600', fontSize: '15px' }}>{f.label}</label>
-                        <div style={{ position: 'relative' }}>
+                        <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '700', fontSize: '14px', letterSpacing: '0.3px' }}>{f.label}</label>
+                        <div className="input-wrapper-premium">
+                          {f.icon && (
+                            <div className="input-icon-left">
+                              {f.icon}
+                            </div>
+                          )}
                           <input
                             type="text"
                             value={f.value}
                             onChange={(e) => f.setter && f.setter(e.target.value)}
                             placeholder={isLoggedIn ? `${t('enter_placeholder')} ${f.label.toLowerCase()}...` : t('please_login')}
                             disabled={!isLoggedIn || f.disabled}
-                            className="settings-input"
+                            className="settings-input-premium"
                           />
                         </div>
                       </div>
@@ -339,60 +420,53 @@ export default function Settings() {
                     <button 
                       onClick={() => handleUpdateProfile('profile')}
                       disabled={isUpdating}
-                      style={{ 
-                        padding: '14px 35px', 
-                        background: theme === 'dark' ? 'linear-gradient(135deg, #6366F1 0%, #4F46E5 100%)' : 'linear-gradient(135deg, #2D60FF 0%, #1814F3 100%)', 
-                        color: '#fff', 
-                        border: 'none', 
-                        borderRadius: '15px', 
-                        fontWeight: '700', 
-                        cursor: 'pointer', 
-                        fontSize: '15px', 
-                        boxShadow: theme === 'dark' ? '0 4px 15px rgba(99, 102, 241, 0.25)' : '0 4px 15px rgba(45, 96, 255, 0.25)', 
-                        transition: 'all 0.25s ease', 
-                        opacity: isUpdating ? 0.7 : 1 
-                      }}>
-                      {isUpdating ? t('saving') : t('save_changes')}
+                      className="btn-premium-gradient"
+                    >
+                      {isUpdating ? (
+                        <>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ animation: 'spin 1s linear infinite' }}><circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25"/><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
+                          {t('saving')}
+                        </>
+                      ) : (
+                        <>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                          {t('save_changes')}
+                        </>
+                      )}
                     </button>
-                    <button style={{ 
-                      padding: '14px 35px', 
-                      background: 'transparent', 
-                      color: 'var(--text-light)', 
-                      border: '1px solid var(--border-color)', 
-                      borderRadius: '15px', 
-                      fontWeight: '600', 
-                      cursor: 'pointer', 
-                      fontSize: '15px',
-                      transition: 'all 0.25s ease'
-                    }}>{t('cancel_changes')}</button>
+                    <button className="btn-premium-outline">
+                      {t('cancel_changes')}
+                    </button>
                   </div>
                 </div>
               </div>
             )}
 
             {activeTab === 'preferences' && (
-              <div style={{ maxWidth: '700px' }}>
-                <div className="settings-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px' }}>
+              <div style={{ maxWidth: '750px' }}>
+                <div className="settings-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '30px', marginBottom: '35px' }}>
                   <div>
-                    <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '600', fontSize: '15px' }}>{t('currency_label')}</label>
-                    <div className="select-wrapper">
-                      <select 
-                        disabled={!isLoggedIn} 
-                        value={currency}
-                        onChange={(e) => setCurrency(e.target.value)}
-                        className="settings-select"
-                      >
-                        <option value="VND">VNĐ (₫)</option>
-                        <option value="USD">USD ($)</option>
-                        <option value="EUR">EUR (€)</option>
-                        <option value="GBP">GBP (£)</option>
-                        <option value="JPY">JPY (¥)</option>
-                      </select>
+                    <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '700', fontSize: '14px' }}>{t('currency_label')}</label>
+                    <div className="input-wrapper-premium" style={{ background: 'rgba(0,0,0,0.05)', opacity: 0.7 }}>
+                      <div className="input-icon-left">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+                      </div>
+                      <input 
+                        type="text" 
+                        value="VNĐ (₫)" 
+                        disabled 
+                        className="settings-input-premium" 
+                        style={{ cursor: 'not-allowed' }}
+                      />
                     </div>
                   </div>
+                  
                   <div>
-                    <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '600', fontSize: '15px' }}>{t('language_label')}</label>
-                    <div className="select-wrapper">
+                    <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '700', fontSize: '14px' }}>{t('language_label')}</label>
+                    <div className="input-wrapper-premium select-wrapper">
+                      <div className="input-icon-left">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                      </div>
                       <select 
                         disabled={!isLoggedIn} 
                         value={language}
@@ -401,21 +475,25 @@ export default function Settings() {
                           setLanguage(val);
                           changeGlobalLanguage(val === 'Tiếng Việt' ? 'vi' : 'en');
                         }}
-                        className="settings-select"
+                        className="settings-input-premium"
                       >
                         <option value="Tiếng Việt">Tiếng Việt</option>
                         <option value="English">English</option>
                       </select>
                     </div>
                   </div>
+
                   <div>
-                    <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '600', fontSize: '15px' }}>Ngày bắt đầu tháng tài chính</label>
-                    <div className="select-wrapper">
+                    <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '700', fontSize: '14px' }}>Ngày bắt đầu tháng tài chính</label>
+                    <div className="input-wrapper-premium select-wrapper">
+                      <div className="input-icon-left">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                      </div>
                       <select 
                         disabled={!isLoggedIn} 
                         value={financialStartDay}
                         onChange={(e) => setFinancialStartDay(Number(e.target.value))}
-                        className="settings-select"
+                        className="settings-input-premium"
                       >
                         {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
                           <option key={day} value={day}>Ngày {day} hàng tháng {day === 1 ? '(Mặc định)' : ''}</option>
@@ -424,198 +502,305 @@ export default function Settings() {
                     </div>
                   </div>
                 </div>
-                <div className="settings-group-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '30px' }}>
-                  <div>
-                    <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '8px', fontSize: '17px' }}>{t('dark_mode')}</div>
-                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '280px' }}>{t('dark_mode_desc')}</div>
-                  </div>
-                  <div 
-                    onClick={toggleTheme}
-                    style={{ width: '56px', height: '30px', borderRadius: '15px', background: theme === 'dark' ? 'var(--active-blue)' : '#E2E8F0', position: 'relative', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>
-                    <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '4px', left: theme === 'dark' ? '30px' : '4px', transition: '0.3s', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}></div>
-                  </div>
-                </div>
 
-                <div style={{ marginTop: '35px', borderTop: '1px solid var(--border-color)', paddingTop: '25px' }}>
-                  <h3 style={{ color: 'var(--text-main)', marginBottom: '20px', fontSize: '18px' }}>Cài đặt thông báo</h3>
+                {/* Switch Settings Section */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginTop: '30px' }}>
                   
-                  <div className="settings-group-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '8px', fontSize: '17px' }}>Email nhắc nhở chi tiêu</div>
-                      <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '350px' }}>Nhận email nhắc nhở vào cuối ngày nếu bạn chưa nhập chi tiêu.</div>
+                  {/* Chế độ tối */}
+                  <div className="settings-group-card-premium">
+                    <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                      <div style={{ 
+                        width: '48px', 
+                        height: '48px', 
+                        borderRadius: '14px', 
+                        background: theme === 'dark' ? 'rgba(251, 191, 36, 0.15)' : 'rgba(99, 102, 241, 0.08)', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        color: theme === 'dark' ? '#F59E0B' : '#6366F1',
+                        transition: 'all 0.3s ease'
+                      }}>
+                        {theme === 'dark' ? (
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+                        ) : (
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+                        )}
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '4px', fontSize: '16px' }}>{t('dark_mode')}</div>
+                        <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '350px' }}>{t('dark_mode_desc')}</div>
+                      </div>
                     </div>
                     <div 
-                      onClick={async () => {
-                        const val = !emailReminder;
-                        setEmailReminder(val);
-                        try {
-                          await notificationApi.updatePreferences({ daily_reminder_enabled: val });
-                        } catch (err) {
-                          console.error("Lỗi cập nhật email reminder:", err);
-                          setEmailReminder(!val);
-                          alert("Không thể lưu cài đặt. Vui lòng thử lại!");
-                        }
-                      }}
-                      style={{ width: '56px', height: '30px', borderRadius: '15px', background: emailReminder ? 'var(--active-blue)' : (theme === 'dark' ? 'rgba(255,255,255,0.1)' : '#E2E8F0'), position: 'relative', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>
-                      <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '4px', left: emailReminder ? '30px' : '4px', transition: '0.3s', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}></div>
+                      onClick={toggleTheme}
+                      className={`switch-toggle-premium ${theme === 'dark' ? 'active' : ''}`}
+                    >
+                      <div className="switch-knob"></div>
                     </div>
                   </div>
 
-                  <div className="settings-group-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '8px', fontSize: '17px' }}>Cảnh báo vượt ngân sách</div>
-                      <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '350px' }}>Nhận cảnh báo qua email và ứng dụng khi đạt 80% hoặc vượt 100% ngân sách.</div>
-                    </div>
-                    <div 
-                      onClick={async () => {
-                        const val = !budgetAlert;
-                        setBudgetAlert(val);
-                        try {
-                          await notificationApi.updatePreferences({ budget_alert_enabled: val });
-                          const userId = userData?.user_id || userData?.id || 'default';
-                          localStorage.setItem(`budget_alert_enabled_${userId}`, String(val));
-                        } catch (err) {
-                          setBudgetAlert(!val);
-                          alert("Không thể lưu cài đặt. Vui lòng thử lại!");
-                        }
-                      }}
-                      style={{ width: '56px', height: '30px', borderRadius: '15px', background: budgetAlert ? 'var(--active-blue)' : (theme === 'dark' ? 'rgba(255,255,255,0.1)' : '#E2E8F0'), position: 'relative', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>
-                      <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '4px', left: budgetAlert ? '30px' : '4px', transition: '0.3s', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}></div>
-                    </div>
-                  </div>
-
-                  <div className="settings-group-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '8px', fontSize: '17px' }}>Thông báo giao dịch định kỳ</div>
-                      <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '350px' }}>Nhận thông báo trong ứng dụng khi hệ thống tự động tạo giao dịch định kỳ.</div>
-                    </div>
-                    <div 
-                      onClick={async () => {
-                        const val = !recurringAlert;
-                        setRecurringAlert(val);
-                        try {
-                          await notificationApi.updatePreferences({ recurring_alert_enabled: val });
-                          const userId = userData?.user_id || userData?.id || 'default';
-                          localStorage.setItem(`recurring_alert_enabled_${userId}`, String(val));
-                        } catch (err) {
-                          setRecurringAlert(!val);
-                          alert("Không thể lưu cài đặt. Vui lòng thử lại!");
-                        }
-                      }}
-                      style={{ width: '56px', height: '30px', borderRadius: '15px', background: recurringAlert ? 'var(--active-blue)' : (theme === 'dark' ? 'rgba(255,255,255,0.1)' : '#E2E8F0'), position: 'relative', cursor: 'pointer', transition: 'all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275)' }}>
-                      <div style={{ width: '22px', height: '22px', borderRadius: '50%', background: '#fff', position: 'absolute', top: '4px', left: recurringAlert ? '30px' : '4px', transition: '0.3s', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}></div>
-                    </div>
-                  </div>
-
-                  <div className="settings-group-card">
-                    <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '8px', fontSize: '17px' }}>Tần suất nhận báo cáo tổng hợp</div>
-                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '15px' }}>Chọn mức độ thường xuyên bạn muốn nhận email tóm tắt chi tiêu.</div>
-                    <div className="select-wrapper">
-                      <select 
-                        value={notificationFrequency}
-                        onChange={async (e) => {
-                          const val = e.target.value;
-                          setNotificationFrequency(val);
+                  <div style={{ marginTop: '25px', borderTop: '1px solid var(--border-color)', paddingTop: '25px' }}>
+                    <h3 style={{ color: 'var(--text-main)', marginBottom: '20px', fontSize: '18px', fontWeight: '800' }}>Cài đặt thông báo</h3>
+                    
+                    {/* Email nhắc nhở */}
+                    <div className="settings-group-card-premium">
+                      <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                        <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'rgba(16, 185, 129, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10B981' }}>
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '4px', fontSize: '16px' }}>Email nhắc nhở chi tiêu</div>
+                          <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '420px' }}>Nhận email nhắc nhở vào cuối ngày nếu bạn chưa nhập chi tiêu.</div>
+                        </div>
+                      </div>
+                      <div 
+                        onClick={async () => {
+                          const val = !emailReminder;
+                          setEmailReminder(val);
                           try {
-                            await notificationApi.updatePreferences({ notification_frequency: val });
+                            await notificationApi.updatePreferences({ daily_reminder_enabled: val });
                           } catch (err) {
+                            setEmailReminder(!val);
                             alert("Không thể lưu cài đặt. Vui lòng thử lại!");
                           }
                         }}
-                        className="settings-select"
+                        className={`switch-toggle-premium ${emailReminder ? 'active' : ''}`}
                       >
-                        <option value="daily">Hàng ngày</option>
-                        <option value="weekly">Hàng tuần</option>
-                        <option value="monthly">Hàng tháng</option>
-                        <option value="never">Không bao giờ</option>
-                      </select>
+                        <div className="switch-knob"></div>
+                      </div>
+                    </div>
+
+                    {/* Cảnh báo vượt ngân sách */}
+                    <div className="settings-group-card-premium">
+                      <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                        <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'rgba(239, 68, 68, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#EF4444' }}>
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '4px', fontSize: '16px' }}>Cảnh báo vượt ngân sách</div>
+                          <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '420px' }}>Nhận cảnh báo qua email và ứng dụng khi đạt 80% hoặc vượt 100% ngân sách.</div>
+                        </div>
+                      </div>
+                      <div 
+                        onClick={async () => {
+                          const val = !budgetAlert;
+                          setBudgetAlert(val);
+                          try {
+                            await notificationApi.updatePreferences({ budget_alert_enabled: val });
+                            const userId = userData?.user_id || userData?.id || 'default';
+                            localStorage.setItem(`budget_alert_enabled_${userId}`, String(val));
+                          } catch (err) {
+                            setBudgetAlert(!val);
+                            alert("Không thể lưu cài đặt. Vui lòng thử lại!");
+                          }
+                        }}
+                        className={`switch-toggle-premium ${budgetAlert ? 'active' : ''}`}
+                      >
+                        <div className="switch-knob"></div>
+                      </div>
+                    </div>
+
+                    {/* Giao dịch định kỳ */}
+                    <div className="settings-group-card-premium">
+                      <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                        <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'rgba(59, 130, 246, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3B82F6' }}>
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '4px', fontSize: '16px' }}>Thông báo giao dịch định kỳ</div>
+                          <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '420px' }}>Nhận thông báo trong ứng dụng khi hệ thống tự động tạo giao dịch định kỳ.</div>
+                        </div>
+                      </div>
+                      <div 
+                        onClick={async () => {
+                          const val = !recurringAlert;
+                          setRecurringAlert(val);
+                          try {
+                            await notificationApi.updatePreferences({ recurring_alert_enabled: val });
+                            const userId = userData?.user_id || userData?.id || 'default';
+                            localStorage.setItem(`recurring_alert_enabled_${userId}`, String(val));
+                          } catch (err) {
+                            setRecurringAlert(!val);
+                            alert("Không thể lưu cài đặt. Vui lòng thử lại!");
+                          }
+                        }}
+                        className={`switch-toggle-premium ${recurringAlert ? 'active' : ''}`}
+                      >
+                        <div className="switch-knob"></div>
+                      </div>
+                    </div>
+
+                    {/* Tần suất nhận báo cáo */}
+                    <div className="settings-group-card-premium" style={{ display: 'block' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
+                        <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                          <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'rgba(139, 92, 246, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8B5CF6' }}>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '4px', fontSize: '16px' }}>Tần suất nhận báo cáo tổng hợp</div>
+                            <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '420px' }}>Chọn mức độ thường xuyên bạn muốn nhận email tóm tắt chi tiêu.</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="input-wrapper-premium select-wrapper" style={{ maxWidth: '300px', marginLeft: '68px' }}>
+                        <div className="input-icon-left">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        </div>
+                        <select 
+                          value={notificationFrequency}
+                          onChange={async (e) => {
+                            const val = e.target.value;
+                            setNotificationFrequency(val);
+                            try {
+                              await notificationApi.updatePreferences({ notification_frequency: val });
+                            } catch (err) {
+                              alert("Không thể lưu cài đặt. Vui lòng thử lại!");
+                            }
+                          }}
+                          className="settings-input-premium"
+                        >
+                          <option value="daily">Hàng ngày</option>
+                          <option value="weekly">Hàng tuần</option>
+                          <option value="monthly">Hàng tháng</option>
+                          <option value="never">Không bao giờ</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
                 </div>
-                <button 
-                  onClick={() => handleUpdateProfile('preferences')}
-                  disabled={isUpdating}
-                  style={{ 
-                    marginTop: '20px', 
-                    padding: '16px 40px', 
-                    background: theme === 'dark' ? 'linear-gradient(135deg, #6366F1 0%, #4F46E5 100%)' : 'linear-gradient(135deg, #2D60FF 0%, #1814F3 100%)', 
-                    color: '#fff', 
-                    border: 'none', 
-                    borderRadius: '16px', 
-                    fontWeight: '700', 
-                    cursor: 'pointer', 
-                    fontSize: '15px', 
-                    boxShadow: theme === 'dark' ? '0 10px 20px -5px rgba(99, 102, 241, 0.3)' : '0 10px 20px -5px rgba(45, 96, 255, 0.3)',
-                    transition: 'all 0.25s ease',
-                    opacity: isUpdating ? 0.7 : 1 
-                  }}>
-                  {t('save_preferences')}
-                </button>
+
+                <div style={{ display: 'flex', gap: '15px', marginTop: '30px' }}>
+                  <button 
+                    onClick={() => handleUpdateProfile('preferences')}
+                    disabled={isUpdating}
+                    className="btn-premium-gradient"
+                  >
+                    {isUpdating ? (
+                      <>
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ animation: 'spin 1s linear infinite' }}><circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25"/><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
+                        {t('saving')}
+                      </>
+                    ) : (
+                      <>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        {t('save_preferences')}
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             )}
 
             {activeTab === 'security' && (
               <div style={{ maxWidth: '600px' }}>
-                <h3 style={{ color: 'var(--text-main)', marginBottom: '25px', fontSize: '20px' }}>{t('account_security')}</h3>
+                <h3 style={{ color: 'var(--text-main)', marginBottom: '25px', fontSize: '20px', fontWeight: '800' }}>{t('account_security')}</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                   <div>
-                    <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '600', fontSize: '14px' }}>{t('current_password')}</label>
-                    <input 
-                      type="password" 
-                      placeholder="••••••••" 
-                      disabled={!isLoggedIn} 
-                      value={currentPassword}
-                      onChange={(e) => setCurrentPassword(e.target.value)}
-                      className="settings-input"
-                    />
+                    <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '700', fontSize: '14px' }}>{t('current_password')}</label>
+                    <div className="input-wrapper-premium">
+                      <div className="input-icon-left">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                      </div>
+                      <input 
+                        type={showCurrentPassword ? "text" : "password"} 
+                        placeholder="••••••••" 
+                        disabled={!isLoggedIn} 
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        className="settings-input-premium"
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                        style={{ position: 'absolute', right: '16px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-light)', display: 'flex', alignItems: 'center' }}
+                      >
+                        {showCurrentPassword ? (
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                        ) : (
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        )}
+                      </button>
+                    </div>
                   </div>
                   <div>
-                    <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '600', fontSize: '14px' }}>{t('new_password')}</label>
-                    <input 
-                      type="password" 
-                      placeholder={t('enter_new_password')} 
-                      disabled={!isLoggedIn} 
-                      value={newPassword}
-                      onChange={(e) => setNewPassword(e.target.value)}
-                      className="settings-input"
-                    />
+                    <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '700', fontSize: '14px' }}>{t('new_password')}</label>
+                    <div className="input-wrapper-premium">
+                      <div className="input-icon-left">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+                      </div>
+                      <input 
+                        type={showNewPassword ? "text" : "password"} 
+                        placeholder={t('enter_new_password')} 
+                        disabled={!isLoggedIn} 
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="settings-input-premium"
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        style={{ position: 'absolute', right: '16px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-light)', display: 'flex', alignItems: 'center' }}
+                      >
+                        {showNewPassword ? (
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                        ) : (
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        )}
+                      </button>
+                    </div>
                   </div>
                   <div>
-                    <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '600', fontSize: '14px' }}>{t('confirm_new_password')}</label>
-                    <input 
-                      type="password" 
-                      placeholder={t('confirm_password_again')} 
-                      disabled={!isLoggedIn} 
-                      value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="settings-input"
-                    />
+                    <label style={{ display: 'block', marginBottom: '10px', color: 'var(--text-main)', fontWeight: '700', fontSize: '14px' }}>{t('confirm_new_password')}</label>
+                    <div className="input-wrapper-premium">
+                      <div className="input-icon-left">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>
+                      </div>
+                      <input 
+                        type={showConfirmPassword ? "text" : "password"} 
+                        placeholder={t('confirm_password_again')} 
+                        disabled={!isLoggedIn} 
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        className="settings-input-premium"
+                      />
+                      <button 
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        style={{ position: 'absolute', right: '16px', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-light)', display: 'flex', alignItems: 'center' }}
+                      >
+                        {showConfirmPassword ? (
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+                        ) : (
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                        )}
+                      </button>
+                    </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '15px' }}>
+                  <div style={{ display: 'flex', gap: '15px', marginTop: '10px' }}>
                     <button 
                       onClick={handleChangePassword}
                       disabled={isChangingPwd || !isLoggedIn}
-                      style={{ 
-                        width: 'fit-content', 
-                        padding: '14px 30px', 
-                        background: theme === 'dark' ? 'linear-gradient(135deg, #6366F1 0%, #4F46E5 100%)' : 'linear-gradient(135deg, #2D60FF 0%, #1814F3 100%)', 
-                        color: '#fff', 
-                        border: 'none', 
-                        borderRadius: '15px', 
-                        fontWeight: '700', 
-                        cursor: 'pointer', 
-                        marginTop: '10px', 
-                        boxShadow: theme === 'dark' ? '0 4px 15px rgba(99, 102, 241, 0.25)' : '0 4px 15px rgba(45, 96, 255, 0.25)',
-                        transition: 'all 0.25s ease',
-                        opacity: (isLoggedIn && !isChangingPwd) ? 1 : 0.5 
-                      }}>
-                      {isChangingPwd ? t('updating') : t('update_password')}
+                      className="btn-premium-gradient"
+                      style={{ opacity: (isLoggedIn && !isChangingPwd) ? 1 : 0.5 }}
+                    >
+                      {isChangingPwd ? (
+                        <>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ animation: 'spin 1s linear infinite' }}><circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25"/><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
+                          {t('updating')}
+                        </>
+                      ) : (
+                        <>
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                          {t('update_password')}
+                        </>
+                      )}
                     </button>
                     <button 
                       onClick={logoutAll}
                       disabled={!isLoggedIn}
                       className="settings-destructive-btn"
-                      style={{ opacity: isLoggedIn ? 1 : 0.5 }}
+                      style={{ opacity: isLoggedIn ? 1 : 0.5, marginTop: 0 }}
                     >
                       {t('revoke_all_devices')}
                     </button>
@@ -623,23 +808,42 @@ export default function Settings() {
                 </div>
                 
                 <div style={{ marginTop: '45px', paddingTop: '30px', borderTop: '1px solid var(--border-color)' }}>
-                  <h3 style={{ color: 'var(--text-main)', marginBottom: '15px', fontSize: '18px' }}>Quản lý phiên đăng nhập</h3>
-                  <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '20px' }}>Danh sách các thiết bị đang đăng nhập vào tài khoản của bạn.</p>
+                  <h3 style={{ color: 'var(--text-main)', marginBottom: '15px', fontSize: '18px', fontWeight: '800' }}>Quản lý phiên đăng nhập</h3>
+                  <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>Danh sách các thiết bị đang đăng nhập vào tài khoản của bạn.</p>
                   
                   {isLoadingSessions ? (
                     <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>Đang tải danh sách...</div>
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                       {activeSessions.map((session) => (
-                        <div key={session.id} className="session-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: theme === 'dark' ? 'rgba(255,255,255,0.02)' : '#f8fafc', padding: '15px', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+                        <div key={session.id} className="session-card-premium">
                           <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                            <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(45, 96, 255, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <span style={{ fontSize: '20px' }}>{session.device_type === 'desktop' ? '💻' : '📱'}</span>
+                            <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'rgba(99, 102, 241, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6366F1' }}>
+                              {session.device_type === 'desktop' ? (
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+                              ) : (
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+                              )}
                             </div>
                             <div>
-                              <div style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '15px' }}>
+                              <div style={{ fontWeight: '700', color: 'var(--text-main)', fontSize: '15px', display: 'flex', alignItems: 'center' }}>
                                 {session.device_name || session.device_type || 'Thiết bị không xác định'}
-                                {session.is_current && <span style={{ marginLeft: '8px', fontSize: '12px', padding: '2px 8px', background: 'rgba(22, 219, 204, 0.1)', color: '#16DBCC', borderRadius: '10px' }}>Hiện tại</span>}
+                                {session.is_current && (
+                                  <span style={{ 
+                                    marginLeft: '8px', 
+                                    fontSize: '11px', 
+                                    padding: '2px 8px', 
+                                    background: 'rgba(16, 185, 129, 0.08)', 
+                                    color: '#10B981', 
+                                    borderRadius: '10px',
+                                    fontWeight: '700',
+                                    display: 'inline-flex',
+                                    alignItems: 'center'
+                                  }}>
+                                    <span className="pulse-online-dot"></span>
+                                    Hiện tại
+                                  </span>
+                                )}
                               </div>
                               <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>
                                 IP: {session.ip_address} • Đăng nhập: {new Date(session.created_at).toLocaleDateString('vi-VN')}
@@ -649,8 +853,8 @@ export default function Settings() {
                           {!session.is_current && (
                             <button 
                               onClick={() => handleRevokeSession(session.id)}
-                              style={{ background: 'transparent', border: '1px solid #FE5C73', color: '#FE5C73', padding: '6px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: '600', transition: 'all 0.2s' }}
-                              onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(254, 92, 115, 0.1)'; }}
+                              style={{ background: 'transparent', border: '1px solid #FE5C73', color: '#FE5C73', padding: '8px 16px', borderRadius: '12px', cursor: 'pointer', fontSize: '13px', fontWeight: '700', transition: 'all 0.2s' }}
+                              onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(254, 92, 115, 0.08)'; }}
                               onMouseOut={(e) => { e.currentTarget.style.background = 'transparent'; }}
                             >
                               Đăng xuất
@@ -662,17 +866,24 @@ export default function Settings() {
                   )}
                 </div>
 
-                <div style={{ marginTop: '45px', paddingTop: '30px', borderTop: '1px solid var(--border-color)' }}>
-                  <h3 style={{ color: '#FE5C73', marginBottom: '10px', fontSize: '18px' }}>{t('delete_account')}</h3>
-                  <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '20px' }}>{t('delete_account_warning')}</p>
-                  <button 
-                    onClick={handleDeleteAccount}
-                    disabled={!isLoggedIn}
-                    className="settings-destructive-btn"
-                    style={{ padding: '12px 25px', borderRadius: '12px', opacity: isLoggedIn ? 1 : 0.5 }}
-                  >
-                    {t('delete_account_now')}
-                  </button>
+                <div className="alert-card-destructive">
+                  <div style={{ display: 'flex', gap: '15px', alignItems: 'flex-start' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(254, 92, 115, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#FE5C73', flexShrink: 0 }}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                    </div>
+                    <div>
+                      <h3 style={{ color: '#FE5C73', margin: '0 0 6px', fontSize: '18px', fontWeight: '800' }}>{t('delete_account')}</h3>
+                      <p style={{ fontSize: '13px', color: 'var(--text-muted)', margin: '0 0 15px', lineHeight: '1.5' }}>{t('delete_account_warning')}</p>
+                      <button 
+                        onClick={handleDeleteAccount}
+                        disabled={!isLoggedIn}
+                        className="settings-destructive-btn"
+                        style={{ padding: '12px 25px', borderRadius: '12px', opacity: isLoggedIn ? 1 : 0.5, marginTop: 0 }}
+                      >
+                        {t('delete_account_now')}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}

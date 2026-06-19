@@ -186,13 +186,7 @@ const renderWalletIcon = (iconName: string, size = 22, style = {}) => {
 const formatWalletCurrency = (amount: number | string, currencyCode: string = 'VND') => {
   const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
   if (isNaN(numericAmount)) return '0';
-  let locale = 'vi-VN';
-  if (currencyCode === 'USD') locale = 'en-US';
-  else if (currencyCode === 'EUR') locale = 'de-DE';
-  else if (currencyCode === 'GBP') locale = 'en-GB';
-  else if (currencyCode === 'JPY') locale = 'ja-JP';
-  
-  return new Intl.NumberFormat(locale, { style: 'currency', currency: currencyCode }).format(numericAmount);
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(numericAmount);
 };
 
 // ==========================================
@@ -224,6 +218,51 @@ export default function Wallets() {
   const [transferAmount, setTransferAmount] = useState('');
 
   const [isTransferring, setIsTransferring] = useState(false);
+
+  // Currency Converter states
+  const [showExchangeModal, setShowExchangeModal] = useState(false);
+  const [exchangeAmount, setExchangeAmount] = useState('1');
+  const [exchangeFrom, setExchangeFrom] = useState('USD');
+  const [exchangeTo, setExchangeTo] = useState('VND');
+
+  const [exchangeRates, setExchangeRates] = useState<Record<string, number>>({
+    VND: 25450,
+    USD: 1,
+    EUR: 0.93,
+    GBP: 0.79,
+    JPY: 158
+  });
+
+  useEffect(() => {
+    if (showExchangeModal) {
+      fetch('https://open.er-api.com/v6/latest/USD')
+        .then(res => res.json())
+        .then(data => {
+          if (data && data.rates) {
+            setExchangeRates(data.rates);
+          }
+        })
+        .catch(err => {
+          console.error("Lỗi khi fetch tỷ giá từ API:", err);
+        });
+    }
+  }, [showExchangeModal]);
+
+  const getConvertedAmount = () => {
+    const amt = parseFloat(exchangeAmount);
+    if (isNaN(amt) || amt <= 0) return '0';
+    const usdAmount = amt / (exchangeRates[exchangeFrom] || 1);
+    const finalAmount = usdAmount * (exchangeRates[exchangeTo] || 1);
+    return finalAmount.toLocaleString('vi-VN', { 
+      maximumFractionDigits: exchangeTo === 'VND' ? 0 : 4 
+    });
+  };
+
+  const handleSwapCurrencies = () => {
+    const temp = exchangeFrom;
+    setExchangeFrom(exchangeTo);
+    setExchangeTo(temp);
+  };
 
   // History states
   const [historyWallet, setHistoryWallet] = useState<any>(null);
@@ -335,7 +374,7 @@ export default function Wallets() {
     setBalance(wallet.available_balance ? String(wallet.available_balance) : '0');
     setColor(wallet.color || 'linear-gradient(135deg, #3A3FBD, #2E33A8)');
     setIcon(wallet.icon || 'wallet');
-    setWalletCurrency(wallet.currency_code || 'VND');
+    setWalletCurrency('VND');
     setShowModal('edit');
   };
 
@@ -382,6 +421,22 @@ export default function Wallets() {
                 <path d="M20 18H4" />
               </svg>
               Chuyển tiền nội bộ
+            </button>
+            <button 
+              onClick={() => setShowExchangeModal(true)}
+              className="transfer-wallet-btn"
+              style={{
+                background: 'linear-gradient(135deg, #FF9F43 0%, #FF6B6B 100%)',
+                color: '#FFF',
+                border: 'none',
+                boxShadow: '0 4px 12px rgba(255, 107, 107, 0.2)'
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="1" x2="12" y2="23"></line>
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+              </svg>
+              Quy đổi ngoại tệ
             </button>
             <button 
               onClick={() => {
@@ -591,8 +646,8 @@ export default function Wallets() {
                 )}
               </div>
 
-              {/* Wallet Currency */}
-              <div style={{ marginBottom: '20px' }}>
+              {/* Wallet Currency (Forced to VND) */}
+              <div style={{ marginBottom: '20px', display: 'none' }}>
                 <label className="form-group-label">Đơn vị tiền tệ</label>
                 <select 
                   value={walletCurrency} 
@@ -600,10 +655,6 @@ export default function Wallets() {
                   className="wallet-input"
                 >
                   <option value="VND">VNĐ (₫)</option>
-                  <option value="USD">USD ($)</option>
-                  <option value="EUR">EUR (€)</option>
-                  <option value="GBP">GBP (£)</option>
-                  <option value="JPY">JPY (¥)</option>
                 </select>
               </div>
 
@@ -808,6 +859,140 @@ export default function Wallets() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {showExchangeModal && (
+        <div className="modal-overlay" style={{ zIndex: 10000 }} onClick={() => setShowExchangeModal(false)}>
+          <div className="modal-content wallet-premium-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px', borderRadius: '24px', padding: '30px', position: 'relative' }}>
+            <button 
+              type="button" 
+              onClick={() => setShowExchangeModal(false)}
+              className="modal-close-btn"
+              style={{ position: 'absolute', right: '20px', top: '20px', background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#718EBF' }}
+            >
+              ×
+            </button>
+            <div className="modal-title-left" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+              <span style={{ fontSize: '24px' }}>💱</span>
+              <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: 'var(--text-main)' }}>Quy đổi ngoại tệ</h3>
+            </div>
+            
+            <div style={{ background: 'var(--bg-color)', padding: '20px', borderRadius: '20px', border: '1px solid var(--border-color)', marginBottom: '20px' }}>
+              {/* Input Số tiền */}
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '13px', fontWeight: '600' }}>Số tiền cần đổi</label>
+                <input 
+                  type="number" 
+                  value={exchangeAmount} 
+                  onChange={e => setExchangeAmount(e.target.value)}
+                  placeholder="Nhập số tiền..."
+                  className="wallet-input"
+                  style={{ width: '100%', padding: '12px 16px', fontSize: '16px', fontWeight: '700', borderRadius: '12px', background: 'var(--card-bg)', border: '1px solid var(--border-color)', color: 'var(--text-main)' }}
+                />
+              </div>
+              
+              {/* Hàng chọn ngoại tệ */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#718EBF', fontSize: '12px', fontWeight: '600' }}>Từ loại tiền</label>
+                  <select 
+                    value={exchangeFrom} 
+                    onChange={e => setExchangeFrom(e.target.value)}
+                    className="wallet-input"
+                    style={{ width: '100%', padding: '10px', fontSize: '14px', fontWeight: '700', borderRadius: '10px', background: 'var(--card-bg)', border: '1px solid var(--border-color)', color: 'var(--text-main)' }}
+                  >
+                    <option value="USD">USD ($)</option>
+                    <option value="EUR">EUR (€)</option>
+                    <option value="GBP">GBP (£)</option>
+                    <option value="JPY">JPY (¥)</option>
+                    <option value="VND">VNĐ (₫)</option>
+                  </select>
+                </div>
+                
+                <button 
+                  type="button" 
+                  onClick={handleSwapCurrencies}
+                  style={{ 
+                    background: 'linear-gradient(135deg, #1814F3 0%, #396AFF 100%)', 
+                    border: 'none', 
+                    width: '36px', 
+                    height: '36px', 
+                    borderRadius: '50%', 
+                    color: '#fff', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    cursor: 'pointer', 
+                    marginTop: '18px',
+                    boxShadow: '0 4px 10px rgba(24, 20, 243, 0.2)',
+                    transition: 'all 0.2s',
+                    fontSize: '16px'
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
+                  onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                >
+                  🔄
+                </button>
+                
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#718EBF', fontSize: '12px', fontWeight: '600' }}>Sang loại tiền</label>
+                  <select 
+                    value={exchangeTo} 
+                    onChange={e => setExchangeTo(e.target.value)}
+                    className="wallet-input"
+                    style={{ width: '100%', padding: '10px', fontSize: '14px', fontWeight: '700', borderRadius: '10px', background: 'var(--card-bg)', border: '1px solid var(--border-color)', color: 'var(--text-main)' }}
+                  >
+                    <option value="VND">VNĐ (₫)</option>
+                    <option value="USD">USD ($)</option>
+                    <option value="EUR">EUR (€)</option>
+                    <option value="GBP">GBP (£)</option>
+                    <option value="JPY">JPY (¥)</option>
+                  </select>
+                </div>
+              </div>
+              
+              {/* Kết quả quy đổi */}
+              <div style={{ marginTop: '20px', padding: '15px', background: 'var(--card-bg)', borderRadius: '14px', border: '1px solid var(--border-color)', textAlign: 'center' }}>
+                <div style={{ fontSize: '13px', color: '#718EBF', marginBottom: '6px', fontWeight: '500' }}>Kết quả quy đổi tương đương</div>
+                <div style={{ fontSize: '22px', fontWeight: '800', color: '#16DBCC' }}>
+                  {getConvertedAmount()} {exchangeTo}
+                </div>
+              </div>
+            </div>
+            
+            {/* Bảng tỷ giá hôm nay */}
+            <div>
+              <h4 style={{ margin: '0 0 10px 0', fontSize: '14px', color: 'var(--text-main)', fontWeight: '700' }}>Tỷ giá quy đổi tham khảo:</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div style={{ padding: '10px 12px', background: 'var(--bg-color)', borderRadius: '10px', fontSize: '13px', color: 'var(--text-main)', display: 'flex', justifyContent: 'space-between', border: '1px solid var(--border-color)' }}>
+                  <span style={{ fontWeight: '600' }}>💵 1 USD</span>
+                  <span style={{ fontWeight: '700', color: '#1814F3' }}>{Math.round(exchangeRates.VND || 25450).toLocaleString('vi-VN')} ₫</span>
+                </div>
+                <div style={{ padding: '10px 12px', background: 'var(--bg-color)', borderRadius: '10px', fontSize: '13px', color: 'var(--text-main)', display: 'flex', justifyContent: 'space-between', border: '1px solid var(--border-color)' }}>
+                  <span style={{ fontWeight: '600' }}>💶 1 EUR</span>
+                  <span style={{ fontWeight: '700', color: '#1814F3' }}>{Math.round((exchangeRates.VND || 25450) / (exchangeRates.EUR || 0.93)).toLocaleString('vi-VN')} ₫</span>
+                </div>
+                <div style={{ padding: '10px 12px', background: 'var(--bg-color)', borderRadius: '10px', fontSize: '13px', color: 'var(--text-main)', display: 'flex', justifyContent: 'space-between', border: '1px solid var(--border-color)' }}>
+                  <span style={{ fontWeight: '600' }}>💷 1 GBP</span>
+                  <span style={{ fontWeight: '700', color: '#1814F3' }}>{Math.round((exchangeRates.VND || 25450) / (exchangeRates.GBP || 0.79)).toLocaleString('vi-VN')} ₫</span>
+                </div>
+                <div style={{ padding: '10px 12px', background: 'var(--bg-color)', borderRadius: '10px', fontSize: '13px', color: 'var(--text-main)', display: 'flex', justifyContent: 'space-between', border: '1px solid var(--border-color)' }}>
+                  <span style={{ fontWeight: '600' }}>💴 1 JPY</span>
+                  <span style={{ fontWeight: '700', color: '#1814F3' }}>{Math.round((exchangeRates.VND || 25450) / (exchangeRates.JPY || 158)).toLocaleString('vi-VN')} ₫</span>
+                </div>
+              </div>
+            </div>
+            
+            <button 
+              type="button" 
+              onClick={() => setShowExchangeModal(false)}
+              className="wallet-premium-btn"
+              style={{ marginTop: '20px', background: 'var(--bg-color)', color: 'var(--text-main)', border: '1px solid var(--border-color)', width: '100%', padding: '12px', borderRadius: '12px', fontWeight: '700', cursor: 'pointer' }}
+            >
+              Đóng
+            </button>
           </div>
         </div>
       )}
