@@ -7,6 +7,18 @@ import { useLanguage } from '../lib/translations';
 import { apiFetch, budgetApi, transactionApi } from '../lib/api';
 import CategoryPicker from '../components/CategoryPicker';
 
+const urlToFile = async (url: string, filename: string): Promise<File | null> => {
+  try {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const mimeType = blob.type || 'image/jpeg';
+    return new File([blob], filename, { type: mimeType });
+  } catch (e) {
+    console.error("Lỗi khi chuyển đổi URL thành File:", e);
+    return null;
+  }
+};
+
 const parseIcon = (iconName: string) => {
   const iconMap: Record<string, string> = {
     food: '🍜', car: '🚗', shopping_cart: '🛒', shopping_bag: '🛍️', gamepad: '🎮',
@@ -22,6 +34,89 @@ const parseIcon = (iconName: string) => {
   };
   return iconMap[iconName] || iconName;
 };
+
+const cleanTransactionTitle = (title: string, payee: any): string => {
+  if (!title) return '';
+  if (!payee) return title;
+  
+  const payeeName = payee.payee_name || payee.name;
+  if (!payeeName) return title;
+  
+  let cleaned = title;
+  
+  // Try to remove "đến [PayeeName]"
+  const target1 = `đến ${payeeName}`;
+  const target2 = `den ${payeeName}`;
+  
+  // Try to remove "cho [PayeeName]"
+  const target3 = `cho ${payeeName}`;
+  
+  // Try to remove "từ [PayeeName]" or "tu [PayeeName]"
+  const target4 = `từ ${payeeName}`;
+  const target5 = `tu ${payeeName}`;
+  
+  if (cleaned.includes(target1)) {
+    cleaned = cleaned.replace(target1, '');
+  } else if (cleaned.includes(target2)) {
+    cleaned = cleaned.replace(target2, '');
+  } else if (cleaned.includes(target3)) {
+    cleaned = cleaned.replace(target3, '');
+  } else if (cleaned.includes(target4)) {
+    cleaned = cleaned.replace(target4, '');
+  } else if (cleaned.includes(target5)) {
+    cleaned = cleaned.replace(target5, '');
+  } else {
+    cleaned = cleaned.replace(payeeName, '');
+  }
+  
+  cleaned = cleaned.trim();
+  
+  if (cleaned.endsWith('qua mã QR') || cleaned.endsWith('qua ma QR')) {
+    return 'Chuyển tiền qua mã QR';
+  }
+  if (cleaned === 'Chuyển tiền' || cleaned === 'Chuyen tien') {
+    return 'Chuyển tiền';
+  }
+  if (cleaned.endsWith('đến') || cleaned.endsWith('den') || cleaned.endsWith('cho') || cleaned.endsWith('từ') || cleaned.endsWith('tu')) {
+    cleaned = cleaned.replace(/(?:đến|den|cho|từ|tu)$/i, '').trim();
+  }
+  
+  return cleaned || 'Chuyển tiền';
+};
+
+const formatNotesWithTitle = (title: string, notes: string): string => {
+  const cleanTitle = title.trim();
+  const cleanNotes = notes.trim();
+  return cleanNotes ? `[${cleanTitle}] ${cleanNotes}` : `[${cleanTitle}]`;
+};
+
+const parseNotesAndTitle = (title: string, notes: string | null, payee: any): { displayTitle: string; displayNotes: string } => {
+  const cleanedFallbackTitle = cleanTransactionTitle(title, payee);
+  if (!notes) {
+    return {
+      displayTitle: cleanedFallbackTitle,
+      displayNotes: ''
+    };
+  }
+
+  // Match bracket format: starts with [something] optionally followed by notes
+  const match = notes.match(/^\[(.*?)\]\s*([\s\S]*)$/);
+  if (match) {
+    const extractedTitle = match[1].trim();
+    const remainingNotes = match[2].trim();
+    return {
+      displayTitle: extractedTitle || cleanedFallbackTitle,
+      displayNotes: remainingNotes
+    };
+  }
+
+  return {
+    displayTitle: cleanedFallbackTitle,
+    displayNotes: notes.trim()
+  };
+};
+
+
 
 interface SmartFilters {
   minAmount?: string;
@@ -209,6 +304,7 @@ export default function Transactions() {
   const [viewingTx, setViewingTx] = useState<any>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingTx, setEditingTx] = useState<any>(null);
+  const [editingRecurringTx, setEditingRecurringTx] = useState<any>(null);
   const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
 
   const getLocalDateTime = () => {
@@ -233,13 +329,163 @@ export default function Transactions() {
     payee_id: '',
     transaction_date: getLocalDateTime(),
     notes: '',
-    attachment: null as File | null,
+    attachments: [] as File[],
     is_recurring: false,
     frequency: 'monthly',
     end_date: ''
   });
 
   const [payees, setPayees] = useState<any[]>([]);
+
+  const [isClassifyingNew, setIsClassifyingNew] = useState(false);
+  const [isClassifyingEdit, setIsClassifyingEdit] = useState(false);
+  const [isClassifyingRecurring, setIsClassifyingRecurring] = useState(false);
+
+  // Auto-classify category for newTx
+  useEffect(() => {
+    const title = newTx.title?.trim();
+    const notes = newTx.notes?.trim();
+    if (!title && !notes) return;
+
+    const timer = setTimeout(async () => {
+      setIsClassifyingNew(true);
+      try {
+        const res = await apiFetch('/ai/classify-category', {
+          method: 'POST',
+          body: JSON.stringify({
+            title,
+            notes,
+            type: newTx.type
+          })
+        });
+        if (res.status === 'success' && res.data?.category_id) {
+          setNewTx(prev => ({ ...prev, category_id: res.data.category_id }));
+        }
+      } catch (e) {
+        console.error("Lỗi tự động phân loại danh mục:", e);
+      } finally {
+        setIsClassifyingNew(false);
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [newTx.title, newTx.notes, newTx.type]);
+
+  // Auto-classify category for editingTx
+  useEffect(() => {
+    if (!editingTx) return;
+    const title = editingTx.title?.trim();
+    const notes = editingTx.notes?.trim();
+    if (!title && !notes) return;
+
+    const timer = setTimeout(async () => {
+      setIsClassifyingEdit(true);
+      try {
+        const res = await apiFetch('/ai/classify-category', {
+          method: 'POST',
+          body: JSON.stringify({
+            title,
+            notes,
+            type: editingTx.type
+          })
+        });
+        if (res.status === 'success' && res.data?.category_id) {
+          setEditingTx((prev: any) => {
+            if (!prev) return null;
+            return { ...prev, category_id: res.data.category_id };
+          });
+        }
+      } catch (e) {
+        console.error("Lỗi tự động phân loại danh mục chỉnh sửa:", e);
+      } finally {
+        setIsClassifyingEdit(false);
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [editingTx?.title, editingTx?.notes, editingTx?.type]);
+
+  // Auto-classify category for editingRecurringTx
+  useEffect(() => {
+    if (!editingRecurringTx) return;
+    const title = editingRecurringTx.title?.trim();
+    const notes = editingRecurringTx.notes?.trim();
+    if (!title && !notes) return;
+
+    const timer = setTimeout(async () => {
+      setIsClassifyingRecurring(true);
+      try {
+        const res = await apiFetch('/ai/classify-category', {
+          method: 'POST',
+          body: JSON.stringify({
+            title,
+            notes,
+            type: editingRecurringTx.type
+          })
+        });
+        if (res.status === 'success' && res.data?.category_id) {
+          setEditingRecurringTx((prev: any) => {
+            if (!prev) return null;
+            return { ...prev, category_id: res.data.category_id };
+          });
+        }
+      } catch (e) {
+        console.error("Lỗi tự động phân loại danh mục định kỳ:", e);
+      } finally {
+        setIsClassifyingRecurring(false);
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
+  }, [editingRecurringTx?.title, editingRecurringTx?.notes, editingRecurringTx?.type]);
+
+  const runManualClassification = async (formType: 'new' | 'edit' | 'recurring') => {
+    let title = '';
+    let notes = '';
+    let type = 'expense';
+    
+    if (formType === 'new') {
+      title = newTx.title;
+      notes = newTx.notes;
+      type = newTx.type;
+      setIsClassifyingNew(true);
+    } else if (formType === 'edit') {
+      title = editingTx.title;
+      notes = editingTx.notes;
+      type = editingTx.type;
+      setIsClassifyingEdit(true);
+    } else if (formType === 'recurring') {
+      title = editingRecurringTx.title;
+      notes = editingRecurringTx.notes;
+      type = editingRecurringTx.type;
+      setIsClassifyingRecurring(true);
+    }
+
+    try {
+      const res = await apiFetch('/ai/classify-category', {
+        method: 'POST',
+        body: JSON.stringify({ title, notes, type })
+      });
+      if (res.status === 'success' && res.data?.category_id) {
+        if (formType === 'new') {
+          setNewTx(prev => ({ ...prev, category_id: res.data.category_id }));
+        } else if (formType === 'edit') {
+          setEditingTx((prev: any) => ({ ...prev, category_id: res.data.category_id }));
+        } else if (formType === 'recurring') {
+          setEditingRecurringTx((prev: any) => ({ ...prev, category_id: res.data.category_id }));
+        }
+      } else {
+        alert('AI không tìm thấy danh mục nào phù hợp hơn.');
+      }
+    } catch (e) {
+      console.error(e);
+      alert('Có lỗi xảy ra khi gọi AI phân loại.');
+    } finally {
+      if (formType === 'new') setIsClassifyingNew(false);
+      else if (formType === 'edit') setIsClassifyingEdit(false);
+      else if (formType === 'recurring') setIsClassifyingRecurring(false);
+    }
+  };
 
   const isCashWallet = useMemo(() => {
     const w = wallets.find(x => x.id === newTx.wallet_id);
@@ -397,7 +643,6 @@ export default function Transactions() {
   const [recurringTransactions, setRecurringTransactions] = useState<any[]>([]);
   const [isLoadingRecurring, setIsLoadingRecurring] = useState(false);
   const [isEditRecurringModalOpen, setIsEditRecurringModalOpen] = useState(false);
-  const [editingRecurringTx, setEditingRecurringTx] = useState<any>(null);
   const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
   const [isRuleDetailModalOpen, setIsRuleDetailModalOpen] = useState(false);
   const [viewingRuleTx, setViewingRuleTx] = useState<any>(null);
@@ -647,8 +892,12 @@ export default function Transactions() {
   const handleAdd = () => setIsModalOpen(true);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setNewTx({ ...newTx, attachment: e.target.files[0] });
+    if (e.target.files && e.target.files.length > 0) {
+      const selectedFiles = Array.from(e.target.files);
+      setNewTx(prev => ({ 
+        ...prev, 
+        attachments: [...prev.attachments, ...selectedFiles] 
+      }));
     }
   };
 
@@ -700,8 +949,12 @@ export default function Transactions() {
       if (newTx.category_id) formData.append('category_id', newTx.category_id);
       if (newTx.payee_id) formData.append('payee_id', newTx.payee_id);
       formData.append('transaction_date', new Date(newTx.transaction_date).toISOString());
-      if (newTx.notes) formData.append('notes', newTx.notes);
-      if (newTx.attachment) formData.append('attachment', newTx.attachment);
+      formData.append('notes', formatNotesWithTitle(newTx.title, newTx.notes || ''));
+      if (newTx.attachments && newTx.attachments.length > 0) {
+        newTx.attachments.forEach((file) => {
+          formData.append('attachments[]', file);
+        });
+      }
 
       await transactionApi.create(formData);
 
@@ -718,7 +971,7 @@ export default function Transactions() {
         payee_id: '',
         transaction_date: getLocalDateTime(),
         notes: '',
-        attachment: null,
+        attachments: [],
         is_recurring: false,
         frequency: 'monthly',
         end_date: ''
@@ -795,7 +1048,7 @@ export default function Transactions() {
             frequency: newTx.frequency,
             next_run_at: new Date(newTx.transaction_date).toISOString(),
             end_at: newTx.end_date || null,
-            notes: newTx.notes
+            notes: formatNotesWithTitle(newTx.title, newTx.notes || '')
           })
         });
 
@@ -816,7 +1069,7 @@ export default function Transactions() {
         payee_id: '',
         transaction_date: getLocalDateTime(),
         notes: '',
-        attachment: null,
+        attachments: [],
         is_recurring: false,
         frequency: 'monthly',
         end_date: ''
@@ -867,15 +1120,31 @@ export default function Transactions() {
       }
       formData.append('category_id', editingTx.category_id || '');
       formData.append('transaction_date', new Date(editingTx.transaction_date).toISOString());
-      formData.append('notes', editingTx.notes || '');
+      formData.append('notes', formatNotesWithTitle(editingTx.title, editingTx.notes || ''));
       if (editingTx.payee_id) {
         formData.append('payee_id', editingTx.payee_id);
       }
 
-      if (editingTx.attachment) {
-        formData.append('attachment', editingTx.attachment);
-      } else if (!editingTx.existing_attachment_url) {
-        formData.append('attachment_deleted', 'true');
+      const originalCount = editingTx.original_attachments?.length || 0;
+      const currentCount = editingTx.existing_attachments?.length || 0;
+      const isAnyDeleted = currentCount < originalCount;
+      const isAnyAdded = (editingTx.attachments?.length || 0) > 0;
+
+      if (isAnyDeleted || isAnyAdded) {
+        if (currentCount > 0 || isAnyAdded) {
+          const remainingFiles = await Promise.all(
+            (editingTx.existing_attachments || []).map(async (att: any) => {
+              const filename = att.file_url.split('/').pop() || 'existing_image.png';
+              return await urlToFile(att.file_url, filename);
+            })
+          );
+          const validRemainingFiles = remainingFiles.filter((f): f is File => f !== null);
+          const finalFiles = [...validRemainingFiles, ...(editingTx.attachments || [])];
+          
+          finalFiles.forEach((file) => {
+            formData.append('attachments[]', file);
+          });
+        }
       }
 
       await transactionApi.update(editingTx.id, formData);
@@ -930,7 +1199,7 @@ export default function Transactions() {
           frequency: editingRecurringTx.frequency,
           next_run_at: new Date(editingRecurringTx.start_date).toISOString(),
           end_at: editingRecurringTx.end_date || null,
-          notes: editingRecurringTx.notes
+          notes: formatNotesWithTitle(editingRecurringTx.title, editingRecurringTx.notes || '')
         })
       });
       setIsLoadingRecurring(true);
@@ -1424,6 +1693,7 @@ export default function Transactions() {
                 <table className="modern-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', color: 'var(--text-main)' }}>
                   <thead style={{ color: '#718EBF', borderBottom: '1px solid var(--border-color)' }}>
                     <tr>
+                      <th style={{ fontWeight: '600' }}>Tên giao dịch</th>
                       <th style={{ fontWeight: '600' }}>{t('description') || 'Mô tả'}</th>
                       <th style={{ fontWeight: '600' }}>{t('amount_label') || 'Số tiền'}</th>
                       <th style={{ fontWeight: '600' }}>Loại</th>
@@ -1449,9 +1719,31 @@ export default function Transactions() {
                             transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
                           }}
                         >
-                          <td style={{ fontWeight: 700 }}>
-                            <span style={{ marginRight: '8px' }}>⏰</span>
-                            {tx.title || tx.description || tx.name}
+                          <td style={{ minWidth: '150px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ marginRight: '8px' }}>⏰</span>
+                              <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{parseNotesAndTitle(tx.title || tx.description || tx.name, tx.notes, tx.payee).displayTitle}</span>
+                            </div>
+                          </td>
+                          <td style={{ minWidth: '150px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              {tx.payee && (
+                                <div style={{ fontSize: '13px', color: 'var(--text-main)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{ fontSize: '14px' }}>👤</span>
+                                  <span>
+                                    {tx.type === 'income' ? 'Người trả' : 'Người hưởng thụ'}:{' '}
+                                    <strong>{tx.payee.payee_name || tx.payee.name}</strong>
+                                  </span>
+                                </div>
+                              )}
+                              {parseNotesAndTitle(tx.title || tx.description || tx.name, tx.notes, tx.payee).displayNotes ? (
+                                <div style={{ fontSize: '12px', color: '#718EBF', fontStyle: 'italic', marginTop: tx.payee ? '2px' : '0' }}>
+                                  {parseNotesAndTitle(tx.title || tx.description || tx.name, tx.notes, tx.payee).displayNotes}
+                                </div>
+                              ) : (
+                                !tx.payee && <span style={{ color: 'var(--text-light)', fontSize: '13px' }}>-</span>
+                              )}
+                            </div>
                           </td>
                           <td style={{ color: tx.type === 'income' ? '#16DBCC' : '#FE5C73', fontWeight: '700', fontSize: '15px' }}>
                             {tx.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(Number(tx.amount)))}
@@ -1547,9 +1839,10 @@ export default function Transactions() {
                               </button>
                               <button
                                 onClick={() => {
+                                  const { displayTitle, displayNotes } = parseNotesAndTitle(tx.title || tx.description || tx.name || '', tx.notes, tx.payee);
                                   setEditingRecurringTx({
                                     id: tx.id,
-                                    title: tx.title || tx.description || tx.name || '',
+                                    title: displayTitle,
                                     amount: tx.amount || '',
                                     type: tx.type || 'expense',
                                     wallet_id: tx.wallet_id || (wallets.length > 0 ? wallets[0].id : ''),
@@ -1557,7 +1850,7 @@ export default function Transactions() {
                                     frequency: tx.frequency || 'monthly',
                                     start_date: tx.start_date ? new Date(new Date(tx.start_date).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : (tx.next_run_at ? new Date(new Date(tx.next_run_at).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : getLocalDateTime()),
                                     end_date: tx.end_at ? tx.end_at.split('T')[0] : '',
-                                    notes: tx.notes || ''
+                                    notes: displayNotes
                                   });
                                   setIsEditRecurringModalOpen(true);
                                 }}
@@ -1609,7 +1902,7 @@ export default function Transactions() {
                       );
                     }) : (
                       <tr>
-                        <td colSpan={7} style={{ padding: '40px', textAlign: 'center', color: '#718EBF' }}>Chưa có giao dịch định kỳ nào</td>
+                        <td colSpan={8} style={{ padding: '40px', textAlign: 'center', color: '#718EBF' }}>Chưa có giao dịch định kỳ nào</td>
                       </tr>
                     )}
                   </tbody>
@@ -1620,6 +1913,7 @@ export default function Transactions() {
                 <table className="modern-table" style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', color: 'var(--text-main)' }}>
                   <thead style={{ color: '#718EBF', borderBottom: '1px solid var(--border-color)' }}>
                     <tr>
+                      <th style={{ fontWeight: '600' }}>Tên giao dịch</th>
                       <th style={{ fontWeight: '600' }}>{t('description')}</th>
                       <th style={{ fontWeight: '600' }}>{t('categories')}</th>
                       <th style={{ fontWeight: '600' }}>{t('date_label')}</th>
@@ -1646,9 +1940,9 @@ export default function Transactions() {
                             transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
                           }}
                         >
-                          <td style={{ fontWeight: 700, minWidth: '160px' }}>
+                          <td style={{ minWidth: '150px' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                              <span>{tx.title}</span>
+                              <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{parseNotesAndTitle(tx.title, tx.notes, tx.payee).displayTitle}</span>
                               {tx.source_type === 'recurring' && (
                                 <span style={{
                                   padding: '2px 8px',
@@ -1665,6 +1959,26 @@ export default function Transactions() {
                                 }}>
                                   <span>🤖</span> Tự động
                                 </span>
+                              )}
+                            </div>
+                          </td>
+                          <td style={{ minWidth: '150px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              {tx.payee && (
+                                <div style={{ fontSize: '13px', color: 'var(--text-main)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{ fontSize: '14px' }}>👤</span>
+                                  <span>
+                                    {tx.type === 'income' ? 'Người trả' : 'Người hưởng thụ'}:{' '}
+                                    <strong>{tx.payee.payee_name || tx.payee.name}</strong>
+                                  </span>
+                                </div>
+                              )}
+                              {parseNotesAndTitle(tx.title, tx.notes, tx.payee).displayNotes ? (
+                                <div style={{ fontSize: '12px', color: '#718EBF', fontStyle: 'italic', marginTop: tx.payee ? '2px' : '0' }}>
+                                  {parseNotesAndTitle(tx.title, tx.notes, tx.payee).displayNotes}
+                                </div>
+                              ) : (
+                                !tx.payee && <span style={{ color: 'var(--text-light)', fontSize: '13px' }}>-</span>
                               )}
                             </div>
                           </td>
@@ -1725,18 +2039,20 @@ export default function Transactions() {
                               </button>
                               <button
                                 onClick={() => {
+                                  const { displayTitle, displayNotes } = parseNotesAndTitle(tx.title || '', tx.notes, tx.payee);
                                   setEditingTx({
                                     id: tx.id,
-                                    title: tx.title || '',
+                                    title: displayTitle,
                                     amount: tx.amount || '',
                                     type: tx.type || 'expense',
                                     wallet_id: tx.wallet_id || '',
                                     category_id: tx.category_id || '',
                                     payee_id: tx.payee_id || '',
                                     transaction_date: toLocalDateTimeInput(tx.transaction_date),
-                                    notes: tx.notes || '',
-                                    attachment: null,
-                                    existing_attachment_url: tx.attachment_url || tx.attachments?.[0]?.file_url || ''
+                                    notes: displayNotes,
+                                    attachments: [] as File[],
+                                    existing_attachments: tx.attachments || (tx.attachment_url ? [{ id: 'old', file_url: tx.attachment_url }] : []),
+                                    original_attachments: tx.attachments || (tx.attachment_url ? [{ id: 'old', file_url: tx.attachment_url }] : [])
                                   });
                                   setIsEditModalOpen(true);
                                 }}
@@ -1788,7 +2104,7 @@ export default function Transactions() {
                       );
                     }) : (
                       <tr>
-                        <td colSpan={5} style={{ padding: '40px', textAlign: 'center', color: '#718EBF' }}>{t('no_transactions_found') || 'Không tìm thấy giao dịch nào'}</td>
+                        <td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: '#718EBF' }}>{t('no_transactions_found') || 'Không tìm thấy giao dịch nào'}</td>
                       </tr>
                     )}
                   </tbody>
@@ -2000,7 +2316,7 @@ export default function Transactions() {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px', marginBottom: '15px' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>{t('type')} *</label>
                 <select value={newTx.type} onChange={e => setNewTx({ ...newTx, type: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}>
@@ -2014,24 +2330,54 @@ export default function Transactions() {
                   {wallets.filter(w => !newTx.is_recurring || w.type !== 'cash').map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                 </select>
               </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>{t('categories')} *</label>
-                <CategoryPicker
-                  value={newTx.category_id}
-                  onChange={(id) => setNewTx({ ...newTx, category_id: id })}
-                  type={newTx.type}
-                  categories={categories}
-                  tCategory={tCategory}
-                  placeholder={t('select_category') || 'Chọn danh mục'}
-                />
-              </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>{t('date_label')} *</label>
                 <input type="datetime-local" value={newTx.transaction_date} onChange={e => setNewTx({ ...newTx, transaction_date: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }} />
               </div>
+            </div>
+
+            <div style={{ marginBottom: '15px', background: 'var(--card-bg)', padding: '16px', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  Danh mục thông minh
+                  {isClassifyingNew && (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#1814F3', fontWeight: '600' }}>
+                      <span className="ai-pulse-dot"></span> Đang phân tích...
+                    </span>
+                  )}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => runManualClassification('new')}
+                  disabled={isClassifyingNew || (!newTx.title && !newTx.notes)}
+                  style={{
+                    background: 'linear-gradient(135deg, #8A2387 0%, #E94057 50%, #F27121 100%)',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '4px 12px',
+                    borderRadius: '12px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    boxShadow: '0 2px 8px rgba(138, 35, 135, 0.25)',
+                    opacity: (!newTx.title && !newTx.notes) ? 0.6 : 1,
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  Quét AI 🔮
+                </button>
+              </div>
+              <CategoryPicker
+                value={newTx.category_id}
+                onChange={(id) => setNewTx({ ...newTx, category_id: id })}
+                type={newTx.type}
+                categories={categories}
+                tCategory={tCategory}
+                placeholder={t('select_category') || 'Chọn danh mục'}
+              />
             </div>
 
             {!isCashWallet && (
@@ -2079,18 +2425,62 @@ export default function Transactions() {
                   background: 'var(--bg-color)',
                   textAlign: 'center',
                   cursor: 'pointer',
-                  color: '#718EBF'
+                  color: '#718EBF',
+                  transition: 'all 0.2s ease',
+                  marginBottom: newTx.attachments && newTx.attachments.length > 0 ? '12px' : '0'
                 }}
+                onMouseOver={(e) => e.currentTarget.style.borderColor = '#1814F3'}
+                onMouseOut={(e) => e.currentTarget.style.borderColor = 'var(--border-color)'}
               >
-                {newTx.attachment ? (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-                    <span style={{ color: '#16DBCC' }}>✓</span> {newTx.attachment.name}
-                  </div>
-                ) : (
-                  <div>{t('click_to_upload') || 'Nhấn để tải lên ảnh hóa đơn'}</div>
-                )}
+                <div>{t('click_to_upload') || 'Nhấn để tải lên ảnh hóa đơn (Có thể chọn nhiều)'}</div>
               </div>
-              <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" style={{ display: 'none' }} />
+              <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" multiple style={{ display: 'none' }} />
+              
+              {newTx.attachments && newTx.attachments.length > 0 && (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '10px', background: 'var(--bg-color)', padding: '10px', borderRadius: '12px' }}>
+                  {newTx.attachments.map((file: File, index: number) => {
+                    const previewUrl = URL.createObjectURL(file);
+                    return (
+                      <div key={index} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'var(--card-bg)', padding: '6px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                        <img src={previewUrl} alt={file.name} style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '6px' }} />
+                        <span style={{ fontSize: '11px', color: 'var(--text-main)', marginTop: '4px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', width: '100%', textAlign: 'center' }}>
+                          {file.name}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setNewTx((prev: any) => ({
+                              ...prev,
+                              attachments: prev.attachments.filter((_: any, i: number) => i !== index)
+                            }));
+                          }}
+                          style={{
+                            position: 'absolute',
+                            top: '2px',
+                            right: '2px',
+                            width: '20px',
+                            height: '20px',
+                            borderRadius: '50%',
+                            background: 'rgba(254, 92, 115, 0.9)',
+                            color: '#fff',
+                            border: 'none',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '12px',
+                            lineHeight: 1,
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
@@ -2137,7 +2527,7 @@ export default function Transactions() {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px', marginBottom: '15px' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Loại *</label>
                 <select value={editingRecurringTx.type} onChange={e => setEditingRecurringTx({ ...editingRecurringTx, type: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}>
@@ -2151,24 +2541,53 @@ export default function Transactions() {
                   {wallets.filter(w => w.type !== 'cash').map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                 </select>
               </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Danh mục *</label>
-                <CategoryPicker
-                  value={editingRecurringTx.category_id}
-                  onChange={(id) => setEditingRecurringTx({ ...editingRecurringTx, category_id: id })}
-                  type={editingRecurringTx.type}
-                  categories={categories}
-                  tCategory={tCategory}
-                  placeholder="Chọn danh mục"
-                />
-              </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Ngày bắt đầu *</label>
                 <input type="datetime-local" value={editingRecurringTx.start_date} onChange={e => setEditingRecurringTx({ ...editingRecurringTx, start_date: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }} />
               </div>
+            </div>
+
+            <div style={{ marginBottom: '15px', background: 'var(--card-bg)', padding: '16px', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  Danh mục thông minh
+                  {isClassifyingRecurring && (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#1814F3', fontWeight: '600' }}>
+                      <span className="ai-pulse-dot"></span> Đang phân tích...
+                    </span>
+                  )}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => runManualClassification('recurring')}
+                  disabled={isClassifyingRecurring || (!editingRecurringTx.title && !editingRecurringTx.notes)}
+                  style={{
+                    background: 'linear-gradient(135deg, #8A2387 0%, #E94057 50%, #F27121 100%)',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '4px 12px',
+                    borderRadius: '12px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    boxShadow: '0 2px 8px rgba(138, 35, 135, 0.25)',
+                    opacity: (!editingRecurringTx.title && !editingRecurringTx.notes) ? 0.6 : 1,
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  Quét AI 🔮
+                </button>
+              </div>
+              <CategoryPicker
+                value={editingRecurringTx.category_id}
+                onChange={(id) => setEditingRecurringTx({ ...editingRecurringTx, category_id: id })}
+                type={editingRecurringTx.type}
+                categories={categories}
+                placeholder="Chọn danh mục"
+              />
             </div>
 
             <div style={{ marginBottom: '15px' }}>
@@ -2206,7 +2625,7 @@ export default function Transactions() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', color: 'var(--text-main)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                 <span style={{ color: '#718EBF', fontWeight: '500' }}>Tên giao dịch</span>
-                <span style={{ fontWeight: '600' }}>{viewingRuleTx.title || viewingRuleTx.description || viewingRuleTx.name}</span>
+                <span style={{ fontWeight: '600' }}>{parseNotesAndTitle(viewingRuleTx.title || viewingRuleTx.description || viewingRuleTx.name, viewingRuleTx.notes, viewingRuleTx.payee).displayTitle}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                 <span style={{ color: '#718EBF', fontWeight: '500' }}>Số tiền</span>
@@ -2253,11 +2672,11 @@ export default function Transactions() {
                 <span style={{ color: '#718EBF', fontWeight: '500' }}>Ngày kết thúc</span>
                 <span style={{ fontWeight: '600' }}>{viewingRuleTx.end_at ? new Date(viewingRuleTx.end_at).toLocaleDateString('vi-VN') : 'Không giới hạn'}</span>
               </div>
-              {viewingRuleTx.notes && (
+              {parseNotesAndTitle(viewingRuleTx.title || viewingRuleTx.description || viewingRuleTx.name, viewingRuleTx.notes, viewingRuleTx.payee).displayNotes && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                   <span style={{ color: '#718EBF', fontWeight: '500' }}>Ghi chú</span>
                   <div style={{ padding: '12px', background: 'var(--bg-color)', borderRadius: '12px', fontSize: '14px', fontStyle: 'italic' }}>
-                    {viewingRuleTx.notes}
+                    {parseNotesAndTitle(viewingRuleTx.title || viewingRuleTx.description || viewingRuleTx.name, viewingRuleTx.notes, viewingRuleTx.payee).displayNotes}
                   </div>
                 </div>
               )}
@@ -2281,7 +2700,7 @@ export default function Transactions() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', color: 'var(--text-main)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                 <span style={{ color: '#718EBF', fontWeight: '500' }}>Tên giao dịch</span>
-                <span style={{ fontWeight: '600' }}>{viewingTx.title}</span>
+                <span style={{ fontWeight: '600' }}>{parseNotesAndTitle(viewingTx.title, viewingTx.notes, viewingTx.payee).displayTitle}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                 <span style={{ color: '#718EBF', fontWeight: '500' }}>Số tiền</span>
@@ -2311,33 +2730,52 @@ export default function Transactions() {
                 <span style={{ color: '#718EBF', fontWeight: '500' }}>Ngày giao dịch</span>
                 <span style={{ fontWeight: '600' }}>{new Date(viewingTx.transaction_date).toLocaleString('vi-VN')}</span>
               </div>
-              {viewingTx.notes && (
+              {parseNotesAndTitle(viewingTx.title, viewingTx.notes, viewingTx.payee).displayNotes && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                   <span style={{ color: '#718EBF', fontWeight: '500' }}>Ghi chú</span>
                   <div style={{ padding: '12px', background: 'var(--bg-color)', borderRadius: '12px', fontSize: '14px', fontStyle: 'italic' }}>
-                    {viewingTx.notes}
+                    {parseNotesAndTitle(viewingTx.title, viewingTx.notes, viewingTx.payee).displayNotes}
                   </div>
                 </div>
               )}
-              {(viewingTx.attachment_url || (viewingTx.attachments && viewingTx.attachments[0]?.file_url)) && (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {((viewingTx.attachments && viewingTx.attachments.length > 0) || viewingTx.attachment_url) && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   <span style={{ color: '#718EBF', fontWeight: '500' }}>Ảnh hóa đơn</span>
-                  <div style={{ textAlign: 'center', background: 'var(--bg-color)', borderRadius: '12px', padding: '10px' }}>
-                    <img
-                      src={viewingTx.attachment_url || viewingTx.attachments[0]?.file_url}
-                      alt="Receipt"
-                      style={{ maxWidth: '100%', maxHeight: '250px', borderRadius: '12px', objectFit: 'contain', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                    />
-                    <div style={{ marginTop: '10px' }}>
-                      <a
-                        href={viewingTx.attachment_url || viewingTx.attachments[0]?.file_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        style={{ color: '#1814F3', textDecoration: 'underline', fontSize: '13px', fontWeight: '600' }}
-                      >
-                        Mở ảnh kích thước đầy đủ ↗
-                      </a>
-                    </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: '12px', background: 'var(--bg-color)', borderRadius: '12px', padding: '12px' }}>
+                    {viewingTx.attachment_url && (!viewingTx.attachments || !viewingTx.attachments.some((att: any) => att.file_url === viewingTx.attachment_url)) && (
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', background: 'var(--card-bg)', padding: '8px', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)' }}>
+                        <img
+                          src={viewingTx.attachment_url}
+                          alt="Receipt"
+                          style={{ width: '100%', height: '100px', borderRadius: '6px', objectFit: 'cover' }}
+                        />
+                        <a
+                          href={viewingTx.attachment_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ color: '#1814F3', textDecoration: 'none', fontSize: '11px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '2px' }}
+                        >
+                          Xem ảnh đầy đủ ↗
+                        </a>
+                      </div>
+                    )}
+                    {viewingTx.attachments && viewingTx.attachments.map((att: any, idx: number) => (
+                      <div key={att.id || idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', background: 'var(--card-bg)', padding: '8px', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)' }}>
+                        <img
+                          src={att.file_url}
+                          alt={`Receipt ${idx + 1}`}
+                          style={{ width: '100%', height: '100px', borderRadius: '6px', objectFit: 'cover' }}
+                        />
+                        <a
+                          href={att.file_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          style={{ color: '#1814F3', textDecoration: 'none', fontSize: '11px', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '2px' }}
+                        >
+                          Xem ảnh đầy đủ ↗
+                        </a>
+                      </div>
+                    ))}
                   </div>
                 </div>
               )}
@@ -2349,8 +2787,6 @@ export default function Transactions() {
           </div>
         </div>
       )}
-
-      {/* EDIT TRANSACTION MODAL */}
       {isEditModalOpen && editingTx && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, backdropFilter: 'blur(4px)' }}>
           <div style={{ background: 'var(--card-bg)', borderRadius: '24px', padding: '30px', width: '550px', maxWidth: '95%', boxShadow: '0 10px 40px rgba(0,0,0,0.1)', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -2370,12 +2806,12 @@ export default function Transactions() {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px', marginBottom: '15px' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Loại *</label>
                 <select value={editingTx.type} onChange={e => setEditingTx({ ...editingTx, type: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}>
-                  <option value="expense">{t('spending')}</option>
-                  <option value="income">{t('income')}</option>
+                  <option value="expense">Chi tiêu</option>
+                  <option value="income">Thu nhập</option>
                 </select>
               </div>
               <div>
@@ -2384,24 +2820,54 @@ export default function Transactions() {
                   {wallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                 </select>
               </div>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '15px' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Danh mục *</label>
-                <CategoryPicker
-                  value={editingTx.category_id}
-                  onChange={(id) => setEditingTx({ ...editingTx, category_id: id })}
-                  type={editingTx.type}
-                  categories={categories}
-                  tCategory={tCategory}
-                  placeholder={t('select_category') || 'Chọn danh mục'}
-                />
-              </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Ngày giao dịch *</label>
                 <input type="datetime-local" value={editingTx.transaction_date} onChange={e => setEditingTx({ ...editingTx, transaction_date: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }} />
               </div>
+            </div>
+
+            <div style={{ marginBottom: '15px', background: 'var(--card-bg)', padding: '16px', borderRadius: '16px', border: '1px solid var(--border-color)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                <span style={{ fontSize: '14px', fontWeight: '700', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  Danh mục thông minh
+                  {isClassifyingEdit && (
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '12px', color: '#1814F3', fontWeight: '600' }}>
+                      <span className="ai-pulse-dot"></span> Đang phân tích...
+                    </span>
+                  )}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => runManualClassification('edit')}
+                  disabled={isClassifyingEdit || (!editingTx.title && !editingTx.notes)}
+                  style={{
+                    background: 'linear-gradient(135deg, #8A2387 0%, #E94057 50%, #F27121 100%)',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '4px 12px',
+                    borderRadius: '12px',
+                    fontSize: '12px',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    boxShadow: '0 2px 8px rgba(138, 35, 135, 0.25)',
+                    opacity: (!editingTx.title && !editingTx.notes) ? 0.6 : 1,
+                    transition: 'all 0.2s'
+                  }}
+                >
+                  Quét AI 🔮
+                </button>
+              </div>
+              <CategoryPicker
+                value={editingTx.category_id}
+                onChange={(id) => setEditingTx({ ...editingTx, category_id: id })}
+                type={editingTx.type}
+                categories={categories}
+                tCategory={tCategory}
+                placeholder={t('select_category') || 'Chọn danh mục'}
+              />
             </div>
 
             {!isEditCashWallet && (
@@ -2427,19 +2893,52 @@ export default function Transactions() {
 
             <div style={{ marginBottom: '25px' }}>
               <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Ảnh hóa đơn</label>
-              {editingTx.existing_attachment_url && !editingTx.attachment && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '10px', background: 'var(--bg-color)', padding: '10px', borderRadius: '12px' }}>
-                  <img src={editingTx.existing_attachment_url} alt="Current" style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '6px' }} />
-                  <span style={{ fontSize: '13px', color: '#718EBF', flex: 1 }}>Sử dụng ảnh hóa đơn hiện tại</span>
-                  <button
-                    type="button"
-                    onClick={() => setEditingTx({ ...editingTx, existing_attachment_url: '' })}
-                    style={{ background: 'none', border: 'none', color: '#FE5C73', cursor: 'pointer', fontWeight: '600', fontSize: '13px' }}
-                  >
-                    Xóa ảnh
-                  </button>
+              
+              {/* Existing attachments list */}
+              {editingTx.existing_attachments && editingTx.existing_attachments.length > 0 && (
+                <div style={{ marginBottom: '15px' }}>
+                  <div style={{ fontSize: '13px', color: '#718EBF', marginBottom: '6px' }}>Ảnh hóa đơn hiện tại:</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '10px', background: 'var(--bg-color)', padding: '10px', borderRadius: '12px' }}>
+                    {editingTx.existing_attachments.map((att: any, index: number) => (
+                      <div key={att.id || index} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'var(--card-bg)', padding: '6px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                        <img src={att.file_url} alt="Current attachment" style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '6px' }} />
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingTx((prev: any) => ({
+                              ...prev,
+                              existing_attachments: prev.existing_attachments.filter((_: any, i: number) => i !== index)
+                            }));
+                          }}
+                          style={{
+                            position: 'absolute',
+                            top: '2px',
+                            right: '2px',
+                            width: '20px',
+                            height: '20px',
+                            borderRadius: '50%',
+                            background: 'rgba(254, 92, 115, 0.9)',
+                            color: '#fff',
+                            border: 'none',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '12px',
+                            lineHeight: 1,
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
+
+              {/* Upload section for new attachments */}
               <div
                 onClick={() => {
                   const input = document.getElementById('edit-file-input') as HTMLInputElement;
@@ -2453,28 +2952,86 @@ export default function Transactions() {
                   background: 'var(--bg-color)',
                   textAlign: 'center',
                   cursor: 'pointer',
-                  color: '#718EBF'
+                  color: '#718EBF',
+                  transition: 'all 0.2s ease',
+                  marginBottom: editingTx.attachments && editingTx.attachments.length > 0 ? '12px' : '0'
                 }}
+                onMouseOver={(e) => e.currentTarget.style.borderColor = '#1814F3'}
+                onMouseOut={(e) => e.currentTarget.style.borderColor = 'var(--border-color)'}
               >
-                {editingTx.attachment ? (
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-                    <span style={{ color: '#16DBCC' }}>✓</span> {editingTx.attachment.name}
-                  </div>
-                ) : (
-                  <div>{t('click_to_upload') || 'Nhấn để tải lên ảnh hóa đơn mới'}</div>
-                )}
+                <div>{t('click_to_upload') || 'Nhấn để tải lên thêm ảnh hóa đơn mới'}</div>
               </div>
               <input
                 id="edit-file-input"
                 type="file"
+                multiple
                 onChange={(e) => {
-                  if (e.target.files && e.target.files[0]) {
-                    setEditingTx({ ...editingTx, attachment: e.target.files[0] });
+                  if (e.target.files && e.target.files.length > 0) {
+                    const selectedFiles = Array.from(e.target.files);
+                    setEditingTx((prev: any) => ({
+                      ...prev,
+                      attachments: [...(prev.attachments || []), ...selectedFiles]
+                    }));
                   }
                 }}
                 accept="image/*"
                 style={{ display: 'none' }}
               />
+
+              {/* Newly added attachments list */}
+              {editingTx.attachments && editingTx.attachments.length > 0 && (
+                <div style={{ marginTop: '15px' }}>
+                  <div style={{ fontSize: '13px', color: '#718EBF', marginBottom: '6px' }}>Ảnh hóa đơn mới thêm:</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '10px', background: 'var(--bg-color)', padding: '10px', borderRadius: '12px' }}>
+                    {editingTx.attachments.map((file: File, index: number) => {
+                      const previewUrl = URL.createObjectURL(file);
+                      return (
+                        <div key={index} style={{ position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'var(--card-bg)', padding: '6px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                          <img src={previewUrl} alt={file.name} style={{ width: '100%', height: '80px', objectFit: 'cover', borderRadius: '6px' }} />
+                          <span style={{ fontSize: '11px', color: 'var(--text-main)', marginTop: '4px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap', width: '100%', textAlign: 'center' }}>
+                            {file.name}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingTx((prev: any) => ({
+                                ...prev,
+                                attachments: prev.attachments.filter((_: any, i: number) => i !== index)
+                              }));
+                            }}
+                            style={{
+                              position: 'absolute',
+                              top: '2px',
+                              right: '2px',
+                              width: '20px',
+                              height: '20px',
+                              borderRadius: '50%',
+                              background: 'rgba(254, 92, 115, 0.9)',
+                              color: '#fff',
+                              border: 'none',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontSize: '12px',
+                              lineHeight: 1,
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            ×
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Warning note for backend limitation */}
+              <div style={{ marginTop: '12px', padding: '10px', background: 'rgba(24, 20, 243, 0.05)', borderLeft: '3px solid #1814F3', borderRadius: '4px', fontSize: '12px', color: '#718EBF', lineHeight: '1.4' }}>
+                💡 <em>Lưu ý:</em> Để xóa bớt ảnh cũ, bạn bắt buộc phải giữ lại ít nhất 1 ảnh cũ hoặc tải lên ảnh mới để lưu thay đổi. Nếu xóa sạch toàn bộ ảnh đính kèm và không tải lên ảnh mới, API backend vẫn sẽ giữ nguyên các ảnh cũ.
+              </div>
             </div>
 
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>

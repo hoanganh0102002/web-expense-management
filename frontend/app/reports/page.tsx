@@ -62,7 +62,7 @@ const renderFormatIcon = (type: 'pdf' | 'excel' | 'csv', size: number = 26) => {
 const formatCurrencyLocal = (val: number | string) => {
   const numericAmount = typeof val === 'string' ? parseFloat(val) : val;
   if (isNaN(numericAmount)) return '0đ';
-  return new Intl.NumberFormat('vi-VN').format(numericAmount) + 'đ';
+  return new Intl.NumberFormat('vi-VN').format(Math.round(numericAmount)) + 'đ';
 };
 
 const getPrevPeriod = (startStr: string, endStr: string) => {
@@ -391,6 +391,14 @@ export default function Reports() {
   const [selectedWallet, setSelectedWallet] = useState('');
   const [selectedType, setSelectedType] = useState('');
 
+  // Momo Category Details View States
+  const [selectedReportCategory, setSelectedReportCategory] = useState<any | null>(null);
+  const [categoryTrendsData, setCategoryTrendsData] = useState<any[]>([]);
+  const [isLoadingCategoryTrends, setIsLoadingCategoryTrends] = useState(false);
+  const [categoryTrendsPeriodIdx, setCategoryTrendsPeriodIdx] = useState<number>(3);
+  const [categoryDetailTab, setCategoryDetailTab] = useState<'all' | 'top_spent' | 'top_recipients'>('all');
+  const [showAmount, setShowAmount] = useState(true);
+
   const [exportHistory, setExportHistory] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'analytics' | 'balance_trend' | 'budgets' | 'transactions' | 'export'>('analytics');
   
@@ -519,10 +527,83 @@ export default function Reports() {
     return () => clearTimeout(timer);
   }, [reportType, topCategories, viewMode, allocationType, topWallets]);
 
+  // Fetch category transactions and trends for the past 4 months
+  useEffect(() => {
+    if (!isLoggedIn || !selectedReportCategory) return;
+
+    const fetchCategoryDetails = async () => {
+      setIsLoadingCategoryTrends(true);
+      try {
+        const d = new Date(startDate);
+        const endYear = d.getFullYear();
+        const endMonth = d.getMonth(); // 0-indexed (e.g. 5 for June)
+        
+        // Compute start of 4 months ago
+        const startD = new Date(endYear, endMonth - 3, 1);
+        const startYear = startD.getFullYear();
+        const startMonth = startD.getMonth();
+        
+        const pad = (n: number) => String(n).padStart(2, '0');
+        const calcStartDate = `${startYear}-${pad(startMonth + 1)}-01`;
+        const lastDay = new Date(endYear, endMonth + 1, 0).getDate();
+        const calcEndDate = `${endYear}-${pad(endMonth + 1)}-${pad(lastDay)}`;
+        
+        // Fetch transactions for selected category in 4-month range
+        const res = await transactionApi.getAll({
+          category_id: selectedReportCategory.id,
+          start_date: calcStartDate,
+          end_date: calcEndDate,
+          per_page: 2000
+        });
+        
+        const txList = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+        
+        // Initialize monthly categories list
+        const monthlyTrends = [];
+        for (let i = 3; i >= 0; i--) {
+          const targetD = new Date(endYear, endMonth - i, 1);
+          const monthVal = targetD.getMonth() + 1;
+          const yearVal = targetD.getFullYear();
+          
+          const monthStart = `${yearVal}-${pad(monthVal)}-01`;
+          const monthEnd = `${yearVal}-${pad(monthVal)}-${pad(new Date(yearVal, monthVal, 0).getDate())}`;
+          
+          const monthTxs = txList.filter((tx: any) => {
+            let txDateStr = tx.transaction_date;
+            if (!txDateStr && tx.created_at) txDateStr = tx.created_at.split('T')[0];
+            return txDateStr && txDateStr >= monthStart && txDateStr <= monthEnd;
+          });
+          
+          const totalSpent = monthTxs.reduce((sum: number, tx: any) => {
+            const amt = Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0));
+            return sum + amt;
+          }, 0);
+          
+          monthlyTrends.push({
+            month: monthVal,
+            year: yearVal,
+            label: `${monthVal}`,
+            amount: totalSpent,
+            transactions: monthTxs
+          });
+        }
+        
+        setCategoryTrendsData(monthlyTrends);
+        setCategoryTrendsPeriodIdx(3); // default to current selected month (index 3)
+      } catch (err) {
+        console.error("Error fetching category details:", err);
+      } finally {
+        setIsLoadingCategoryTrends(false);
+      }
+    };
+    
+    fetchCategoryDetails();
+  }, [isLoggedIn, selectedReportCategory, startDate]);
+
   const formatCurrency = (val: number | string) => {
     const numericAmount = typeof val === 'string' ? parseFloat(val) : val;
     if (isNaN(numericAmount)) return '0';
-    return new Intl.NumberFormat('vi-VN').format(numericAmount) + 'đ';
+    return new Intl.NumberFormat('vi-VN').format(Math.round(numericAmount)) + 'đ';
   };
 
   useEffect(() => {
@@ -2040,8 +2121,368 @@ export default function Reports() {
           {/* TAB 1: ANALYTICS & INSIGHTS */}
           {activeTab === 'analytics' && (
             <div className="reports-fade-in">
-              {/* MOMO STYLE: TÌNH HÌNH THU CHI CARD */}
-              <div className="momo-stats-card">
+              {selectedReportCategory ? (
+                <div className="momo-category-detail-container">
+                  {/* Momo-style Header Banner Card */}
+                  <div className="momo-cat-header-card">
+                    <div className="momo-cat-navbar">
+                      <button className="momo-cat-back-btn" onClick={() => setSelectedReportCategory(null)} title="Quay lại">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <polyline points="15 18 9 12 15 6"></polyline>
+                        </svg>
+                      </button>
+                      <h2 className="momo-cat-navbar-title">{selectedReportCategory.name}</h2>
+                      <button className="momo-cat-home-btn" onClick={() => setSelectedReportCategory(null)} title="Trang chủ">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+                          <polyline points="9 22 9 12 15 12 15 22" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="momo-cat-banner-content">
+                      <div className="momo-cat-banner-subtitle">
+                        {categoryTrendsData[categoryTrendsPeriodIdx] 
+                          ? `Tháng ${categoryTrendsData[categoryTrendsPeriodIdx].month}/${categoryTrendsData[categoryTrendsPeriodIdx].year} ${reportType === 'expense' ? 'chi' : 'thu'}`
+                          : `${getDisplayMonth()} ${reportType === 'expense' ? 'chi' : 'thu'}`}
+                      </div>
+                      <div className="momo-cat-banner-amount-row">
+                        <span className="momo-cat-banner-amount">
+                          {showAmount 
+                            ? formatCurrencyLocal(categoryTrendsData[categoryTrendsPeriodIdx]?.amount ?? selectedReportCategory.amount) 
+                            : '*********'}
+                        </span>
+                        <button className="momo-cat-eye-btn" onClick={() => setShowAmount(!showAmount)} title={showAmount ? "Ẩn số tiền" : "Hiện số tiền"}>
+                          {showAmount ? '👁️' : '🙈'}
+                        </button>
+                      </div>
+                      {categoryTrendsData.length > 0 && (
+                        <div className="momo-cat-banner-avg-badge">
+                          T.bình: {formatCurrencyLocal(categoryTrendsData.reduce((s, c) => s + c.amount, 0) / categoryTrendsData.length)}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Card: Xu hướng chi tiêu */}
+                  <div className="momo-cat-card">
+                    <h3 className="momo-cat-card-title">Xu hướng chi tiêu</h3>
+                    <p className="momo-cat-card-subtext">Nhấn vào cột để lọc danh sách giao dịch bên dưới</p>
+                    
+                    {isLoadingCategoryTrends ? (
+                      <div style={{ textAlign: 'center', padding: '30px', color: '#718EBF', fontWeight: '500' }}>Đang tải xu hướng...</div>
+                    ) : categoryTrendsData.length === 0 ? (
+                      <div style={{ textAlign: 'center', padding: '30px', color: '#718EBF', fontWeight: '500' }}>Không có dữ liệu xu hướng.</div>
+                    ) : (
+                      <div className="momo-cat-chart-wrapper">
+                        {(() => {
+                          const maxVal = Math.max(...categoryTrendsData.map(c => c.amount), 100000);
+                          const W = 500;
+                          const H = 200;
+                          const paddingLeft = 55;
+                          const paddingRight = 25;
+                          const paddingTop = 30;
+                          const paddingBottom = 30;
+                          const plotW = W - paddingLeft - paddingRight;
+                          const plotH = H - paddingTop - paddingBottom;
+                          
+                          const yTicks = [0, maxVal * 0.25, maxVal * 0.5, maxVal * 0.75, maxVal];
+                          const avgSpent = categoryTrendsData.reduce((s, c) => s + c.amount, 0) / categoryTrendsData.length;
+                          const avgY = H - paddingBottom - (avgSpent / maxVal) * plotH;
+                          
+                          return (
+                            <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} style={{ overflow: 'visible', maxWidth: '540px', margin: '0 auto', display: 'block' }}>
+                              {/* Horizontal Gridlines & Y Labels */}
+                              {yTicks.map((tick, i) => {
+                                const y = H - paddingBottom - (tick / maxVal) * plotH;
+                                return (
+                                  <g key={i}>
+                                    <line 
+                                      x1={paddingLeft} 
+                                      y1={y} 
+                                      x2={W - paddingRight} 
+                                      y2={y} 
+                                      stroke="var(--border-color)" 
+                                      strokeWidth="0.8" 
+                                      strokeDasharray={tick === 0 ? "none" : "3 3"} 
+                                    />
+                                    <text 
+                                      x={paddingLeft - 8} 
+                                      y={y + 3} 
+                                      textAnchor="end" 
+                                      fill="#718EBF" 
+                                      fontSize="9.5" 
+                                      fontWeight="700"
+                                    >
+                                      {formatCurrencyShort(tick)}
+                                    </text>
+                                  </g>
+                                );
+                              })}
+                              
+                              <text x={paddingLeft - 8} y={paddingTop - 10} textAnchor="end" fill="#718EBF" fontSize="8.5" fontWeight="700">(Tr)</text>
+
+                              {/* Dotted Average Line */}
+                              <line x1={paddingLeft} y1={avgY} x2={W - paddingRight} y2={avgY} stroke="#F2994A" strokeWidth="1.5" strokeDasharray="3 3" />
+                              <text x={W - paddingRight} y={avgY - 4} textAnchor="end" fill="#F2994A" fontSize="9" fontWeight="800">T.bình</text>
+
+                              {/* Bars */}
+                              {categoryTrendsData.map((c, i) => {
+                                const barW = 32;
+                                const barH = (c.amount / maxVal) * plotH;
+                                const x = paddingLeft + (i + 0.5) * (plotW / 4);
+                                const barX = x - barW / 2;
+                                const barY = H - paddingBottom - barH;
+                                const isActive = categoryTrendsPeriodIdx === i;
+                                const fillUrl = isActive ? '#5843E0' : '#D2D0F9';
+                                
+                                return (
+                                  <g key={i} style={{ cursor: 'pointer' }} onClick={() => setCategoryTrendsPeriodIdx(i)}>
+                                    {/* Invisible hit box for easier clicking */}
+                                    <rect 
+                                      x={x - (plotW / 4) / 2} 
+                                      y={paddingTop} 
+                                      width={plotW / 4} 
+                                      height={plotH} 
+                                      fill="transparent" 
+                                    />
+                                    {/* Month Bar */}
+                                    <rect 
+                                      x={barX} 
+                                      y={barY} 
+                                      width={barW} 
+                                      height={Math.max(barH, 3)} 
+                                      rx="6" 
+                                      ry="6" 
+                                      fill={fillUrl} 
+                                      style={{ transition: 'all 0.3s ease' }}
+                                    />
+                                    {/* X Label */}
+                                    <text 
+                                      x={x} 
+                                      y={H - 12} 
+                                      textAnchor="middle" 
+                                      fill={isActive ? '#5843E0' : '#718EBF'} 
+                                      fontSize="11" 
+                                      fontWeight="800"
+                                    >
+                                      {c.label}
+                                    </text>
+                                    
+                                    {/* Floating Tooltip/Badge on active column */}
+                                    {isActive && (
+                                      <g pointerEvents="none">
+                                        <rect 
+                                          x={x - 28} 
+                                          y={barY - 28} 
+                                          width="56" 
+                                          height="18" 
+                                          rx="5" 
+                                          fill="#1f2937" 
+                                        />
+                                        <polygon 
+                                          points={`${x - 4},${barY - 10} ${x + 4},${barY - 10} ${x},${barY - 5}`} 
+                                          fill="#1f2937" 
+                                        />
+                                        <text 
+                                          x={x} 
+                                          y={barY - 16} 
+                                          fill="#fff" 
+                                          fontSize="9" 
+                                          fontWeight="800" 
+                                          textAnchor="middle"
+                                        >
+                                          {formatCurrencyShort(c.amount)}
+                                        </text>
+                                      </g>
+                                    )}
+                                  </g>
+                                );
+                              })}
+                            </svg>
+                          );
+                        })()}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Suggestions Section "Gợi ý cho bạn" */}
+                  <div className="momo-suggestion-row">
+                    <div className="momo-suggestion-icon">...</div>
+                    <div className="momo-suggestion-bubble">
+                      {(() => {
+                        const prevMonths = categoryTrendsData.slice(0, 3);
+                        const prevAvg = prevMonths.reduce((s, c) => s + c.amount, 0) / (prevMonths.length || 1);
+                        const currentMonthAmount = categoryTrendsData[3]?.amount || 0;
+                        const diffPercent = prevAvg > 0 ? ((currentMonthAmount - prevAvg) / prevAvg) * 100 : 0;
+                        
+                        return `👀 Chi tiêu danh mục ${selectedReportCategory.name} tháng này ${diffPercent >= 0 ? 'cao hơn' : 'thấp hơn'} ${Math.abs(diffPercent).toFixed(0)}% so với trung bình 3 tháng qua.`;
+                      })()}
+                    </div>
+                  </div>
+
+                  {/* Card: Danh sách giao dịch */}
+                  <div className="momo-cat-card" style={{ marginTop: '20px' }}>
+                    <div className="momo-tab-controls">
+                      {[
+                        { key: 'all', label: `Tất cả (${categoryTrendsData[categoryTrendsPeriodIdx]?.transactions?.length ?? 0})` },
+                        { key: 'top_spent', label: 'Top chi tiêu' },
+                        { key: 'top_recipients', label: 'Top người nhận' }
+                      ].map(tab => (
+                        <button
+                          key={tab.key}
+                          className={`momo-tab-btn ${categoryDetailTab === tab.key ? 'active' : ''}`}
+                          onClick={() => setCategoryDetailTab(tab.key as any)}
+                        >
+                          {tab.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Tab contents */}
+                    {(() => {
+                      const monthData = categoryTrendsData[categoryTrendsPeriodIdx];
+                      const txsList = monthData?.transactions ?? [];
+
+                      if (txsList.length === 0) {
+                        return <div style={{ textAlign: 'center', padding: '30px', color: '#718EBF', fontWeight: '500' }}>Không có giao dịch nào trong tháng này.</div>;
+                      }
+
+                      if (categoryDetailTab === 'all') {
+                        // Group by date
+                        const groups: Record<string, any[]> = {};
+                        txsList.forEach((tx: any) => {
+                          let dateStr = tx.transaction_date;
+                          if (!dateStr && tx.created_at) dateStr = tx.created_at.split('T')[0];
+                          
+                          let formattedDate = 'Không rõ ngày';
+                          if (dateStr) {
+                            const d = new Date(dateStr);
+                            const pad = (n: number) => String(n).padStart(2, '0');
+                            formattedDate = `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+                          }
+                          
+                          if (!groups[formattedDate]) groups[formattedDate] = [];
+                          groups[formattedDate].push(tx);
+                        });
+
+                        return (
+                          <div>
+                            {Object.keys(groups).map(dateKey => (
+                              <div key={dateKey}>
+                                <div className="momo-tx-group-header">{dateKey}</div>
+                                {groups[dateKey].map((tx: any) => {
+                                  const timeStr = tx.transaction_date 
+                                    ? new Date(tx.transaction_date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+                                    : '';
+                                  const walletName = wallets.find(w => w.id === tx.wallet_id)?.name || 'Ví của tôi';
+                                  
+                                  return (
+                                    <div key={tx.id} className="momo-tx-list-item">
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                        <div className="momo-tx-icon-circle">
+                                          {parseIcon(selectedReportCategory.icon)}
+                                        </div>
+                                        <div className="momo-tx-details">
+                                          <div className="momo-tx-title">{tx.title || tx.description || 'Giao dịch'}</div>
+                                          <div className="momo-tx-subtext">
+                                            {selectedReportCategory.name} {timeStr ? `• ${timeStr}` : ''} • {walletName}
+                                          </div>
+                                        </div>
+                                      </div>
+                                      <div className={`momo-tx-amount ${tx.type}`}>
+                                        {tx.type === 'expense' ? '-' : '+'}{formatCurrencyLocal(tx.amount)}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      }
+
+                      if (categoryDetailTab === 'top_spent') {
+                        const sorted = [...txsList].sort((a, b) => {
+                          const amtA = Math.abs(parseFloat(a.amount || 0));
+                          const amtB = Math.abs(parseFloat(b.amount || 0));
+                          return amtB - amtA;
+                        });
+
+                        return (
+                          <div>
+                            {sorted.map((tx: any, idx) => {
+                              const timeStr = tx.transaction_date 
+                                ? new Date(tx.transaction_date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+                                : '';
+                              const walletName = wallets.find(w => w.id === tx.wallet_id)?.name || 'Ví của tôi';
+                              
+                              return (
+                                <div key={tx.id} className="momo-tx-list-item">
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                    <div style={{ fontWeight: 'bold', color: '#718EBF', width: '20px' }}>{idx + 1}</div>
+                                    <div className="momo-tx-icon-circle">
+                                      {parseIcon(selectedReportCategory.icon)}
+                                    </div>
+                                    <div className="momo-tx-details">
+                                      <div className="momo-tx-title">{tx.title || tx.description || 'Giao dịch'}</div>
+                                      <div className="momo-tx-subtext">
+                                        {selectedReportCategory.name} {timeStr ? `• ${timeStr}` : ''} • {walletName}
+                                      </div>
+                                    </div>
+                                  </div>
+                                  <div className={`momo-tx-amount ${tx.type}`}>
+                                    {tx.type === 'expense' ? '-' : '+'}{formatCurrencyLocal(tx.amount)}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        );
+                      }
+
+                      if (categoryDetailTab === 'top_recipients') {
+                        // Group by payee
+                        const payeesMap: Record<string, { name: string; amount: number; count: number }> = {};
+                        txsList.forEach((tx: any) => {
+                          const payeeName = tx.payee?.payee_name || tx.sender?.name || tx.title || 'UNKNOWN RECIPIENT';
+                          const amt = Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0));
+                          if (!payeesMap[payeeName]) {
+                            payeesMap[payeeName] = { name: payeeName, amount: 0, count: 0 };
+                          }
+                          payeesMap[payeeName].amount += amt;
+                          payeesMap[payeeName].count += 1;
+                        });
+                        const payeesList = Object.values(payeesMap).sort((a, b) => b.amount - a.amount);
+
+                        return (
+                          <div>
+                            {payeesList.map((item, idx) => (
+                              <div key={item.name} className="momo-tx-list-item">
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                  <div style={{ fontWeight: 'bold', color: '#718EBF', width: '20px' }}>{idx + 1}</div>
+                                  <div className="momo-tx-icon-circle" style={{ background: '#E6E8FA', color: '#5843E0' }}>
+                                    👤
+                                  </div>
+                                  <div className="momo-tx-details">
+                                    <div className="momo-tx-title">{item.name}</div>
+                                    <div className="momo-tx-subtext">{item.count} giao dịch</div>
+                                  </div>
+                                </div>
+                                <div className="momo-tx-amount expense">
+                                  -{formatCurrencyLocal(item.amount)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
+                      }
+
+                      return null;
+                    })()}
+                  </div>
+                </div>
+              ) : (
+                <div className="momo-stats-card">
                 <div className="momo-stats-header">
                   <h2 className="momo-stats-title">Tình hình thu chi</h2>
                   <div className="momo-view-toggle">
@@ -2429,6 +2870,11 @@ export default function Reports() {
                               cursor: 'pointer',
                               zIndex: hoveredCategory === idx ? 10 : 1,
                               position: 'relative'
+                            }}
+                            onClick={() => {
+                              if (allocationType === 'category') {
+                                setSelectedReportCategory(cat);
+                              }
                             }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
@@ -2501,8 +2947,9 @@ export default function Reports() {
                   )}
                 </div>
               </div>
+            )}
 
-              {/* FINANCIAL INSIGHTS & SUGGESTIONS */}
+            {/* FINANCIAL INSIGHTS & SUGGESTIONS */}
               {isLoadingInsights && (
                 <div className="insights-container" style={{ opacity: 0.6 }}>
                   <div style={{ textAlign: 'center', color: '#718EBF', fontWeight: '500', padding: '20px' }}>

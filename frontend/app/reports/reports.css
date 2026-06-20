@@ -1089,6 +1089,337 @@
   border-radius: 10px;
 }
 
+/* Momo Category Details View Styles */
+.momo-category-detail-container {
+  animation: reports-slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.momo-cat-header-card {
+  background: linear-gradient(135deg, #AE1473 0%, #D82D8B 50%, #800F58 100%);
+  border-radius: 24px;
+  padding: 24px;
+  color: #ffffff;
+  margin-bottom: 20px;
+  box-shadow: 0 10px 25px rgba(216, 45, 139, 0.15);
+  position: relative;
+  overflow: hidden;
+}
+
+/* Accent glow inside the header card */
+.momo-cat-header-card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  right: -30%;
+  width: 250px;
+  height: 250px;
+  background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 70%);
+  pointer-events: none;
+}
+
+.momo-cat-navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  position: relative;
+  z-index: 2;
+}
+
+.momo-cat-back-btn, .momo-cat-home-btn {
+  background: rgba(255, 255, 255, 0.15);
+  border: none;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  cursor: pointer;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.momo-cat-back-btn:hover, .momo-cat-home-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+  transform: scale(1.08);
+}
+
+.momo-cat-navbar-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: -0.2px;
+}
+
+.momo-cat-banner-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 8px 0;
+  position: relative;
+  z-index: 2;
+}
+
+.momo-cat-banner-subtitle {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.75);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 6px;
+}
+
+.momo-cat-banner-amount-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.momo-cat-banner-amount {
+  font-size: 32px;
+  font-weight: 900;
+  color: #ffffff;
+  letter-spacing: -0.5px;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.momo-cat-eye-btn {
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  padding: 4px;
+  transition: transform 0.2s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.momo-cat-eye-btn:hover {
+  transform: scale(1.2);
+}
+
+.momo-cat-banner-avg-badge {
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 14px;
+  border-radius: 20px;
+  backdrop-filter: blur(5px);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+.momo-cat-card {
+  background: var(--card-bg);
+  border-radius: 24px;
+  padding: 24px;
+  border: 1px solid var(--border-color);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.01);
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+.momo-cat-card-title {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--text-main);
+  margin: 0 0 6px 0;
+}
+
+.momo-cat-card-subtext {
+  font-size: 13px;
+  color: #718EBF;
+  margin: 0 0 20px 0;
+  font-weight: 500;
+}
+
+.momo-cat-chart-wrapper {
+  width: 100%;
+  margin: 10px 0;
+  overflow: visible;
+}
+
+.momo-cat-chart-wrapper svg {
+  width: 100% !important;
+  height: 200px !important;
+}
+
+/* Dynamic average line style */
+.momo-cat-chart-wrapper svg line {
+  stroke-linecap: round;
+}
+
+/* Suggestion bubble styles */
+.momo-suggestion-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.momo-suggestion-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(216, 45, 139, 0.12);
+  color: #D82D8B;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 14px;
+  flex-shrink: 0;
+  border: 1px solid rgba(216, 45, 139, 0.2);
+}
+
+.momo-suggestion-bubble {
+  flex: 1;
+  background: rgba(216, 45, 139, 0.04);
+  border: 1px solid rgba(216, 45, 139, 0.08);
+  border-radius: 18px;
+  padding: 14px 18px;
+  color: var(--text-main);
+  font-size: 13.5px;
+  font-weight: 700;
+  line-height: 1.5;
+  position: relative;
+  box-shadow: 0 4px 12px rgba(216, 45, 139, 0.01);
+}
+
+/* Bubble Tail decoration */
+.momo-suggestion-bubble::before {
+  content: '';
+  position: absolute;
+  left: -6px;
+  top: 12px;
+  width: 10px;
+  height: 10px;
+  background: rgba(216, 45, 139, 0.04);
+  border-left: 1px solid rgba(216, 45, 139, 0.08);
+  border-bottom: 1px solid rgba(216, 45, 139, 0.08);
+  transform: rotate(45deg);
+}
+
+/* Sub tabs controls inside category card */
+.momo-tab-controls {
+  display: flex;
+  border-bottom: 1px solid var(--border-color);
+  margin-bottom: 16px;
+  gap: 20px;
+}
+
+.momo-tab-btn {
+  background: transparent;
+  border: none;
+  padding: 10px 4px;
+  font-size: 14px;
+  font-weight: 800;
+  color: #718EBF;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.momo-tab-btn:hover {
+  color: var(--text-main);
+}
+
+.momo-tab-btn.active {
+  color: #D82D8B;
+}
+
+.momo-tab-btn.active::after {
+  content: '';
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  width: 100%;
+  height: 3px;
+  background: #D82D8B;
+  border-radius: 3px 3px 0 0;
+}
+
+/* Transaction List Styling */
+.momo-tx-group-header {
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #718EBF;
+  background: var(--bg-color);
+  padding: 6px 12px;
+  border-radius: 8px;
+  margin: 20px 0 10px 0;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  width: fit-content;
+}
+
+.momo-tx-list-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border-color);
+  transition: background-color 0.2s ease;
+}
+
+.momo-tx-list-item:last-child {
+  border-bottom: none;
+}
+
+.momo-tx-icon-circle {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--bg-color);
+  color: var(--text-main);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  border: 1px solid var(--border-color);
+  flex-shrink: 0;
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.02);
+}
+
+.momo-tx-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.momo-tx-title {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.momo-tx-subtext {
+  font-size: 12px;
+  color: #718EBF;
+  font-weight: 550;
+}
+
+.momo-tx-amount {
+  font-size: 15px;
+  font-weight: 800;
+  text-align: right;
+}
+
+.momo-tx-amount.expense {
+  color: #FE5C73;
+}
+
+.momo-tx-amount.income {
+  color: #10B981;
+}
+
+
 
 
 

@@ -1,10 +1,5 @@
 "use client";
-import React, { useState, useRef, useEffect } from 'react';
-
-const COLORS = [
-  '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A', '#98D8C8', 
-  '#F06292', '#AED581', '#FFD54F', '#4DB6AC', '#7986CB'
-];
+import React, { useState, useEffect } from 'react';
 
 const parseIcon = (iconName: string) => {
   const iconMap: Record<string, string> = {
@@ -52,9 +47,6 @@ export default function CategoryPicker({
   placeholder = "Chọn danh mục",
   disabled = false
 }: CategoryPickerProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
-
   // Flatten the category list helper
   const getFlatCategories = () => {
     const flat: any[] = [];
@@ -71,174 +63,224 @@ export default function CategoryPicker({
   };
 
   const flatList = getFlatCategories();
-  const selectedCat = flatList.find(c => c.id === value);
-
-  // Filter tree categories by active tab type ('expense' or 'income')
+  
+  // Lọc danh mục cha có type tương ứng
   const parentGroups = categories.filter(c => c.type === type && c.parent_id === null);
 
+  const [activeParentId, setActiveParentId] = useState<string>('');
+
+  // Tự động tìm danh mục cha khi value thay đổi (Ví dụ: khi được AI điền tự động)
   useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
+    if (value) {
+      const selected = flatList.find(c => c.id === value);
+      if (selected) {
+        if (selected.parent_id) {
+          setActiveParentId(selected.parent_id);
+        } else {
+          setActiveParentId(selected.id);
+        }
+      }
+    } else if (parentGroups.length > 0 && !activeParentId) {
+      setActiveParentId(parentGroups[0].id);
+    }
+  }, [value, categories, type]);
+
+  // Cập nhật lại khi thay đổi loại (khoản chi / khoản thu)
+  useEffect(() => {
+    if (parentGroups.length > 0) {
+      // Nếu danh mục cha hiện tại không thuộc nhóm mới, reset về danh mục cha đầu tiên
+      const exists = parentGroups.some(g => g.id === activeParentId);
+      if (!exists) {
+        setActiveParentId(parentGroups[0].id);
       }
     }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [type]);
 
-  return (
-    <div ref={containerRef} style={{ position: 'relative', width: '100%' }}>
-      {/* Trigger selection box */}
-      <div
-        onClick={() => !disabled && setIsOpen(!isOpen)}
-        style={{
-          width: '100%',
-          padding: '12px 16px',
-          borderWidth: '1px',
-          borderStyle: 'solid',
-          borderColor: (isOpen && !disabled) ? '#1814F3' : 'var(--border-color)',
-          borderRadius: '12px',
-          background: disabled ? 'var(--border-color)' : 'var(--bg-color)',
-          color: 'var(--text-main)',
-          fontSize: '15px',
-          cursor: disabled ? 'not-allowed' : 'pointer',
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          boxSizing: 'border-box',
-          transition: 'all 0.2s',
-          boxShadow: (isOpen && !disabled) ? '0 0 0 3px rgba(24, 20, 243, 0.1)' : 'none'
-        }}
-      >
+  const currentParent = parentGroups.find(g => g.id === activeParentId) || parentGroups[0];
+  const children = currentParent?.children || [];
+
+  if (disabled) {
+    const selectedCat = flatList.find(c => c.id === value);
+    return (
+      <div style={{
+        width: '100%',
+        padding: '12px 16px',
+        border: '1px solid var(--border-color)',
+        borderRadius: '12px',
+        background: 'var(--border-color)',
+        color: 'var(--text-muted)',
+        fontSize: '15px',
+        cursor: 'not-allowed',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '10px'
+      }}>
         {selectedCat ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <>
             <span style={{ fontSize: '18px' }}>{parseIcon(selectedCat.icon || 'grid')}</span>
             <span style={{ fontWeight: '600' }}>{tCategory(selectedCat.name)}</span>
-          </div>
+          </>
         ) : (
-          <span style={{ color: '#718EBF' }}>{placeholder}</span>
+          <span>{placeholder}</span>
         )}
-        <span style={{ color: '#718EBF', fontSize: '10px', transform: isOpen ? 'rotate(180deg)' : 'rotate(0deg)', transition: '0.2s' }}>▼</span>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', width: '100%', boxSizing: 'border-box' }}>
+      {/* Danh mục cha */}
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <span style={{ fontSize: '13px', fontWeight: '600', color: '#718EBF' }}>
+            Danh mục cha
+          </span>
+        </div>
+        <div style={{
+          display: 'flex',
+          gap: '10px',
+          overflowX: 'auto',
+          paddingBottom: '8px',
+          scrollbarWidth: 'thin',
+          WebkitOverflowScrolling: 'touch'
+        }}>
+          {parentGroups.map((group) => {
+            const isActive = activeParentId === group.id;
+            const groupColor = group.color || '#1814F3';
+            return (
+              <div
+                key={group.id}
+                onClick={() => setActiveParentId(group.id)}
+                style={{
+                  flex: '0 0 auto',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '10px 16px',
+                  borderRadius: '12px',
+                  background: isActive ? `${groupColor}15` : 'var(--bg-color)',
+                  border: isActive ? `2px solid ${groupColor}` : '2px solid var(--border-color)',
+                  color: isActive ? groupColor : 'var(--text-main)',
+                  fontWeight: isActive ? '700' : '500',
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                  boxShadow: isActive ? `0 4px 10px ${groupColor}15` : 'none',
+                  transform: isActive ? 'scale(1.02)' : 'scale(1)'
+                }}
+                onMouseOver={(e) => {
+                  if (!isActive) e.currentTarget.style.borderColor = groupColor;
+                }}
+                onMouseOut={(e) => {
+                  if (!isActive) e.currentTarget.style.borderColor = 'var(--border-color)';
+                }}
+              >
+                <span style={{ fontSize: '18px' }}>{parseIcon(group.icon || 'grid')}</span>
+                <span>{tCategory(group.name)}</span>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Popover Selection Panel */}
-      {isOpen && !disabled && (
-        <div style={{
-          position: 'absolute',
-          top: 'calc(100% + 8px)',
-          left: 0,
-          right: 0,
-          background: 'var(--card-bg)',
-          borderRadius: '16px',
-          border: '1px solid var(--border-color)',
-          boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
-          zIndex: 1000,
-          maxHeight: '380px',
-          overflowY: 'auto',
-          padding: '20px',
-          boxSizing: 'border-box',
-          animation: 'fadeInUp 0.2s cubic-bezier(0.16, 1, 0.3, 1)'
-        }}>
-          {parentGroups.length > 0 ? (
-            parentGroups.map((group) => {
-              const children = group.children || [];
-              if (children.length === 0) return null;
-
+      {/* Danh mục con */}
+      <div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+          <span style={{ fontSize: '13px', fontWeight: '600', color: '#718EBF' }}>
+            Danh mục con
+          </span>
+        </div>
+        
+        {children.length > 0 ? (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(110px, 1fr))',
+            gap: '10px',
+            maxHeight: '180px',
+            overflowY: 'auto',
+            padding: '6px',
+            background: 'var(--bg-color)',
+            borderRadius: '12px',
+            border: '1px solid var(--border-color)'
+          }}>
+            {children.map((sub: any) => {
+              const isSelected = value === sub.id;
+              const subColor = sub.color || '#94a3b8';
               return (
-                <div key={group.id} style={{ marginBottom: '20px' }}>
-                  {/* Group Header */}
+                <div
+                  key={sub.id}
+                  onClick={() => onChange(sub.id)}
+                  style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '10px 8px',
+                    borderRadius: '12px',
+                    background: isSelected ? subColor : 'var(--card-bg)',
+                    color: isSelected ? '#ffffff' : 'var(--text-main)',
+                    border: isSelected ? `2px solid ${subColor}` : '2px solid transparent',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    boxShadow: isSelected ? `0 4px 8px ${subColor}30` : 'none',
+                    transform: isSelected ? 'scale(1.03)' : 'scale(1)'
+                  }}
+                  onMouseOver={(e) => {
+                    if (!isSelected) {
+                      e.currentTarget.style.borderColor = subColor;
+                      e.currentTarget.style.background = 'var(--border-color)';
+                    }
+                  }}
+                  onMouseOut={(e) => {
+                    if (!isSelected) {
+                      e.currentTarget.style.borderColor = 'transparent';
+                      e.currentTarget.style.background = 'var(--card-bg)';
+                    }
+                  }}
+                >
                   <div style={{
-                    fontSize: '13px',
-                    fontWeight: '700',
-                    color: '#718EBF',
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px',
-                    borderBottom: '1px solid var(--border-color)',
-                    paddingBottom: '6px',
-                    marginBottom: '12px'
+                    width: '36px',
+                    height: '36px',
+                    borderRadius: '10px',
+                    background: isSelected ? 'rgba(255, 255, 255, 0.25)' : `${subColor}15`,
+                    color: isSelected ? '#ffffff' : subColor,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '18px',
+                    transition: 'all 0.2s'
                   }}>
-                    {tCategory(group.name)}
+                    {parseIcon(sub.icon)}
                   </div>
-
-                  {/* Grid of Subcategories */}
-                  <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(4, 1fr)',
-                    gap: '12px',
-                    justifyItems: 'center'
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: isSelected ? '700' : '500',
+                    textAlign: 'center',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    width: '100%'
                   }}>
-                    {children.map((sub: any) => {
-                      const isSelected = value === sub.id;
-                      const subColor = sub.color || '#94a3b8';
-                      return (
-                        <div
-                          key={sub.id}
-                          onClick={() => {
-                            onChange(sub.id);
-                            setIsOpen(false);
-                          }}
-                          style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            gap: '6px',
-                            cursor: 'pointer',
-                            width: '100%',
-                            transition: 'all 0.2s'
-                          }}
-                        >
-                          {/* Circular/Rounded icon wrap */}
-                          <div style={{
-                            width: '46px',
-                            height: '46px',
-                            borderRadius: '14px',
-                            background: isSelected ? subColor : `${subColor}15`,
-                            color: isSelected ? '#ffffff' : subColor,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '22px',
-                            transition: 'all 0.2s',
-                            border: isSelected ? `2.5px solid ${subColor}` : '2.5px solid transparent',
-                            transform: isSelected ? 'scale(1.05)' : 'scale(1)'
-                          }}>
-                            {parseIcon(sub.icon)}
-                          </div>
-                          
-                          {/* Subcategory Name */}
-                          <span style={{
-                            fontSize: '11px',
-                            fontWeight: isSelected ? '700' : '500',
-                            color: isSelected ? 'var(--text-main)' : 'var(--text-muted)',
-                            textAlign: 'center',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            width: '100%'
-                          }}>
-                            {tCategory(sub.name)}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
+                    {tCategory(sub.name)}
+                  </span>
                 </div>
               );
-            })
-          ) : (
-            <div style={{ textAlign: 'center', padding: '20px', color: '#718EBF', fontSize: '14px' }}>
-              Không có danh mục nào
-            </div>
-          )}
-          
-          <style>{`
-            @keyframes fadeInUp {
-              from { opacity: 0; transform: translateY(6px); }
-              to { opacity: 1; transform: translateY(0); }
-            }
-          `}</style>
-        </div>
-      )}
+            })}
+          </div>
+        ) : (
+          <div style={{
+            textAlign: 'center',
+            padding: '20px',
+            color: '#718EBF',
+            fontSize: '13px',
+            background: 'var(--bg-color)',
+            borderRadius: '12px',
+            border: '1px dashed var(--border-color)'
+          }}>
+            Không có danh mục con nào cho nhóm này
+          </div>
+        )}
+      </div>
     </div>
   );
 }
