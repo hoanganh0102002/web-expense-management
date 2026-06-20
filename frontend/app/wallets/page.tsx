@@ -189,6 +189,12 @@ const formatWalletCurrency = (amount: number | string, currencyCode: string = 'V
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(numericAmount);
 };
 
+const formatWalletBalance = (amount: number | string) => {
+  const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+  if (isNaN(numericAmount)) return '0';
+  return new Intl.NumberFormat('vi-VN').format(numericAmount);
+};
+
 // ==========================================
 // MAIN COMPONENT
 // ==========================================
@@ -198,6 +204,50 @@ export default function Wallets() {
     updateWallet, deleteWallet, isLoadingWallets, userData
   } = useAppContext();
   const { t } = useLanguage();
+  const [copied, setCopied] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
+
+  const handleCopyId = () => {
+    const qrData = userData?.identifier || '';
+    if (!qrData) return;
+    navigator.clipboard.writeText(String(qrData));
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // State & Effects cho QR Code Modal
+  const [selectedReceivingWalletId, setSelectedReceivingWalletId] = useState<string>('');
+  const [qrAmount, setQrAmount] = useState<string>('');
+  const [qrDescription, setQrDescription] = useState<string>('');
+
+  useEffect(() => {
+    if (showQrModal && wallets.length > 0) {
+      const eligible = wallets.filter(w => w.type !== 'cash');
+      const defaultWallet = eligible.find(w => w.is_default_receiving);
+      if (defaultWallet) {
+        setSelectedReceivingWalletId(defaultWallet.id);
+      } else {
+        const firstBank = eligible.find(w => w.type === 'bank' || w.type === 'ewallet');
+        if (firstBank) {
+          setSelectedReceivingWalletId(firstBank.id);
+        } else if (eligible[0]) {
+          setSelectedReceivingWalletId(eligible[0].id);
+        }
+      }
+    }
+  }, [showQrModal, wallets]);
+
+  const handleSelectReceivingWallet = async (walletId: string) => {
+    setSelectedReceivingWalletId(walletId);
+    try {
+      await apiFetch(`/wallets/${walletId}/set-default-receiving`, {
+        method: 'POST'
+      });
+      fetchWallets();
+    } catch (e: any) {
+      console.error("Lỗi khi đặt ví mặc định nhận tiền:", e);
+    }
+  };
 
   // State cho Modals
   const [showModal, setShowModal] = useState<'create' | 'edit' | 'transfer' | 'history' | null>(null);
@@ -211,6 +261,9 @@ export default function Wallets() {
   const [color, setColor] = useState('linear-gradient(135deg, #3A3FBD, #2E33A8)');
   const [icon, setIcon] = useState('wallet');
   const [walletCurrency, setWalletCurrency] = useState('VND');
+  const [isHidden, setIsHidden] = useState(false);
+  const [isDefaultReceiving, setIsDefaultReceiving] = useState(false);
+  const [showHiddenWallets, setShowHiddenWallets] = useState(false);
 
   // Internal Transfer states
   const [transferFrom, setTransferFrom] = useState('');
@@ -315,6 +368,121 @@ export default function Wallets() {
     }
   };
 
+  // Transfer Tab state
+  const [transferTab, setTransferTab] = useState<'internal' | 'p2p'>('internal');
+
+  // P2P states
+  const [p2pIdentifier, setP2pIdentifier] = useState('');
+  const [isP2pChecking, setIsP2pChecking] = useState(false);
+  const [p2pRecipient, setP2pRecipient] = useState<any>(null);
+  const [p2pFromWalletId, setP2pFromWalletId] = useState('');
+  const [p2pAmount, setP2pAmount] = useState('');
+  const [p2pNotes, setP2pNotes] = useState('');
+  const [isP2pTransferring, setIsP2pTransferring] = useState(false);
+
+  // Contacts states
+  const [showContactsModal, setShowContactsModal] = useState(false);
+  const [contactsList, setContactsList] = useState<any[]>([]);
+  const [isLoadingContacts, setIsLoadingContacts] = useState(false);
+
+
+
+  const handleP2pCheck = async () => {
+    if (!p2pIdentifier.trim()) {
+      alert("Vui lòng nhập mã định danh!");
+      return;
+    }
+    setIsP2pChecking(true);
+    setP2pRecipient(null);
+    try {
+      const response = await apiFetch('/qr/decode', {
+        method: 'POST',
+        body: JSON.stringify({ qr_string: p2pIdentifier.trim() })
+      });
+      if (response.status === 'success' && response.data) {
+        setP2pRecipient(response.data);
+      } else {
+        alert(response.message || "Không tìm thấy thông tin người nhận.");
+      }
+    } catch (e: any) {
+      alert(e.message || "Mã định danh không hợp lệ hoặc người dùng không tồn tại.");
+    } finally {
+      setIsP2pChecking(false);
+    }
+  };
+
+  const handleP2pTransfer = async () => {
+    if (!p2pFromWalletId) {
+      alert("Vui lòng chọn ví chuyển tiền!");
+      return;
+    }
+    if (!p2pAmount || parseFloat(p2pAmount) <= 0) {
+      alert("Vui lòng nhập số tiền hợp lệ!");
+      return;
+    }
+    setIsP2pTransferring(true);
+    try {
+      const body: any = {
+        from_wallet_id: p2pFromWalletId,
+        payee_type: p2pRecipient.type || 'internal',
+        amount: parseFloat(p2pAmount),
+        notes: p2pNotes || undefined
+      };
+      if (p2pRecipient.type === 'internal') {
+        body.payee_user_id = p2pRecipient.payee_user_id;
+        body.to_wallet_id = p2pRecipient.to_wallet_id || undefined;
+      } else {
+        body.bank_code = p2pRecipient.bank_code;
+        body.account_number = p2pRecipient.account_number;
+        body.payee_name = p2pRecipient.payee_name;
+      }
+
+      const res = await apiFetch('/qr/transfer', {
+        method: 'POST',
+        body: JSON.stringify(body)
+      });
+
+      alert("Chuyển tiền thành công!");
+      setShowModal(null);
+      // Reset form
+      setP2pRecipient(null);
+      setP2pIdentifier('');
+      setP2pAmount('');
+      setP2pNotes('');
+      setP2pFromWalletId('');
+      
+      // Reload data
+      fetchWallets();
+    } catch (e: any) {
+      alert("Lỗi chuyển tiền: " + (e.message || "Không thể hoàn tất giao dịch."));
+    } finally {
+      setIsP2pTransferring(false);
+    }
+  };
+
+  const fetchContacts = async () => {
+    setIsLoadingContacts(true);
+    try {
+      const res = await apiFetch('/payees');
+      setContactsList(res.data?.data || res.data || []);
+    } catch (e) {
+      console.error("Lỗi lấy danh bạ:", e);
+    } finally {
+      setIsLoadingContacts(false);
+    }
+  };
+
+  const deleteContact = async (id: string) => {
+    if (confirm("Bạn có chắc muốn xóa liên hệ này khỏi danh bạ?")) {
+      try {
+        await apiFetch(`/payees/${id}`, { method: 'DELETE' });
+        fetchContacts();
+      } catch (e: any) {
+         alert("Lỗi khi xóa: " + e.message);
+      }
+    }
+  };
+
   useEffect(() => {
     if (isLoggedIn) {
       fetchWallets();
@@ -328,7 +496,7 @@ export default function Wallets() {
       return;
     }
     try {
-      await createWallet({ name, type, available_balance: balance, color, icon, currency_code: walletCurrency });
+      await createWallet({ name, type, available_balance: 0, color, icon, currency_code: walletCurrency });
       setShowModal(null);
       resetForm();
     } catch (err) {
@@ -339,11 +507,26 @@ export default function Wallets() {
   const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      await updateWallet(selectedWallet.id, { name, type, color, icon, currency_code: walletCurrency });
+      await updateWallet(selectedWallet.id, { 
+        name, 
+        type, 
+        color, 
+        icon, 
+        currency_code: walletCurrency,
+        is_hidden: isHidden
+      });
+      
+      if (isDefaultReceiving && !selectedWallet.is_default_receiving) {
+        await apiFetch(`/wallets/${selectedWallet.id}/set-default-receiving`, {
+          method: 'POST'
+        });
+        await fetchWallets();
+      }
+      
       setShowModal(null);
       resetForm();
-    } catch (err) {
-      alert(t('update_wallet_error'));
+    } catch (err: any) {
+      alert(err.message || t('update_wallet_error'));
     }
   };
 
@@ -364,6 +547,8 @@ export default function Wallets() {
     setColor('linear-gradient(135deg, #3A3FBD, #2E33A8)');
     setIcon('wallet');
     setWalletCurrency('VND');
+    setIsHidden(false);
+    setIsDefaultReceiving(false);
     setSelectedWallet(null);
   };
 
@@ -375,6 +560,8 @@ export default function Wallets() {
     setColor(wallet.color || 'linear-gradient(135deg, #3A3FBD, #2E33A8)');
     setIcon(wallet.icon || 'wallet');
     setWalletCurrency('VND');
+    setIsHidden(!!wallet.is_hidden);
+    setIsDefaultReceiving(!!wallet.is_default_receiving);
     setShowModal('edit');
   };
 
@@ -402,8 +589,27 @@ export default function Wallets() {
                 </svg>
               )}
             </button>
+            <button 
+              onClick={() => setShowHiddenWallets(!showHiddenWallets)}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: showHiddenWallets ? '#1814F3' : '#718EBF', display: 'flex', alignItems: 'center', padding: '5px' }}
+              title={showHiddenWallets ? "Ẩn các ví đã ẩn" : "Hiển thị các ví đã ẩn"}
+            >
+              {showHiddenWallets ? (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              ) : (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
+                  <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
+                  <path d="M6.61 6.61A13.52 13.52 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
+                  <line x1="2" y1="2" x2="22" y2="22" />
+                </svg>
+              )}
+            </button>
           </div>
-          <div className="nav-actions" style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <div className="nav-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <button 
               onClick={() => {
                 if (!isLoggedIn) {
@@ -412,32 +618,35 @@ export default function Wallets() {
                 }
                 setShowModal('transfer');
               }}
-              className="transfer-wallet-btn"
+              className="secondary-action-btn btn-transfer"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M8 10L4 6l4-4" />
                 <path d="M4 6h16" />
                 <path d="M16 14l4 4-4 4" />
                 <path d="M20 18H4" />
               </svg>
-              Chuyển tiền nội bộ
+              Chuyển tiền
             </button>
             <button 
               onClick={() => setShowExchangeModal(true)}
-              className="transfer-wallet-btn"
-              style={{
-                background: 'linear-gradient(135deg, #FF9F43 0%, #FF6B6B 100%)',
-                color: '#FFF',
-                border: 'none',
-                boxShadow: '0 4px 12px rgba(255, 107, 107, 0.2)'
-              }}
+              className="secondary-action-btn btn-exchange"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="12" y1="1" x2="12" y2="23"></line>
                 <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
               </svg>
-              Quy đổi ngoại tệ
+              Đổi ngoại tệ
             </button>
+            {isLoggedIn && (
+              <button 
+                onClick={() => setShowQrModal(true)}
+                className="secondary-action-btn btn-qr"
+              >
+                <QrIcon size={15} />
+                Mã QR
+              </button>
+            )}
             <button 
               onClick={() => {
                 if (!isLoggedIn) {
@@ -446,9 +655,13 @@ export default function Wallets() {
                 }
                 setShowModal('create');
               }}
-              className="create-wallet-btn"
+              className="primary-action-btn"
             >
-              {t('create_new_wallet')}
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              Tạo ví mới
             </button>
             {isLoggedIn ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
@@ -469,12 +682,11 @@ export default function Wallets() {
             )}
           </div>
         </nav>
-
         <div className="content-area wallets-container">
           {isLoadingWallets ? (
             <div style={{ textAlign: 'center', padding: '40px' }}>{t('loading')}</div>
           ) : wallets.length === 0 ? (
-            <div className="wallets-empty-state">
+            <div className="wallets-empty-state" style={{ margin: '20px auto' }}>
               <div className="empty-state-icon">👛</div>
               <h3 className="empty-state-title">{t('no_wallets')}</h3>
               <p className="empty-state-desc">{t('no_wallets_desc')}</p>
@@ -492,33 +704,66 @@ export default function Wallets() {
               </button>
             </div>
           ) : (
-            <>
-
             <div className="wallets-grid">
-              {wallets.map((w) => {
-                const cardColor = w.color || 'linear-gradient(135deg, #3A3FBD, #2E33A8)';
-                const txtColor = getContrastColor(cardColor);
-                const muteColor = getMutedContrastColor(cardColor);
-                const iconBg = getIconBgColor(cardColor);
-                
-                return (
-                  <div key={w.id} className="wallet-card" style={{ background: cardColor, color: txtColor }}>
-                    <div className="wallet-card-decoration"></div>
-                    <div className="wallet-card-header">
-                      <div>
-                        <div className="wallet-label" style={{ color: muteColor }}>{t('balance_label')}</div>
-                        <div className="wallet-balance">
-                          {showWalletBalance ? formatWalletCurrency(w.available_balance || 0, w.currency_code) : '******'}
+              {wallets
+                .filter((w) => !w.is_hidden || showHiddenWallets)
+                .map((w) => {
+                  const cardColor = w.color || 'linear-gradient(135deg, #3A3FBD, #2E33A8)';
+                  const txtColor = getContrastColor(cardColor);
+                  const muteColor = getMutedContrastColor(cardColor);
+                  const iconBg = getIconBgColor(cardColor);
+                  
+                  return (
+                    <div key={w.id} className="wallet-card" style={{ background: cardColor, color: txtColor, opacity: w.is_hidden ? 0.6 : 1 }}>
+                      <div className="wallet-card-decoration"></div>
+                      <div className="wallet-card-header">
+                        <div>
+                          <div className="wallet-label" style={{ color: muteColor }}>{t('balance_label')}</div>
+                          <div className="wallet-balance">
+                            {showWalletBalance ? (
+                              <>
+                                {formatWalletBalance(w.available_balance || 0)}
+                                <span className="currency-symbol">đ</span>
+                              </>
+                            ) : '******'}
+                          </div>
+                        </div>
+                        <div className="wallet-icon-wrapper" style={{ background: iconBg, color: txtColor }}>
+                          {renderWalletIcon(w.icon || 'wallet', 22)}
                         </div>
                       </div>
-                      <div className="wallet-icon-wrapper" style={{ background: iconBg, color: txtColor }}>
-                        {renderWalletIcon(w.icon || 'wallet', 22)}
-                      </div>
-                    </div>
-                    
-                    <div className="wallet-card-footer">
-                      <div>
-                        <div className="wallet-name">{w.name}</div>
+                      
+                      <div className="wallet-card-footer">
+                        <div>
+                          <div className="wallet-name" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                            <span>{w.name}</span>
+                            {w.is_hidden && (
+                              <span style={{ 
+                                fontSize: '9px', 
+                                fontWeight: '800', 
+                                background: getContrastColor(cardColor) === '#FFFFFF' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.08)', 
+                                color: getContrastColor(cardColor) === '#FFFFFF' ? '#FF8A8A' : '#EF4444', 
+                                padding: '2px 6px', 
+                                borderRadius: '10px', 
+                                textTransform: 'uppercase' 
+                              }}>
+                                Đã ẩn
+                              </span>
+                            )}
+                            {w.is_default_receiving && (
+                              <span style={{ 
+                                fontSize: '9px', 
+                                fontWeight: '800', 
+                                background: getContrastColor(cardColor) === '#FFFFFF' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.08)', 
+                                color: getContrastColor(cardColor) === '#FFFFFF' ? '#B9F6CA' : '#10B981', 
+                                padding: '2px 6px', 
+                                borderRadius: '10px', 
+                                textTransform: 'uppercase' 
+                              }}>
+                                Nhận mặc định
+                              </span>
+                            )}
+                          </div>
                         <div className="wallet-type-label" style={{ color: muteColor }}>
                           {t('type_label_prefix')}{w.type === 'cash' ? t('cash') : w.type === 'bank' ? t('bank') : t('ewallet')}
                         </div>
@@ -551,8 +796,9 @@ export default function Wallets() {
                 );
               })}
             </div>
-            </>
           )}
+
+
         </div>
       </main>
 
@@ -589,9 +835,12 @@ export default function Wallets() {
                 </div>
               </div>
               <div>
-                <div className="wallet-label" style={{ color: getMutedContrastColor(color), letterSpacing: '0.5px' }}>{t('initial_balance')}</div>
+                <div className="wallet-label" style={{ color: getMutedContrastColor(color), letterSpacing: '0.5px' }}>
+                  {showModal === 'create' ? t('balance_label') : t('initial_balance')}
+                </div>
                 <div style={{ fontSize: '26px', fontWeight: '800' }}>
-                  {formatWalletCurrency(Number(balance) || 0, walletCurrency)}
+                  {formatWalletBalance(Number(balance) || 0)}
+                  <span className="currency-symbol">đ</span>
                 </div>
               </div>
             </div>
@@ -610,29 +859,29 @@ export default function Wallets() {
                 />
               </div>
 
-              {/* Initial Balance */}
-              <div style={{ marginBottom: '20px' }}>
-                <label className="form-group-label">{t('initial_balance_label')}</label>
-                <div style={{ position: 'relative' }}>
-                  <input 
-                    type="number" 
-                    value={balance} 
-                    onChange={(e) => setBalance(e.target.value)} 
-                    placeholder="0"
-                    disabled={showModal === 'edit'}
-                    className="wallet-input"
-                    style={{ paddingRight: '40px' }}
-                  />
-                  <span style={{ 
-                    position: 'absolute', 
-                    right: '18px', 
-                    top: '50%', 
-                    transform: 'translateY(-50%)', 
-                    color: showModal === 'edit' ? '#94A3B8' : '#475569', 
-                    fontWeight: 'bold' 
-                  }}>đ</span>
-                </div>
-                {showModal === 'edit' && (
+              {/* Initial Balance (Only visible when editing, locked to current balance) */}
+              {showModal === 'edit' && (
+                <div style={{ marginBottom: '20px' }}>
+                  <label className="form-group-label">{t('initial_balance_label')}</label>
+                  <div style={{ position: 'relative' }}>
+                    <input 
+                      type="number" 
+                      value={balance} 
+                      onChange={(e) => setBalance(e.target.value)} 
+                      placeholder="0"
+                      disabled={true}
+                      className="wallet-input"
+                      style={{ paddingRight: '40px' }}
+                    />
+                    <span style={{ 
+                      position: 'absolute', 
+                      right: '18px', 
+                      top: '50%', 
+                      transform: 'translateY(-50%)', 
+                      color: '#94A3B8', 
+                      fontWeight: 'bold' 
+                    }}>đ</span>
+                  </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px' }}>
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <circle cx="12" cy="12" r="10" />
@@ -643,8 +892,8 @@ export default function Wallets() {
                       {t('balance_locked_warning')}
                     </small>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Wallet Currency (Forced to VND) */}
               <div style={{ marginBottom: '20px', display: 'none' }}>
@@ -723,6 +972,43 @@ export default function Wallets() {
                 </div>
               </div>
 
+              {showModal === 'edit' && (
+                <div className="wallet-settings-group">
+                  <div className="setting-switch-item">
+                    <div className="setting-switch-label">
+                      <span className="switch-title">Ẩn ví khỏi màn hình</span>
+                      <span className="switch-desc">Ẩn ví này khỏi danh sách hiển thị trên trang chủ và các biểu đồ báo cáo.</span>
+                    </div>
+                    <label className="premium-switch">
+                      <input 
+                        type="checkbox" 
+                        checked={isHidden} 
+                        onChange={(e) => setIsHidden(e.target.checked)} 
+                      />
+                      <span className="premium-switch-slider"></span>
+                    </label>
+                  </div>
+
+                  {/* Only show default receiving setting for bank or ewallet */}
+                  {(type === 'bank' || type === 'ewallet') && (
+                    <div className="setting-switch-item" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+                      <div className="setting-switch-label">
+                        <span className="switch-title">Đặt làm ví nhận mặc định</span>
+                        <span className="switch-desc">Sử dụng ví này làm điểm nhận tiền mặc định cho các giao dịch chuyển khoản P2P/mã QR.</span>
+                      </div>
+                      <label className="premium-switch">
+                        <input 
+                          type="checkbox" 
+                          checked={isDefaultReceiving} 
+                          onChange={(e) => setIsDefaultReceiving(e.target.checked)} 
+                        />
+                        <span className="premium-switch-slider"></span>
+                      </label>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Action Buttons */}
               <div style={{ display: 'flex', gap: '12px' }}>
                 <button type="submit" className="btn-submit-wallet">
@@ -751,75 +1037,243 @@ export default function Wallets() {
           <div className="modal-content wallet-premium-modal" style={{ maxWidth: '500px', position: 'relative' }}>
             <button 
               type="button" 
-              onClick={() => { setShowModal(null); setTransferFrom(''); setTransferTo(''); setTransferAmount(''); }}
+              onClick={() => { 
+                setShowModal(null); 
+                setTransferFrom(''); 
+                setTransferTo(''); 
+                setTransferAmount(''); 
+                setP2pRecipient(null);
+                setP2pIdentifier('');
+                setP2pAmount('');
+                setP2pNotes('');
+                setP2pFromWalletId('');
+              }}
               className="modal-close-btn"
             >
               ×
             </button>
-            <div className="modal-title-left">
+            <div className="modal-title-left" style={{ marginBottom: '20px' }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1814F3" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M8 10L4 6l4-4" />
                 <path d="M4 6h16" />
                 <path d="M16 14l4 4-4 4" />
                 <path d="M20 18H4" />
               </svg>
-              <h3>Chuyển tiền nội bộ</h3>
+              <h3>Chuyển khoản</h3>
             </div>
 
-            <div className="transfer-row">
-              <div className="transfer-col">
-                <div className="transfer-label">Tên ví chuyển</div>
-                <select 
-                  value={transferFrom} 
-                  onChange={e => setTransferFrom(e.target.value)}
-                  className="wallet-premium-input wallet-input"
-                  style={{ appearance: 'none', paddingRight: '36px' }}
+            {/* Tab selection */}
+            <div className="qr-modal-tabs" style={{ marginBottom: '20px' }}>
+              <div 
+                className={`qr-tab-item ${transferTab === 'internal' ? 'active' : ''}`}
+                onClick={() => setTransferTab('internal')}
+              >
+                Chuyển nội bộ
+              </div>
+              <div 
+                className={`qr-tab-item ${transferTab === 'p2p' ? 'active' : ''}`}
+                onClick={() => setTransferTab('p2p')}
+              >
+                Đến người khác
+              </div>
+            </div>
+
+            {transferTab === 'internal' ? (
+              <>
+                <div className="transfer-row">
+                  <div className="transfer-col" style={{ position: 'relative' }}>
+                    <div className="transfer-label">Tên ví chuyển</div>
+                    <select 
+                      value={transferFrom} 
+                      onChange={e => setTransferFrom(e.target.value)}
+                      className="wallet-premium-input wallet-input"
+                      style={{ appearance: 'none', paddingRight: '36px' }}
+                    >
+                      <option value="" disabled>Chọn tên ví...</option>
+                      {wallets.filter(w => !w.is_hidden).map(w => <option key={w.id} value={w.id}>{w.name} ({formatWalletCurrency(w.available_balance, w.currency_code)})</option>)}
+                    </select>
+                    <svg style={{ position: 'absolute', right: '14px', bottom: '16px', pointerEvents: 'none' }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8F9BB3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                  </div>
+                  
+                  <div className="transfer-arrow-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="5" y1="12" x2="19" y2="12"></line>
+                      <polyline points="12 5 19 12 12 19"></polyline>
+                    </svg>
+                  </div>
+
+                  <div className="transfer-col" style={{ position: 'relative' }}>
+                    <div className="transfer-label">Tên ví nhận</div>
+                    <select 
+                      value={transferTo} 
+                      onChange={e => setTransferTo(e.target.value)}
+                      className="wallet-premium-input wallet-input"
+                      style={{ appearance: 'none', paddingRight: '36px' }}
+                    >
+                      <option value="" disabled>Chọn tên ví...</option>
+                      {wallets.filter(w => !w.is_hidden).map(w => <option key={w.id} value={w.id}>{w.name} ({formatWalletCurrency(w.available_balance, w.currency_code)})</option>)}
+                    </select>
+                    <svg style={{ position: 'absolute', right: '14px', bottom: '16px', pointerEvents: 'none' }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8F9BB3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '30px' }}>
+                  <input 
+                    type="number" 
+                    value={transferAmount} 
+                    onChange={e => setTransferAmount(e.target.value)}
+                    placeholder="Nhập số tiền..."
+                    className="wallet-premium-input wallet-input"
+                  />
+                </div>
+
+                <button 
+                  onClick={handleTransfer}
+                  disabled={isTransferring}
+                  className="wallet-premium-btn"
                 >
-                  <option value="" disabled>Chọn tên ví...</option>
-                  {wallets.map(w => <option key={w.id} value={w.id}>{w.name} ({formatWalletCurrency(w.available_balance, w.currency_code)})</option>)}
-                </select>
-                <svg style={{ position: 'absolute', right: '14px', bottom: '16px', pointerEvents: 'none' }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8F9BB3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-              </div>
-              
-              <div className="transfer-arrow-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="5" y1="12" x2="19" y2="12"></line>
-                  <polyline points="12 5 19 12 12 19"></polyline>
-                </svg>
-              </div>
+                  {isTransferring ? 'Đang xử lý...' : 'Chuyển tiền ngay'}
+                </button>
+              </>
+            ) : (
+              <>
+                {!p2pRecipient ? (
+                  <>
+                    <div className="p2p-form-group">
+                      <label className="p2p-form-label">Thông tin người hưởng thụ</label>
+                      <input 
+                        type="text"
+                        value={p2pIdentifier}
+                        onChange={e => setP2pIdentifier(e.target.value)}
+                        placeholder="Mã định danh (ví dụ: USR123456)"
+                        className="wallet-premium-input wallet-input"
+                      />
+                    </div>
+                    
+                    <div className="p2p-btn-group">
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setShowContactsModal(true);
+                          fetchContacts();
+                        }}
+                        className="p2p-action-btn btn-contact"
+                      >
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                          <circle cx="9" cy="7" r="4" />
+                          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                        </svg>
+                        Danh bạ
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={handleP2pCheck}
+                        disabled={isP2pChecking}
+                        className="p2p-action-btn btn-check"
+                      >
+                        {isP2pChecking ? 'Đang kiểm tra...' : 'Kiểm tra'}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ animation: 'fadeIn 0.25s' }}>
+                    {/* Beneficiary Info Card */}
+                    <div className="beneficiary-card" style={{ marginTop: 0, marginBottom: '20px' }}>
+                      <img 
+                        src={p2pRecipient.avatar_url || "https://api.dicebear.com/7.x/miniavs/svg?seed=" + p2pRecipient.payee_name} 
+                        alt={p2pRecipient.payee_name} 
+                        className="beneficiary-avatar"
+                      />
+                      <div className="beneficiary-info">
+                        <div className="beneficiary-name">{p2pRecipient.payee_name}</div>
+                        <div className="beneficiary-id">{p2pRecipient.identifier}</div>
+                        {p2pRecipient.recipient_wallet_name && (
+                          <div className="beneficiary-wallet">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M20 12V8H6a2 2 0 0 0-2-2c0-1.1.9-2 2-2h12v4" />
+                              <path d="M4 6v12c0 1.1.9 2 2 2h14v-4" />
+                              <path d="M18 12a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h4v-6h-4z" />
+                            </svg>
+                            <span>Ví nhận: {p2pRecipient.recipient_wallet_name}</span>
+                          </div>
+                        )}
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={() => setP2pRecipient(null)} 
+                        className="beneficiary-close-btn"
+                      >
+                        ✕
+                      </button>
+                    </div>
 
-              <div className="transfer-col">
-                <div className="transfer-label">Tên ví nhận</div>
-                <select 
-                  value={transferTo} 
-                  onChange={e => setTransferTo(e.target.value)}
-                  className="wallet-premium-input wallet-input"
-                  style={{ appearance: 'none', paddingRight: '36px' }}
-                >
-                  <option value="" disabled>Chọn tên ví...</option>
-                  {wallets.map(w => <option key={w.id} value={w.id}>{w.name} ({formatWalletCurrency(w.available_balance, w.currency_code)})</option>)}
-                </select>
-                <svg style={{ position: 'absolute', right: '14px', bottom: '16px', pointerEvents: 'none' }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8F9BB3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-              </div>
-            </div>
+                    {/* P2P Send Form Details */}
+                    <div>
+                      <div className="p2p-form-group">
+                        <label className="p2p-form-label">Chọn ví chuyển tiền</label>
+                        <select
+                          value={p2pFromWalletId}
+                          onChange={e => setP2pFromWalletId(e.target.value)}
+                          className="p2p-select wallet-premium-input"
+                        >
+                          <option value="" disabled>Chọn ví chuyển...</option>
+                          {/* Filter out cash and hidden wallets */}
+                          {wallets.filter(w => w.type !== 'cash' && !w.is_hidden).map(w => (
+                            <option key={w.id} value={w.id}>
+                              {w.name} ({formatWalletCurrency(w.available_balance, w.currency_code)})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
 
-            <div style={{ marginBottom: '30px' }}>
-              <input 
-                type="number" 
-                value={transferAmount} 
-                onChange={e => setTransferAmount(e.target.value)}
-                placeholder="Nhập số tiền..."
-                className="wallet-premium-input wallet-input"
-              />
-            </div>
+                      <div className="p2p-form-group">
+                        <label className="p2p-form-label">Số tiền chuyển</label>
+                        <input 
+                          type="number"
+                          value={p2pAmount}
+                          onChange={e => setP2pAmount(e.target.value)}
+                          placeholder="Nhập số tiền..."
+                          className="wallet-premium-input wallet-input"
+                        />
+                      </div>
 
-            <button 
-              onClick={handleTransfer}
-              disabled={isTransferring}
-              className="wallet-premium-btn"
-            >
-              {isTransferring ? 'Đang xử lý...' : 'Chuyển tiền ngay'}
-            </button>
+                      <div className="p2p-form-group">
+                        <label className="p2p-form-label">Lời nhắn / Ghi chú</label>
+                        <input 
+                          type="text"
+                          value={p2pNotes}
+                          onChange={e => setP2pNotes(e.target.value)}
+                          placeholder="Lời nhắn cho người nhận (tùy chọn)"
+                          className="wallet-premium-input wallet-input"
+                        />
+                      </div>
+
+                      <div className="p2p-btn-group" style={{ marginTop: '24px' }}>
+                        <button
+                          type="button"
+                          onClick={() => setP2pRecipient(null)}
+                          className="p2p-action-btn"
+                          style={{ background: 'var(--bg-color)', color: 'var(--text-main)', flex: 1 }}
+                        >
+                          Quay lại
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleP2pTransfer}
+                          disabled={isP2pTransferring}
+                          className="p2p-action-btn btn-check"
+                          style={{ flex: 2 }}
+                        >
+                          {isP2pTransferring ? 'Đang chuyển khoản...' : 'Xác nhận chuyển'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </div>
       )}
@@ -993,6 +1447,201 @@ export default function Wallets() {
             >
               Đóng
             </button>
+          </div>
+        </div>
+      )}
+      {showQrModal && isLoggedIn && (
+        <div className="modal-overlay" onClick={() => setShowQrModal(false)}>
+          <div className="qr-app-modal-content" onClick={(e) => e.stopPropagation()}>
+            {/* Header: Title and Back button */}
+            <div className="qr-modal-header">
+              <button 
+                type="button" 
+                onClick={() => setShowQrModal(false)}
+                className="qr-modal-back-btn"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+              </button>
+              <h2 className="qr-modal-title">Mã QR của tôi</h2>
+            </div>
+            
+            <div className="qr-tab-content">
+              {/* White QR Code Card */}
+              <div className="qr-code-card">
+                <div className="qr-code-wrapper">
+                  <img 
+                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
+                      JSON.stringify({
+                        type: 'internal',
+                        identifier: userData?.identifier,
+                        wallet_id: selectedReceivingWalletId || null,
+                        amount: qrAmount ? parseFloat(qrAmount) : null,
+                        description: qrDescription || null
+                      })
+                    )}`} 
+                    alt="QR Code" 
+                    className="qr-code-image-element"
+                  />
+                </div>
+                
+                <div className="qr-card-tip">Mã QR nội bộ P2P</div>
+                
+                <div className="qr-card-id-row">
+                  <span className="qr-card-id-val">{userData?.identifier || 'N/A'}</span>
+                  <button 
+                    onClick={handleCopyId}
+                    className="qr-card-copy-btn"
+                    title="Sao chép ID"
+                    type="button"
+                  >
+                    {copied ? 'Đã chép! ✓' : (
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                      </svg>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Form Controls */}
+              <div className="qr-form-section">
+                {/* Select Wallet */}
+                <div className="qr-form-group">
+                  <label className="qr-form-label">Chọn ví nhận tiền</label>
+                  <div className="qr-input-wrapper">
+                    <span className="qr-input-icon">
+                      {renderWalletIcon(
+                        wallets.find(w => w.id === selectedReceivingWalletId)?.icon || 'wallet', 
+                        16,
+                        { color: '#1814F3' }
+                      )}
+                    </span>
+                    <select
+                      value={selectedReceivingWalletId}
+                      onChange={(e) => handleSelectReceivingWallet(e.target.value)}
+                      className="qr-select-input"
+                    >
+                      {wallets.filter(w => w.type !== 'cash' && !w.is_hidden).map((w) => (
+                        <option key={w.id} value={w.id}>
+                          {w.name} ({formatWalletBalance(w.available_balance || 0)}đ)
+                        </option>
+                      ))}
+                    </select>
+                    <span className="qr-select-caret">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                      </svg>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Amount input */}
+                <div className="qr-form-group">
+                  <div className="qr-input-wrapper">
+                    <span className="qr-input-icon qr-symbol-icon">$</span>
+                    <input 
+                      type="number"
+                      value={qrAmount}
+                      onChange={(e) => setQrAmount(e.target.value)}
+                      placeholder="Số tiền (Tùy chọn)"
+                      className="qr-text-input"
+                    />
+                  </div>
+                </div>
+
+                {/* Notes input */}
+                <div className="qr-form-group">
+                  <div className="qr-input-wrapper">
+                    <span className="qr-input-icon qr-symbol-icon">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                      </svg>
+                    </span>
+                    <input 
+                      type="text"
+                      value={qrDescription}
+                      onChange={(e) => setQrDescription(e.target.value)}
+                      placeholder="Ghi chú (Tùy chọn)"
+                      className="qr-text-input"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CONTACTS MODAL */}
+      {showContactsModal && (
+        <div className="modal-overlay" onClick={() => setShowContactsModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px' }}>
+            <button 
+              type="button" 
+              onClick={() => setShowContactsModal(false)}
+              className="modal-close-btn"
+            >
+              ×
+            </button>
+            <div className="modal-title-left">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1814F3" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+              <h3>Danh bạ người nhận</h3>
+            </div>
+
+            {isLoadingContacts ? (
+              <div style={{ textAlign: 'center', padding: '20px', color: '#718EBF' }}>Đang tải...</div>
+            ) : contactsList.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '20px', color: '#718EBF' }}>Danh bạ trống.</div>
+            ) : (
+              <div className="payees-list">
+                {contactsList.map(contact => (
+                  <div 
+                    key={contact.id} 
+                    className="payee-item"
+                    onClick={() => {
+                      setP2pIdentifier(contact.identifier);
+                      setShowContactsModal(false);
+                    }}
+                  >
+                    <div className="payee-item-details">
+                      <img 
+                        src={contact.avatar_url || "https://api.dicebear.com/7.x/miniavs/svg?seed=" + contact.payee_name} 
+                        alt={contact.payee_name} 
+                        className="payee-item-avatar"
+                      />
+                      <div>
+                        <div className="payee-item-name">{contact.payee_name}</div>
+                        <div className="payee-item-id">{contact.identifier}</div>
+                      </div>
+                    </div>
+                    <button 
+                      type="button" 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteContact(contact.id);
+                      }}
+                      className="payee-delete-btn"
+                      title="Xóa liên hệ"
+                    >
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                      </svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}
