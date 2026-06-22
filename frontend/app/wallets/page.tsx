@@ -4,8 +4,9 @@ import Link from 'next/link';
 import Sidebar from '../components/Sidebar';
 import { useAppContext } from '../context/AppContext';
 import { useLanguage } from '../lib/translations';
-import { apiFetch } from '../lib/api';
+import { apiFetch, savingsApi } from '../lib/api';
 import './wallets.css';
+import '../savings/savings.css';
 
 // ==========================================
 // CUSTOM PREMIUM SVG ICONS
@@ -186,13 +187,13 @@ const renderWalletIcon = (iconName: string, size = 22, style = {}) => {
 const formatWalletCurrency = (amount: number | string, currencyCode: string = 'VND') => {
   const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
   if (isNaN(numericAmount)) return '0';
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(numericAmount);
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(Math.round(numericAmount));
 };
 
 const formatWalletBalance = (amount: number | string) => {
   const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
   if (isNaN(numericAmount)) return '0';
-  return new Intl.NumberFormat('vi-VN').format(numericAmount);
+  return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(Math.round(numericAmount));
 };
 
 // ==========================================
@@ -204,6 +205,68 @@ export default function Wallets() {
     updateWallet, deleteWallet, isLoadingWallets, userData
   } = useAppContext();
   const { t } = useLanguage();
+
+  // Savings tab state and helper functions
+  const [activeTab, setActiveTab] = useState<'wallets' | 'savings'>('wallets');
+  const [savingsGoals, setSavingsGoals] = useState<any[]>([]);
+  const [isLoadingSavings, setIsLoadingSavings] = useState(false);
+  const [savingsError, setSavingsError] = useState('');
+
+  const fetchSavingsGoals = async () => {
+    setIsLoadingSavings(true);
+    try {
+      const response = await savingsApi.getAll();
+      if (response.status === 'success') {
+        setSavingsGoals(response.data || []);
+      } else {
+        setSavingsError(response.message || 'Lỗi tải mục tiêu tiết kiệm');
+      }
+    } catch (err: any) {
+      setSavingsError(err.message || 'Lỗi kết nối máy chủ');
+    } finally {
+      setIsLoadingSavings(false);
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('tab') === 'savings') {
+        setActiveTab('savings');
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (isLoggedIn && activeTab === 'savings') {
+      fetchSavingsGoals();
+    }
+  }, [isLoggedIn, activeTab]);
+
+  const calcPercent = (current: string | number, target: string | number) => {
+    const curVal = Number(current);
+    const tarVal = Number(target);
+    if (!tarVal || isNaN(curVal) || isNaN(tarVal)) return 0;
+    return parseFloat(((curVal / tarVal) * 100).toFixed(1));
+  };
+
+  const getRemainingDays = (targetDateStr: string | null) => {
+    if (!targetDateStr) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const target = new Date(targetDateStr);
+    target.setHours(0, 0, 0, 0);
+
+    const diffTime = target.getTime() - today.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  };
+
+  const formatVND = (val: string | number) => {
+    const num = typeof val === 'string' ? parseFloat(val) : val;
+    if (isNaN(num)) return '0 đ';
+    return new Intl.NumberFormat('vi-VN').format(num) + ' đ';
+  };
   const [copied, setCopied] = useState(false);
   const [showQrModal, setShowQrModal] = useState(false);
 
@@ -683,119 +746,256 @@ export default function Wallets() {
           </div>
         </nav>
         <div className="content-area wallets-container">
-          {isLoadingWallets ? (
-            <div style={{ textAlign: 'center', padding: '40px' }}>{t('loading')}</div>
-          ) : wallets.length === 0 ? (
-            <div className="wallets-empty-state" style={{ margin: '20px auto' }}>
-              <div className="empty-state-icon">👛</div>
-              <h3 className="empty-state-title">{t('no_wallets')}</h3>
-              <p className="empty-state-desc">{t('no_wallets_desc')}</p>
-              <button 
-                onClick={() => {
-                  if (!isLoggedIn) {
-                    alert(t('login_required_to_create_wallet'));
-                    return;
-                  }
-                  setShowModal('create');
-                }}
-                className="create-wallet-btn"
-              >
-                {t('create_wallet_now')}
-              </button>
-            </div>
+          {/* Tab Selector */}
+          <div className="wallets-tabs" style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-color)', marginBottom: '24px' }}>
+            <button 
+              onClick={() => setActiveTab('wallets')} 
+              style={{ 
+                padding: '12px 24px', 
+                fontWeight: '700', 
+                fontSize: '16px', 
+                cursor: 'pointer',
+                color: activeTab === 'wallets' ? '#1814F3' : 'var(--text-light)', 
+                borderBottom: activeTab === 'wallets' ? '3px solid #1814F3' : '3px solid transparent',
+                transition: 'all 0.2s',
+                background: 'none',
+                borderTop: 'none', borderLeft: 'none', borderRight: 'none'
+              }}
+            >
+              {t('wallets') || 'Ví của tôi'}
+            </button>
+            <button 
+              onClick={() => setActiveTab('savings')} 
+              style={{ 
+                padding: '12px 24px', 
+                fontWeight: '700', 
+                fontSize: '16px', 
+                cursor: 'pointer',
+                color: activeTab === 'savings' ? '#1814F3' : 'var(--text-light)', 
+                borderBottom: activeTab === 'savings' ? '3px solid #1814F3' : '3px solid transparent',
+                transition: 'all 0.2s',
+                background: 'none',
+                borderTop: 'none', borderLeft: 'none', borderRight: 'none'
+              }}
+            >
+              Ví tiết kiệm (Heo đất)
+            </button>
+          </div>
+
+          {activeTab === 'wallets' ? (
+            isLoadingWallets ? (
+              <div style={{ textAlign: 'center', padding: '40px' }}>{t('loading')}</div>
+            ) : wallets.length === 0 ? (
+              <div className="wallets-empty-state" style={{ margin: '20px auto' }}>
+                <div className="empty-state-icon">👛</div>
+                <h3 className="empty-state-title">{t('no_wallets')}</h3>
+                <p className="empty-state-desc">{t('no_wallets_desc')}</p>
+                <button 
+                  onClick={() => {
+                    if (!isLoggedIn) {
+                      alert(t('login_required_to_create_wallet'));
+                      return;
+                    }
+                    setShowModal('create');
+                  }}
+                  className="create-wallet-btn"
+                >
+                  {t('create_wallet_now')}
+                </button>
+              </div>
+            ) : (
+              <div className="wallets-grid">
+                {wallets
+                  .filter((w) => !w.is_hidden || showHiddenWallets)
+                  .map((w) => {
+                    const cardColor = w.color || 'linear-gradient(135deg, #3A3FBD, #2E33A8)';
+                    const txtColor = getContrastColor(cardColor);
+                    const muteColor = getMutedContrastColor(cardColor);
+                    const iconBg = getIconBgColor(cardColor);
+                    
+                    return (
+                      <div key={w.id} className="wallet-card" style={{ background: cardColor, color: txtColor, opacity: w.is_hidden ? 0.6 : 1 }}>
+                        <div className="wallet-card-decoration"></div>
+                        <div className="wallet-card-header">
+                          <div>
+                            <div className="wallet-label" style={{ color: muteColor }}>{t('balance_label')}</div>
+                            <div className="wallet-balance">
+                              {showWalletBalance ? (
+                                <>
+                                  {formatWalletBalance(w.available_balance || 0)}
+                                  <span className="currency-symbol">đ</span>
+                                </>
+                              ) : '******'}
+                            </div>
+                          </div>
+                          <div className="wallet-icon-wrapper" style={{ background: iconBg, color: txtColor }}>
+                            {renderWalletIcon(w.icon || 'wallet', 22)}
+                          </div>
+                        </div>
+                        
+                        <div className="wallet-card-footer">
+                          <div>
+                            <div className="wallet-name" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                              <span>{w.name}</span>
+                              {w.is_hidden && (
+                                <span style={{ 
+                                  fontSize: '9px', 
+                                  fontWeight: '800', 
+                                  background: getContrastColor(cardColor) === '#FFFFFF' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.08)', 
+                                  color: getContrastColor(cardColor) === '#FFFFFF' ? '#FF8A8A' : '#EF4444', 
+                                  padding: '2px 6px', 
+                                  borderRadius: '10px', 
+                                  textTransform: 'uppercase' 
+                                }}>
+                                  Đã ẩn
+                                </span>
+                              )}
+                              {w.is_default_receiving && (
+                                <span style={{ 
+                                  fontSize: '9px', 
+                                  fontWeight: '800', 
+                                  background: getContrastColor(cardColor) === '#FFFFFF' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.08)', 
+                                  color: getContrastColor(cardColor) === '#FFFFFF' ? '#B9F6CA' : '#10B981', 
+                                  padding: '2px 6px', 
+                                  borderRadius: '10px', 
+                                  textTransform: 'uppercase' 
+                                }}>
+                                  Nhận mặc định
+                                </span>
+                              )}
+                            </div>
+                            <div className="wallet-type-label" style={{ color: muteColor }}>
+                              {t('type_label_prefix')}{w.type === 'cash' ? t('cash') : w.type === 'bank' ? t('bank') : t('ewallet')}
+                            </div>
+                          </div>
+                          <div className="wallet-actions">
+                            <button 
+                              onClick={() => openHistory(w)}
+                              className="action-btn-edit"
+                              style={{ background: iconBg, color: txtColor }}
+                            >
+                              Lịch sử
+                            </button>
+                            <button 
+                              onClick={() => openEdit(w)}
+                              className="action-btn-edit"
+                              style={{ background: iconBg, color: txtColor }}
+                            >
+                              {t('edit')}
+                            </button>
+                            <button 
+                              onClick={() => handleDelete(w.id)}
+                              className="action-btn-delete"
+                              style={{ color: w.color ? (txtColor === '#FFFFFF' ? '#FF8A8A' : '#EF4444') : '#EF4444' }}
+                            >
+                              {t('delete')}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            )
           ) : (
-            <div className="wallets-grid">
-              {wallets
-                .filter((w) => !w.is_hidden || showHiddenWallets)
-                .map((w) => {
-                  const cardColor = w.color || 'linear-gradient(135deg, #3A3FBD, #2E33A8)';
-                  const txtColor = getContrastColor(cardColor);
-                  const muteColor = getMutedContrastColor(cardColor);
-                  const iconBg = getIconBgColor(cardColor);
-                  
-                  return (
-                    <div key={w.id} className="wallet-card" style={{ background: cardColor, color: txtColor, opacity: w.is_hidden ? 0.6 : 1 }}>
-                      <div className="wallet-card-decoration"></div>
-                      <div className="wallet-card-header">
-                        <div>
-                          <div className="wallet-label" style={{ color: muteColor }}>{t('balance_label')}</div>
-                          <div className="wallet-balance">
-                            {showWalletBalance ? (
-                              <>
-                                {formatWalletBalance(w.available_balance || 0)}
-                                <span className="currency-symbol">đ</span>
-                              </>
-                            ) : '******'}
-                          </div>
-                        </div>
-                        <div className="wallet-icon-wrapper" style={{ background: iconBg, color: txtColor }}>
-                          {renderWalletIcon(w.icon || 'wallet', 22)}
-                        </div>
-                      </div>
-                      
-                      <div className="wallet-card-footer">
-                        <div>
-                          <div className="wallet-name" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-                            <span>{w.name}</span>
-                            {w.is_hidden && (
-                              <span style={{ 
-                                fontSize: '9px', 
-                                fontWeight: '800', 
-                                background: getContrastColor(cardColor) === '#FFFFFF' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.08)', 
-                                color: getContrastColor(cardColor) === '#FFFFFF' ? '#FF8A8A' : '#EF4444', 
-                                padding: '2px 6px', 
-                                borderRadius: '10px', 
-                                textTransform: 'uppercase' 
-                              }}>
-                                Đã ẩn
-                              </span>
-                            )}
-                            {w.is_default_receiving && (
-                              <span style={{ 
-                                fontSize: '9px', 
-                                fontWeight: '800', 
-                                background: getContrastColor(cardColor) === '#FFFFFF' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.08)', 
-                                color: getContrastColor(cardColor) === '#FFFFFF' ? '#B9F6CA' : '#10B981', 
-                                padding: '2px 6px', 
-                                borderRadius: '10px', 
-                                textTransform: 'uppercase' 
-                              }}>
-                                Nhận mặc định
-                              </span>
+            // SAVINGS TAB
+            isLoadingSavings ? (
+              <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-light)', fontWeight: '600' }}>
+                {t('loading') || 'Đang tải dữ liệu...'}
+              </div>
+            ) : savingsError ? (
+              <div className="savings-empty-state" style={{ borderColor: 'var(--danger)', margin: '20px auto' }}>
+                <div className="empty-state-icon" style={{ animation: 'none' }}>⚠️</div>
+                <h3 className="empty-state-title" style={{ color: 'var(--danger)' }}>Đã xảy ra lỗi</h3>
+                <p className="empty-state-desc">{savingsError}</p>
+                <button onClick={fetchSavingsGoals} className="create-wallet-btn" style={{ background: 'var(--danger)' }}>Thử lại</button>
+              </div>
+            ) : savingsGoals.length === 0 ? (
+              <div className="savings-empty-state" style={{ margin: '20px auto' }}>
+                <div className="empty-state-icon">🐷</div>
+                <h3 className="empty-state-title">Chưa có mục tiêu tiết kiệm</h3>
+                <p className="empty-state-desc">Bắt đầu tích lũy tài chính bằng cách tạo mục tiêu tiết kiệm đầu tiên! Đặt tên, số tiền mong muốn và ngày đạt được.</p>
+                <Link href="/savings/create" className="create-wallet-btn" style={{ display: 'inline-block', background: 'linear-gradient(135deg, #6366F1 0%, #4F46E5 100%)', boxShadow: '0 8px 16px rgba(99, 102, 241, 0.2)' }}>
+                  Tạo mục tiêu ngay
+                </Link>
+              </div>
+            ) : (
+              <>
+                <div className="savings-grid">
+                  {savingsGoals.map((goal) => {
+                    const percent = calcPercent(goal.current_amount, goal.target_amount);
+                    const isReached = percent >= 100;
+                    const remainingDays = getRemainingDays(goal.target_date);
+                    const hasAutoSave = !!goal.auto_save_frequency;
+
+                    return (
+                      <Link 
+                        href={`/savings/${goal.id}`} 
+                        key={goal.id} 
+                        style={{ textDecoration: 'none', color: 'inherit' }}
+                      >
+                        <div className="saving-card">
+                          <div className="saving-card-header">
+                            <div className="saving-card-title">{goal.name}</div>
+                            {isReached ? (
+                              <div className="saving-card-days saving-goal-reached-badge">Đạt mục tiêu</div>
+                            ) : remainingDays !== null ? (
+                              <div className="saving-card-days">
+                                {remainingDays > 0 ? `Còn ${remainingDays} ngày` : remainingDays === 0 ? 'Đến hạn hôm nay' : `Quá hạn ${Math.abs(remainingDays)} ngày`}
+                              </div>
+                            ) : (
+                              <div className="saving-card-days">Không giới hạn</div>
                             )}
                           </div>
-                        <div className="wallet-type-label" style={{ color: muteColor }}>
-                          {t('type_label_prefix')}{w.type === 'cash' ? t('cash') : w.type === 'bank' ? t('bank') : t('ewallet')}
+
+                          <div className="saving-card-stats">
+                            <div className="saving-stat-item">
+                              <span className="saving-stat-label">Đã tích lũy</span>
+                              <span className="saving-stat-val accumulated">{formatVND(goal.current_amount)}</span>
+                            </div>
+                            <div className="saving-stat-item" style={{ alignItems: 'flex-end' }}>
+                              <span className="saving-stat-label">Mục tiêu</span>
+                              <span className="saving-stat-val target">{formatVND(goal.target_amount)}</span>
+                            </div>
+                          </div>
+
+                          <div className="saving-progress-container">
+                            <div className="saving-progress-track">
+                              <div 
+                                className="saving-progress-fill" 
+                                style={{ 
+                                  width: `${percent}%`,
+                                  background: isReached ? '#10B981' : undefined
+                                }}
+                              ></div>
+                            </div>
+                          </div>
+
+                          <div className="saving-card-footer-info">
+                            <div className="saving-auto-badge">
+                              <span>Tự động tích lũy:</span>
+                              <span style={{ color: hasAutoSave ? '#10B981' : '#FF4B4A' }}>
+                                {hasAutoSave ? 'Bật' : 'Tắt'}
+                              </span>
+                            </div>
+                            <div className="saving-percent">
+                              {percent}%
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                      <div className="wallet-actions">
-                        <button 
-                          onClick={() => openHistory(w)}
-                          className="action-btn-edit"
-                          style={{ background: iconBg, color: txtColor }}
-                        >
-                          Lịch sử
-                        </button>
-                        <button 
-                          onClick={() => openEdit(w)}
-                          className="action-btn-edit"
-                          style={{ background: iconBg, color: txtColor }}
-                        >
-                          {t('edit')}
-                        </button>
-                        <button 
-                          onClick={() => handleDelete(w.id)}
-                          className="action-btn-delete"
-                          style={{ color: w.color ? (txtColor === '#FFFFFF' ? '#FF8A8A' : '#EF4444') : '#EF4444' }}
-                        >
-                          {t('delete')}
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+
+                <div className="create-goal-footer-btn-wrapper">
+                  <Link href="/savings/create" className="btn-create-goal" style={{ textDecoration: 'none' }}>
+                    <span style={{ marginRight: '6px', fontSize: '18px', fontWeight: 'bold' }}>+</span>
+                    <span>Tạo mục tiêu tiết kiệm mới</span>
+                  </Link>
+                </div>
+              </>
+            )
           )}
 
 

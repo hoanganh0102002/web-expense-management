@@ -344,5 +344,27 @@ export const aiApi = {
   })
 };
 
+// --- SAVINGS APIs ---
+export const savingsApi = {
+  getAll: () => apiFetch('/savings'),
+  create: (data: { name: string; target_amount: number; target_date?: string; auto_save_frequency?: string; auto_save_amount?: number; source_wallet_id?: string }) =>
+    apiFetch('/savings', {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+  getById: (id: string) => apiFetch(`/savings/${id}`),
+  deposit: (id: string, data: { amount: number; source_wallet_id: string; notes?: string }) =>
+    apiFetch(`/savings/${id}/deposit`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+  withdraw: (id: string, data: { amount: number; source_wallet_id: string; notes?: string }) =>
+    apiFetch(`/savings/${id}/withdraw`, {
+      method: 'POST',
+      body: JSON.stringify(data)
+    }),
+  delete: (id: string) => apiFetch(`/savings/${id}`, { method: 'DELETE' })
+};
+
 
 
