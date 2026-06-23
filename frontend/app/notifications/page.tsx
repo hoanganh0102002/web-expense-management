@@ -70,16 +70,20 @@ const renderNotificationIcon = (type: 'danger' | 'warning' | 'info' | 'reminder'
 
 
 export default function Notifications() {
-  const { isLoggedIn, userData } = useAppContext();
+  const { isLoggedIn, userData, setHasUnreadNotifications, setUnreadNotificationsCount } = useAppContext();
   const { t } = useLanguage();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newNotif, setNewNotif] = useState({ title: '', desc: '' });
   const [notificationsList, setNotificationsList] = useState<any[]>(() => {
     if (typeof window !== 'undefined') {
+      let combined = [];
+      const localCached = localStorage.getItem('local_notifications');
+      if (localCached) {
+        try { combined.push(...JSON.parse(localCached)); } catch (e) {}
+      }
       const cached = localStorage.getItem('cached_notifications');
       if (cached) {
-        try { return JSON.parse(cached); } catch (e) {}
+        try { combined.push(...JSON.parse(cached)); } catch (e) {}
       }
+      return combined;
     }
     return [];
   });
@@ -94,7 +98,11 @@ export default function Notifications() {
     try {
       const res = await notificationApi.getAll();
       const list = res.data || [];
-      setNotificationsList(list);
+      
+      let localNotifs = [];
+      try { localNotifs = JSON.parse(localStorage.getItem('local_notifications') || '[]'); } catch (e) {}
+      
+      setNotificationsList([...localNotifs, ...list]);
       localStorage.setItem('cached_notifications', JSON.stringify(list));
     } catch (e) {
       console.error("Lỗi khi tải thông báo:", e);
@@ -109,11 +117,20 @@ export default function Notifications() {
     }
   }, [isLoggedIn]);
 
+  useEffect(() => {
+    const unreadList = notificationsList.filter(n => n.read_at === null);
+    setUnreadNotificationsCount(unreadList.length);
+    setHasUnreadNotifications(unreadList.length > 0);
+  }, [notificationsList, setHasUnreadNotifications, setUnreadNotificationsCount]);
+
   const handleMarkAsRead = async (id: string) => {
     try {
-      // Bỏ qua gọi API nếu đây là thông báo test cục bộ (không phải UUID)
-      if (id.includes('-')) {
+      if (id.includes('-') && !id.startsWith('local_')) {
         await notificationApi.read(id);
+      } else if (id.startsWith('local_')) {
+        let localNotifs = JSON.parse(localStorage.getItem('local_notifications') || '[]');
+        localNotifs = localNotifs.map((n: any) => n.id === id ? { ...n, read_at: new Date().toISOString() } : n);
+        localStorage.setItem('local_notifications', JSON.stringify(localNotifs));
       }
       setNotificationsList(prev => prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n));
     } catch (e) {
@@ -124,6 +141,9 @@ export default function Notifications() {
   const handleMarkAllAsRead = async () => {
     try {
       await notificationApi.readAll();
+      let localNotifs = JSON.parse(localStorage.getItem('local_notifications') || '[]');
+      localNotifs = localNotifs.map((n: any) => ({ ...n, read_at: new Date().toISOString() }));
+      localStorage.setItem('local_notifications', JSON.stringify(localNotifs));
       setNotificationsList(prev => prev.map(n => ({ ...n, read_at: new Date().toISOString() })));
     } catch (e) {
       console.error("Lỗi khi đánh dấu đọc tất cả:", e);
@@ -131,10 +151,14 @@ export default function Notifications() {
   };
 
   const handleDeleteNotification = async (id: string) => {
-    if (window.confirm("Bạn có chắc chắn muốn xóa thông báo này?")) {
+    if (window.confirm(t('confirm_delete') || "Bạn có chắc chắn muốn xóa thông báo này?")) {
       try {
-        if (id.includes('-')) {
+        if (id.includes('-') && !id.startsWith('local_')) {
           await notificationApi.delete(id);
+        } else if (id.startsWith('local_')) {
+          let localNotifs = JSON.parse(localStorage.getItem('local_notifications') || '[]');
+          localNotifs = localNotifs.filter((n: any) => n.id !== id);
+          localStorage.setItem('local_notifications', JSON.stringify(localNotifs));
         }
         setNotificationsList(prev => prev.filter(n => n.id !== id));
       } catch (e) {
@@ -142,22 +166,6 @@ export default function Notifications() {
       }
     }
   };
-
-  const submitNotif = () => {
-    const localNotif = {
-      id: Math.random().toString(),
-      title: newNotif.title || 'Thông báo hệ thống',
-      content: newNotif.desc || 'Nội dung thông báo...',
-      type: 'App\\Notifications\\SystemNotification',
-      read_at: null,
-      created_at: new Date().toISOString(),
-      metadata: {}
-    };
-    setNotificationsList(prev => [localNotif, ...prev]);
-    setIsModalOpen(false);
-    setNewNotif({ title: '', desc: '' });
-  };
-  
   const typeStyles: Record<string, { color: string, bg: string, glow: string, border: string }> = {
     danger: { color: '#FE5C73', bg: '#FFE0EB', glow: 'rgba(254, 92, 115, 0.15)', border: 'rgba(254, 92, 115, 0.3)' },
     warning: { color: '#FF9800', bg: '#FFF5D9', glow: 'rgba(255, 152, 0, 0.15)', border: 'rgba(255, 152, 0, 0.3)' },
@@ -198,39 +206,6 @@ export default function Notifications() {
                 Đánh dấu đọc tất cả
               </button>
             )}
-            <button 
-              style={{
-                background: 'linear-gradient(135deg, #1814F3 0%, #6366F1 100%)',
-                color: '#fff',
-                padding: '10px 20px',
-                borderRadius: '24px',
-                fontWeight: '600',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '15px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                whiteSpace: 'nowrap',
-                boxShadow: '0 4px 12px rgba(24, 20, 243, 0.15)',
-                transition: 'all 0.25s ease'
-              }} 
-              onClick={() => setIsModalOpen(true)}
-              onMouseOver={(e) => {
-                e.currentTarget.style.transform = 'translateY(-1px)';
-                e.currentTarget.style.boxShadow = '0 6px 16px rgba(24, 20, 243, 0.25)';
-              }}
-              onMouseOut={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(24, 20, 243, 0.15)';
-              }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
-              {t('create_notification')}
-            </button>
             {isLoggedIn ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginLeft: '15px' }}>
                 <span style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '15px' }}>
@@ -345,75 +320,6 @@ export default function Notifications() {
           {!isLoggedIn && <p style={{color:'#718EBF',textAlign:'center',padding:'40px',background: 'var(--card-bg)',borderRadius:'16px',border: `1px solid var(--border-color)`}}>{t('login_to_view_notifications')}</p>}
         </div>
       </main>
-
-      {/* MODAL TẠO THÔNG BÁO */}
-      {isModalOpen && (
-        <div className="notif-modal-overlay">
-          <div className="notif-modal-content">
-             <h2 style={{color:'var(--text-main)',marginBottom:'20px',fontSize:'20px',fontWeight:'700'}}>{t('send_system_notification')}</h2>
-             
-             <div style={{marginBottom:'15px'}}>
-               <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>{t('title_label')}</label>
-               <input type="text" value={newNotif.title} onChange={e=>setNewNotif({...newNotif,title:e.target.value})} placeholder={t('notif_title_placeholder')} className="notif-modal-input" />
-             </div>
-
-             <div style={{marginBottom:'25px'}}>
-               <label style={{display:'block',marginBottom:'8px',color:'#718EBF',fontSize:'14px',fontWeight:'500'}}>{t('content_label')}</label>
-               <textarea value={newNotif.desc} onChange={e=>setNewNotif({...newNotif,desc:e.target.value})} placeholder={t('notif_content_placeholder')} className="notif-modal-textarea" style={{minHeight:'100px',fontFamily:'inherit'}}></textarea>
-             </div>
-             
-             <div style={{display:'flex',gap:'12px',justifyContent:'flex-end'}}>
-               <button 
-                 style={{
-                   padding: '12px 24px',
-                   background: 'var(--bg-color)',
-                   color: '#718EBF',
-                   borderRadius: '14px',
-                   border: '1.5px solid var(--border-color)',
-                   cursor: 'pointer',
-                   fontWeight: '600',
-                   fontSize: '15px',
-                   transition: 'all 0.25s ease'
-                 }}
-                 onClick={() => setIsModalOpen(false)}
-                 onMouseOver={(e) => {
-                   e.currentTarget.style.background = 'var(--border-color)';
-                 }}
-                 onMouseOut={(e) => {
-                   e.currentTarget.style.background = 'var(--bg-color)';
-                 }}
-               >
-                 {t('cancel')}
-               </button>
-               <button 
-                 style={{
-                   padding: '12px 24px',
-                   background: 'linear-gradient(135deg, #1814F3 0%, #6366F1 100%)',
-                   color: '#fff',
-                   borderRadius: '14px',
-                   border: 'none',
-                   cursor: 'pointer',
-                   fontWeight: '600',
-                   fontSize: '15px',
-                   boxShadow: '0 4px 12px rgba(24, 20, 243, 0.2)',
-                   transition: 'all 0.25s ease'
-                 }}
-                 onClick={submitNotif}
-                 onMouseOver={(e) => {
-                   e.currentTarget.style.transform = 'translateY(-1px)';
-                   e.currentTarget.style.boxShadow = '0 6px 16px rgba(24, 20, 243, 0.3)';
-                 }}
-                 onMouseOut={(e) => {
-                   e.currentTarget.style.transform = 'translateY(0)';
-                   e.currentTarget.style.boxShadow = '0 4px 12px rgba(24, 20, 243, 0.2)';
-                 }}
-               >
-                 {t('send_notification')}
-               </button>
-             </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

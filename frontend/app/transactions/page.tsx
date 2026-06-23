@@ -285,7 +285,9 @@ export default function Transactions() {
     userData,
     fetchWallets,
     hasUnreadNotifications,
-    unreadNotificationsCount
+    unreadNotificationsCount,
+    fetchUnreadNotificationsCount,
+    createSystemNotification
   } = useAppContext();
   const { t, tCategory } = useLanguage();
   const formatCurrency = (amount: number | string) => {
@@ -1004,6 +1006,7 @@ export default function Transactions() {
 
       // Đóng modal và reset trạng thái ngay lập tức khi tạo thành công!
       setIsModalOpen(false);
+      
       setActiveTab('all');
       setCurrentCursor(null);
       setRoundUpEnabled(false);
@@ -1026,7 +1029,8 @@ export default function Transactions() {
       Promise.all([
         fetchTransactions(),
         fetchWallets(),
-        loadFilteredTransactions(null)
+        loadFilteredTransactions(null),
+        fetchUnreadNotificationsCount()
       ]).catch(e => console.error("Lỗi khi tải lại dữ liệu chạy ngầm:", e));
 
       // --- Kiểm tra cảnh báo ngân sách (Chạy ngầm) ---
@@ -1134,6 +1138,7 @@ export default function Transactions() {
       try {
         await deleteTransaction(id);
         loadFilteredTransactions(currentCursor);
+        fetchUnreadNotificationsCount();
       } catch (error: any) {
         alert(error.message || 'Lỗi khi xóa giao dịch');
       }
@@ -1198,7 +1203,8 @@ export default function Transactions() {
       setActiveTab('all');
       await Promise.all([
         loadFilteredTransactions(currentCursor),
-        fetchWallets()
+        fetchWallets(),
+        fetchUnreadNotificationsCount()
       ]);
       alert('Cập nhật giao dịch thành công!');
     } catch (error: any) {
