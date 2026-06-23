@@ -103,8 +103,9 @@ export default function CreateSavingsGoalPage() {
 
   // Set default wallet
   useEffect(() => {
-    if (wallets.length > 0) {
-      const defaultW = wallets.find(w => w.is_default_receiving && !w.is_hidden) || wallets.find(w => !w.is_hidden);
+    const nonCashWallets = wallets.filter(w => !w.is_hidden && w.type !== 'cash');
+    if (nonCashWallets.length > 0) {
+      const defaultW = nonCashWallets.find(w => w.is_default_receiving) || nonCashWallets[0];
       if (defaultW) {
         setSourceWalletId(defaultW.id);
       }
@@ -129,6 +130,14 @@ export default function CreateSavingsGoalPage() {
     if (targetNum > 500000000) {
       setErrorMsg('Số tiền tích lũy tối đa là 500.000.000 đ!');
       return;
+    }
+
+    if (sourceWalletId) {
+      const selectedW = wallets.find(w => w.id === sourceWalletId);
+      if (selectedW && selectedW.type === 'cash') {
+        setErrorMsg('Ví tiết kiệm không hỗ trợ thực hiện bằng tiền mặt!');
+        return;
+      }
     }
 
     // Prepare payload
@@ -250,7 +259,7 @@ export default function CreateSavingsGoalPage() {
                   >
                     <option value="">Chọn ví nguồn để tích lũy</option>
                     {wallets
-                      .filter(w => !w.is_hidden)
+                      .filter(w => !w.is_hidden && w.type !== 'cash')
                       .map(w => (
                         <option key={w.id} value={w.id}>
                           {w.name} ({new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(Math.round(Number(w.available_balance || 0)))}đ)

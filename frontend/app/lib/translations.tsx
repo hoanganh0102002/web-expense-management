@@ -210,6 +210,7 @@ const translations: Record<string, Record<string, string>> = {
     create_wallet_error: "Lỗi khi tạo ví!",
     update_wallet_error: "Lỗi khi cập nhật ví!",
     delete_wallet_error: "Lỗi khi xóa ví!",
+    create_saving_goal: "Tạo mục tiêu tiết kiệm",
 
     // Budget Page
     budget_management: "Ngân sách & Kế hoạch",
@@ -585,6 +586,7 @@ const translations: Record<string, Record<string, string>> = {
     create_wallet_error: "Error creating wallet!",
     update_wallet_error: "Error updating wallet!",
     delete_wallet_error: "Error deleting wallet!",
+    create_saving_goal: "Create Saving Goal",
 
     // Budget Page
     budget_management: "Budget & Planning",

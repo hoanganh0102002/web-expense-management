@@ -85,8 +85,136 @@ export default function AIChatPanel() {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(num);
   };
 
+  const getClientSuggestedQuestions = (question: string, prevQuestions: string[] = []): string[] => {
+    if (!question) return [];
+    const q = question.toLowerCase();
+    
+    // Normalize previous questions for matching to filter out duplicates
+    const used = new Set<string>();
+    prevQuestions.forEach(pq => {
+      if (pq) used.add(pq.trim().toLowerCase());
+    });
+    used.add(question.trim().toLowerCase());
+    
+    let pool: string[] = [];
+    
+    if (q.includes('tuần này') || q.includes('tuần') || q.includes('week')) {
+      pool = [
+        'Tuần này tôi tiêu nhiều nhất vào danh mục nào?',
+        'So sánh chi tiêu tuần này với tuần trước',
+        'Tôi cần làm gì để tiết kiệm chi phí tuần này?',
+        'Tuần này tôi đã nhận được bao nhiêu tiền thu nhập?',
+        'Phân tích chi tiêu tuần này theo từng ngày trong tuần',
+        'Liệt kê các giao dịch lớn nhất trong tuần này',
+        'Lời khuyên kiểm soát chi tiêu tuần này'
+      ];
+    } else if (q.includes('chi tiêu nhiều nhất') || q.includes('tiêu nhiều nhất') || q.includes('khoản gì') || q.includes('nhiều nhất') || q.includes('cao nhất') || q.includes('lớn nhất')) {
+      pool = [
+        'Khoản chi đó chiếm bao nhiêu phần trăm tổng chi tiêu?',
+        'Làm sao để thiết lập ngân sách/hạn mức cho danh mục này?',
+        'Xem chi tiết các giao dịch trong danh mục đó',
+        'Tôi có thể cắt giảm chi tiêu danh mục này thế nào?',
+        'So sánh danh mục tiêu nhiều nhất tháng này với tháng trước',
+        'Liệt kê 5 giao dịch lớn nhất của danh mục này'
+      ];
+    } else if (q.includes('tháng này') || q.includes('tháng') || q.includes('month')) {
+      pool = [
+        'Dự báo chi tiêu tháng này có bị vượt ngân sách không?',
+        'So sánh chi tiêu tháng này với tháng trước',
+        'Lời khuyên cắt giảm chi tiêu tháng này là gì?',
+        'Tháng này tôi đã tiết kiệm được bao nhiêu tiền?',
+        'Vẽ biểu đồ xu hướng chi tiêu theo tháng',
+        'Thống kê thu nhập so với chi tiêu tháng này'
+      ];
+    } else if (q.includes('ngân sách') || q.includes('hạn mức') || q.includes('budget')) {
+      pool = [
+        'Những danh mục nào sắp chi vượt ngân sách?',
+        'Làm sao để điều chỉnh hạn mức ngân sách hợp lý hơn?',
+        'Đặt cảnh báo khi ngân sách đạt 80%',
+        'Xem báo cáo tình hình sử dụng ngân sách',
+        'Tôi có nên tăng ngân sách cho tháng sau không?',
+        'Danh sách các ngân sách tôi đã thiết lập'
+      ];
+    } else if (q.includes('tiết kiệm') || q.includes('heo đất') || q.includes('tích lũy') || q.includes('savings')) {
+      pool = [
+        'Tôi cần bao lâu nữa để hoàn thành mục tiêu tiết kiệm?',
+        'Gợi ý cách tiết kiệm tiền hiệu quả mỗi ngày',
+        'Làm sao để tăng số tiền tích lũy vào heo đất?',
+        'Xem lịch sử tích lũy heo đất gần đây',
+        'Heo đất nào của tôi đang có nhiều tiền nhất?',
+        'Làm sao để tạo một heo đất mới?'
+      ];
+    } else if (q.includes('ví') || q.includes('tài khoản') || q.includes('wallet') || q.includes('số dư')) {
+      pool = [
+        'Xem số dư thực tế của từng ví',
+        'Ví nào đang chi tiêu nhiều tiền nhất?',
+        'Xem lịch sử giao dịch gần đây của ví',
+        'Tôi có thể chuyển tiền từ ví này sang ví khác thế nào?',
+        'Ví nào nhận được nhiều thu nhập nhất?',
+        'Tổng số dư tất cả các ví là bao nhiêu?'
+      ];
+    } else if (q.includes('báo cáo') || q.includes('thống kê') || q.includes('biểu đồ') || q.includes('phân tích')) {
+      pool = [
+        'Xu hướng chi tiêu của tôi thay đổi thế nào?',
+        'Tôi chi tiêu nhiều vào ngày nào trong tuần?',
+        'Lời khuyên tối ưu hóa dòng tiền từ AI',
+        'Xem biểu đồ tròn phân bổ chi tiêu tháng này',
+        'Xu hướng thu chi trong 3 tháng qua'
+      ];
+    } else if (q.includes('thu nhập') || q.includes('lương') || q.includes('công việc') || q.includes('income')) {
+      pool = [
+        'Thành tích tích lũy tháng này có cao hơn không?',
+        'Xem chi tiết các nguồn thu nhập',
+        'Gợi ý phân bổ thu nhập theo quy tắc 50/30/20',
+        'Thu nhập tháng này của tôi thay đổi thế nào so với tháng trước?',
+        'Tôi nên phân bổ bao nhiêu lương vào tiết kiệm?'
+      ];
+    } else {
+      pool = [
+        'Tháng này tôi tiêu nhiều nhất khoản gì? ✨',
+        'Tóm tắt chi tiêu tuần này của tôi',
+        'Tôi có đang chi tiêu hợp lý không?',
+        'Liệt kê các giao dịch gần đây nhất',
+        'Tình hình ngân sách tháng này thế nào?',
+        'Heo đất nào sắp hoàn thành mục tiêu?'
+      ];
+    }
+
+    // Filter out items that are already asked/used
+    const available = pool.filter(item => !used.has(item.trim().toLowerCase()));
+    
+    // Dynamic shift based on history length to rotate questions deterministically
+    const shift = prevQuestions.length;
+    const shifted = available.length > 0 
+      ? [
+          ...available.slice(shift % available.length),
+          ...available.slice(0, shift % available.length)
+        ]
+      : [];
+
+    let result = shifted.slice(0, 3);
+    
+    // If not enough, top up using fallback general pool
+    if (result.length < 3) {
+      const fallbackPool = [
+        'Tháng này tôi tiêu nhiều nhất khoản gì? ✨',
+        'Tóm tắt chi tiêu tuần này của tôi',
+        'Tôi có đang chi tiêu hợp lý không?',
+        'Liệt kê các giao dịch gần đây nhất',
+        'Tình hình ngân sách tháng này thế nào?',
+        'Heo đất nào sắp hoàn thành mục tiêu?'
+      ];
+      const extra = fallbackPool.filter(item => 
+        !used.has(item.trim().toLowerCase()) && !result.includes(item)
+      );
+      result = [...result, ...extra].slice(0, 3);
+    }
+
+    return result;
+  };
+
   // Parse structured JSON response from Gemini
-  const parseMessageContent = (text: string) => {
+  const parseMessageContent = (text: string, userQuestion?: string, prevQuestions?: string[]) => {
     if (!text) return { answer: '', insight: null, suggestedQuestions: [] };
     
     // 1. Remove markdown formatting wrapper if Gemini wrapped JSON inside ```json ... ```
@@ -101,23 +229,30 @@ export default function AIChatPanel() {
     }
     cleaned = cleaned.trim();
 
+    let answer = text;
+    let insight = null;
+    let suggestedQuestions: string[] = [];
+
     try {
       const parsed = JSON.parse(cleaned);
       if (parsed.answer !== undefined) {
-        return {
-          answer: parsed.answer,
-          insight: parsed.insight || null,
-          suggestedQuestions: parsed.suggested_questions || []
-        };
+        answer = parsed.answer;
+        insight = parsed.insight || null;
+        suggestedQuestions = parsed.suggested_questions || [];
       }
     } catch (e) {
       // Not a valid JSON, handle as raw text
     }
 
+    // Generate client-side suggested questions if none returned by backend
+    if (suggestedQuestions.length === 0 && userQuestion) {
+      suggestedQuestions = getClientSuggestedQuestions(userQuestion, prevQuestions);
+    }
+
     return {
-      answer: text,
-      insight: null,
-      suggestedQuestions: []
+      answer,
+      insight,
+      suggestedQuestions
     };
   };
 
@@ -491,9 +626,22 @@ export default function AIChatPanel() {
                 </div>
               )}
 
-              {messages.map((msg) => {
+              {messages.map((msg, index) => {
                 const isUser = msg.role === 'user';
-                const parsed = parseMessageContent(msg.content);
+                let userQuestion = '';
+                let prevQuestionsList: string[] = [];
+                if (!isUser && index > 0) {
+                  const prevMsg = messages[index - 1];
+                  if (prevMsg && prevMsg.role === 'user') {
+                    userQuestion = prevMsg.content;
+                  }
+                  // Get all user questions asked up to this point in time
+                  prevQuestionsList = messages
+                    .slice(0, index)
+                    .filter(m => m.role === 'user')
+                    .map(m => m.content);
+                }
+                const parsed = parseMessageContent(msg.content, userQuestion, prevQuestionsList);
 
                 return (
                   <div 
@@ -546,42 +694,6 @@ export default function AIChatPanel() {
                         </div>
                       )}
 
-                      {/* Hiển thị các câu hỏi gợi ý ngay trong message bubble */}
-                      {parsed.suggestedQuestions && parsed.suggestedQuestions.length > 0 && (
-                        <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                          <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 600 }}>Gợi ý cho bạn:</span>
-                          {parsed.suggestedQuestions.map((q: string, qIdx: number) => (
-                            <button
-                              key={qIdx}
-                              onClick={() => handleChipClick(q)}
-                              disabled={isTyping}
-                              style={{
-                                width: '100%',
-                                padding: '6px 10px',
-                                borderRadius: '8px',
-                                background: 'rgba(255, 255, 255, 0.05)',
-                                border: '1px solid rgba(255, 255, 255, 0.1)',
-                                color: '#818CF8',
-                                fontSize: '12px',
-                                textAlign: 'left',
-                                cursor: 'pointer',
-                                transition: 'all 0.2s',
-                              }}
-                              onMouseOver={(e) => {
-                                e.currentTarget.style.background = 'rgba(99, 102, 241, 0.15)';
-                                e.currentTarget.style.color = '#fff';
-                              }}
-                              onMouseOut={(e) => {
-                                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
-                                e.currentTarget.style.color = '#818CF8';
-                              }}
-                            >
-                              {q}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
                       {/* Render Table database results if present */}
                       {msg.dbResults && msg.dbResults.length > 0 && (
                         <div style={{ marginTop: '14px', overflowX: 'auto', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '10px' }}>
@@ -616,6 +728,42 @@ export default function AIChatPanel() {
                               ...và {msg.dbResults.length - 5} dòng dữ liệu khác
                             </div>
                           )}
+                        </div>
+                      )}
+
+                      {/* Hiển thị các câu hỏi gợi ý ngay trong message bubble ở dưới cùng */}
+                      {parsed.suggestedQuestions && parsed.suggestedQuestions.length > 0 && (
+                        <div style={{ marginTop: '16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                          <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 600 }}>Gợi ý cho bạn:</span>
+                          {parsed.suggestedQuestions.map((q: string, qIdx: number) => (
+                            <button
+                              key={qIdx}
+                              onClick={() => handleChipClick(q)}
+                              disabled={isTyping}
+                              style={{
+                                width: '100%',
+                                padding: '6px 10px',
+                                borderRadius: '8px',
+                                background: 'rgba(255, 255, 255, 0.05)',
+                                border: '1px solid rgba(255, 255, 255, 0.1)',
+                                color: '#818CF8',
+                                fontSize: '12px',
+                                textAlign: 'left',
+                                cursor: 'pointer',
+                                transition: 'all 0.2s',
+                              }}
+                              onMouseOver={(e) => {
+                                e.currentTarget.style.background = 'rgba(99, 102, 241, 0.15)';
+                                e.currentTarget.style.color = '#fff';
+                              }}
+                              onMouseOut={(e) => {
+                                e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                                e.currentTarget.style.color = '#818CF8';
+                              }}
+                            >
+                              {q}
+                            </button>
+                          ))}
                         </div>
                       )}
                     </div>

@@ -63,8 +63,19 @@ const getHeoLabel = (percent: number) => {
 };
 
 const Confetti: React.FC = () => {
-  const pieces = Array.from({ length: 50 });
-  const colors = ['#f43f5e', '#3b82f6', '#10b981', '#eab308', '#a855f7', '#ff7849'];
+  const colors = React.useMemo(() => ['#f43f5e', '#3b82f6', '#10b981', '#eab308', '#a855f7', '#ff7849'], []);
+  
+  const pieces = React.useMemo(() => {
+    return Array.from({ length: 50 }).map(() => ({
+      left: Math.random() * 100,
+      delay: Math.random() * 3,
+      duration: 2 + Math.random() * 3,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      shape: Math.random() > 0.5 ? '50%' : '0%',
+      width: 5 + Math.random() * 10,
+      height: 5 + Math.random() * 10,
+    }));
+  }, [colors]);
 
   return (
     <>
@@ -82,36 +93,26 @@ const Confetti: React.FC = () => {
         .confetti-piece {
           position: fixed;
           top: -20px;
-          width: 10px;
-          height: 10px;
           z-index: 9999;
           pointer-events: none;
           animation: fall 3s linear infinite;
         }
       `}</style>
-      {pieces.map((_, idx) => {
-        const left = Math.random() * 100;
-        const delay = Math.random() * 3;
-        const duration = 2 + Math.random() * 3;
-        const color = colors[Math.floor(Math.random() * colors.length)];
-        const shape = Math.random() > 0.5 ? '50%' : '0%';
-
-        return (
-          <div
-            key={idx}
-            className="confetti-piece"
-            style={{
-              left: `${left}%`,
-              animationDelay: `${delay}s`,
-              animationDuration: `${duration}s`,
-              backgroundColor: color,
-              borderRadius: shape,
-              width: `${5 + Math.random() * 10}px`,
-              height: `${5 + Math.random() * 10}px`,
-            }}
-          />
-        );
-      })}
+      {pieces.map((p, idx) => (
+        <div
+          key={idx}
+          className="confetti-piece"
+          style={{
+            left: `${p.left}%`,
+            animationDelay: `${p.delay}s`,
+            animationDuration: `${p.duration}s`,
+            backgroundColor: p.color,
+            borderRadius: p.shape,
+            width: `${p.width}px`,
+            height: `${p.height}px`,
+          }}
+        />
+      ))}
     </>
   );
 };
@@ -141,18 +142,32 @@ export default function SavingsGoalDetailPage() {
 
   // Fetch goal details
   const fetchGoalDetails = async () => {
-    setIsLoading(true);
+    const cacheKey = `cached_savings_goal_${id}`;
+    const cached = localStorage.getItem(cacheKey);
+    if (cached && !goal) {
+      try {
+        setGoal(JSON.parse(cached));
+        setIsLoading(false);
+      } catch (e) {}
+    } else if (!goal) {
+      setIsLoading(true);
+    }
     try {
       const response = await savingsApi.getById(id);
       if (response.status === 'success') {
         setGoal(response.data);
+        localStorage.setItem(cacheKey, JSON.stringify(response.data));
         setErrorMsg('');
       } else {
-        setErrorMsg(response.message || 'Không thể lấy thông tin mục tiêu.');
+        if (!cached) {
+          setErrorMsg(response.message || 'Không thể lấy thông tin mục tiêu.');
+        }
       }
     } catch (err: any) {
       console.error(err);
-      setErrorMsg(err.message || 'Lỗi khi kết nối với máy chủ.');
+      if (!cached) {
+        setErrorMsg(err.message || 'Lỗi khi kết nối với máy chủ.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -170,12 +185,16 @@ export default function SavingsGoalDetailPage() {
   // Set default wallet inside modal when modal opens
   useEffect(() => {
     if (modalType && goal) {
-      setSourceWalletId(goal.source_wallet_id || (wallets.length > 0 ? wallets[0].id : ''));
+      const nonCashWallets = wallets.filter(w => !w.is_hidden && w.type !== 'cash');
+      const matchedWallet = nonCashWallets.find(w => w.id === goal.source_wallet_id);
+      const defaultWId = matchedWallet ? matchedWallet.id : (nonCashWallets.length > 0 ? nonCashWallets[0].id : '');
+
+      setSourceWalletId(defaultWId);
       setNotes(modalType === 'deposit' ? `Tích lũy heo đất: ${goal.name}` : `Rút tiền heo đất: ${goal.name}`);
       setAmount('');
       setModalError('');
     }
-  }, [modalType, goal]);
+  }, [modalType, goal, wallets]);
 
   // Format money helper
   const formatVND = (val: string | number) => {
@@ -229,6 +248,12 @@ export default function SavingsGoalDetailPage() {
       return;
     }
 
+    const selectedW = wallets.find(w => w.id === sourceWalletId);
+    if (selectedW && selectedW.type === 'cash') {
+      setModalError('Ví tiết kiệm không hỗ trợ thực hiện bằng tiền mặt!');
+      return;
+    }
+
     // Balance check for deposit
     if (modalType === 'deposit') {
       const sourceW = wallets.find(w => w.id === sourceWalletId);
@@ -265,6 +290,7 @@ export default function SavingsGoalDetailPage() {
 
       if (res.status === 'success') {
         setGoal(res.data);
+        localStorage.setItem(`cached_savings_goal_${id}`, JSON.stringify(res.data));
         setModalType(null);
         fetchWallets(); // refresh wallet balances
       } else {
@@ -292,6 +318,8 @@ export default function SavingsGoalDetailPage() {
       try {
         const res = await savingsApi.delete(id);
         if (res.status === 'success') {
+          localStorage.removeItem(`cached_savings_goal_${id}`);
+          localStorage.removeItem(`challenge_days_${id}`);
           router.push('/wallets?tab=savings');
         } else {
           alert(res.message || 'Xóa mục tiêu thất bại.');
@@ -352,74 +380,7 @@ export default function SavingsGoalDetailPage() {
     return "💡 Mẹo tài chính: Hãy bật tính năng tích lũy tiền lẻ (Round-up) khi ghi chép chi tiêu để heo đất của bạn tự động được nuôi lớn mỗi ngày!";
   };
 
-  // Forecast and plan logic
-  const getForecastDetails = () => {
-    if (!goal) return null;
-    
-    const remaining = tarAmt - curAmt;
-    
-    if (remaining <= 0) {
-      return {
-        status: 'completed',
-        text: 'Chúc mừng! Bạn đã hoàn thành xuất sắc mục tiêu này! Heo đất đã được nuôi lớn hoàn hảo. 🏆'
-      };
-    }
-    
-    // Calculate days active based on created_at
-    const createdDate = new Date(goal.created_at || new Date());
-    const today = new Date();
-    const daysActive = Math.max(1, Math.ceil((today.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24)));
-    const averageSavedPerDay = curAmt / daysActive;
-    
-    let deadlineText = '';
-    let alertText = '';
-    let suggestionText = '';
-    
-    if (goal.target_date) {
-      const deadlineDate = new Date(goal.target_date);
-      const daysLeft = Math.ceil((deadlineDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-      
-      if (daysLeft <= 0) {
-        deadlineText = 'Mục tiêu của bạn đã quá hạn định.';
-        suggestionText = `Cần tích lũy thêm ${formatVND(remaining)} nữa để hoàn thành mục tiêu.`;
-      } else {
-        const requiredDaily = remaining / daysLeft;
-        deadlineText = `Còn ${daysLeft} ngày để đạt mục tiêu trước thời hạn (${formatDate(goal.target_date)}).`;
-        
-        if (averageSavedPerDay > 0) {
-          if (averageSavedPerDay < requiredDaily) {
-            alertText = `⚠️ Cảnh báo tiến độ: Với tốc độ hiện tại (${formatVND(averageSavedPerDay)}/ngày), bạn sẽ chỉ tích lũy thêm được ${formatVND(averageSavedPerDay * daysLeft)} trước thời hạn, thiếu hụt ${formatVND(remaining - (averageSavedPerDay * daysLeft))}.`;
-            suggestionText = `💡 Đề xuất: Hãy tăng số tiền tích lũy lên tối thiểu ${formatVND(requiredDaily)}/ngày (hoặc khoảng ${formatVND(requiredDaily * 7)}/tuần) để kịp về đích đúng hẹn!`;
-          } else {
-            const estDaysToComplete = remaining / averageSavedPerDay;
-            alertText = `⚡ Tuyệt vời! Bạn đang tích lũy với tốc độ tốt (${formatVND(averageSavedPerDay)}/ngày).`;
-            suggestionText = `🔮 Dự báo: Bạn sẽ hoàn thành mục tiêu sau khoảng ${Math.ceil(estDaysToComplete)} ngày nữa, sớm hơn thời hạn dự kiến khoảng ${Math.floor(daysLeft - estDaysToComplete)} ngày!`;
-          }
-        } else {
-          suggestionText = `💡 Bạn cần tích lũy tối thiểu ${formatVND(requiredDaily)}/ngày (khoảng ${formatVND(requiredDaily * 30)}/tháng) để hoàn thành mục tiêu đúng hạn.`;
-        }
-      }
-    } else {
-      // No target date set
-      if (averageSavedPerDay > 0) {
-        const estDaysToComplete = remaining / averageSavedPerDay;
-        const estFinishDate = new Date();
-        estFinishDate.setDate(today.getDate() + estDaysToComplete);
-        
-        deadlineText = `Tốc độ tích lũy thực tế: ${formatVND(averageSavedPerDay)}/ngày.`;
-        suggestionText = `🔮 Dự báo: Bạn dự kiến sẽ hoàn thành mục tiêu sau khoảng ${Math.ceil(estDaysToComplete)} ngày nữa (ngày ${formatDate(estFinishDate.toISOString())}).`;
-      } else {
-        suggestionText = `💡 Bạn chưa bắt đầu tích lũy. Thử lên kế hoạch nhỏ: trích ${formatVND(remaining / 30)}/ngày để hoàn thành sau 1 tháng, hoặc ${formatVND(remaining / 90)}/ngày để hoàn thành sau 3 tháng.`;
-      }
-    }
-    
-    return {
-      status: averageSavedPerDay > 0 ? 'active' : 'idle',
-      deadlineText,
-      alertText,
-      suggestionText: `${suggestionText}\n\n${getSmartTip(goal.name)}`
-    };
-  };
+
 
   // 30-Day Savings Challenge execution logic
   const handleToggleDay = async (dayNumber: number) => {
@@ -432,12 +393,20 @@ export default function SavingsGoalDetailPage() {
       return;
     }
 
+    const nonCashWallets = wallets.filter(w => !w.is_hidden && w.type !== 'cash');
+    const targetWallet = nonCashWallets.find(w => w.id === goal.source_wallet_id) || nonCashWallets[0];
+
+    if (!targetWallet) {
+      alert("Bạn cần có ít nhất một ví tài khoản ngân hàng hoặc ví điện tử (không phải ví tiền mặt) để thực hiện thử thách.");
+      return;
+    }
+
     if (confirm(`Bạn có đồng ý nạp ${formatVND(dayAmount)} từ Ví nguồn để hoàn thành nhiệm vụ Ngày ${dayNumber} không?`)) {
       setIsSubmittingTx(true);
       try {
         const res = await savingsApi.deposit(id, {
           amount: dayAmount,
-          source_wallet_id: goal.source_wallet_id || (wallets.length > 0 ? wallets[0].id : ''),
+          source_wallet_id: targetWallet.id,
           notes: `Nhiệm vụ Thử thách tích lũy: Ngày ${dayNumber}`
         });
 
@@ -446,6 +415,7 @@ export default function SavingsGoalDetailPage() {
           setCheckedDays(newDays);
           localStorage.setItem(`challenge_days_${goal.id}`, JSON.stringify(newDays));
           setGoal(res.data);
+          localStorage.setItem(`cached_savings_goal_${id}`, JSON.stringify(res.data));
           fetchWallets(); // Refresh wallet balances
           
           if (newDays.length === 30) {
@@ -533,7 +503,74 @@ export default function SavingsGoalDetailPage() {
     );
   };
 
-  const forecast = getForecastDetails();
+  // Forecast and plan logic
+  const forecast = React.useMemo(() => {
+    if (!goal) return null;
+    
+    const remaining = tarAmt - curAmt;
+    
+    if (remaining <= 0) {
+      return {
+        status: 'completed',
+        text: 'Chúc mừng! Bạn đã hoàn thành xuất sắc mục tiêu này! Heo đất đã được nuôi lớn hoàn hảo. 🏆'
+      };
+    }
+    
+    // Calculate days active based on created_at
+    const createdDate = new Date(goal.created_at || new Date());
+    const today = new Date();
+    const daysActive = Math.max(1, Math.ceil((today.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24)));
+    const averageSavedPerDay = curAmt / daysActive;
+    
+    let deadlineText = '';
+    let alertText = '';
+    let suggestionText = '';
+    
+    if (goal.target_date) {
+      const deadlineDate = new Date(goal.target_date);
+      const daysLeft = Math.ceil((deadlineDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (daysLeft <= 0) {
+        deadlineText = 'Mục tiêu của bạn đã quá hạn định.';
+        suggestionText = `Cần tích lũy thêm ${formatVND(remaining)} nữa để hoàn thành mục tiêu.`;
+      } else {
+        const requiredDaily = remaining / daysLeft;
+        deadlineText = `Còn ${daysLeft} ngày để đạt mục tiêu trước thời hạn (${formatDate(goal.target_date)}).`;
+        
+        if (averageSavedPerDay > 0) {
+          if (averageSavedPerDay < requiredDaily) {
+            alertText = `⚠️ Cảnh báo tiến độ: Với tốc độ hiện tại (${formatVND(averageSavedPerDay)}/ngày), bạn sẽ chỉ tích lũy thêm được ${formatVND(averageSavedPerDay * daysLeft)} trước thời hạn, thiếu hụt ${formatVND(remaining - (averageSavedPerDay * daysLeft))}.`;
+            suggestionText = `💡 Đề xuất: Hãy tăng số tiền tích lũy lên tối thiểu ${formatVND(requiredDaily)}/ngày (hoặc khoảng ${formatVND(requiredDaily * 7)}/tuần) để kịp về đích đúng hẹn!`;
+          } else {
+            const estDaysToComplete = remaining / averageSavedPerDay;
+            alertText = `⚡ Tuyệt vời! Bạn đang tích lũy với tốc độ tốt (${formatVND(averageSavedPerDay)}/ngày).`;
+            suggestionText = `🔮 Dự báo: Bạn sẽ hoàn thành mục tiêu sau khoảng ${Math.ceil(estDaysToComplete)} ngày nữa, sớm hơn thời hạn dự kiến khoảng ${Math.floor(daysLeft - estDaysToComplete)} ngày!`;
+          }
+        } else {
+          suggestionText = `💡 Bạn cần tích lũy tối thiểu ${formatVND(requiredDaily)}/ngày (khoảng ${formatVND(requiredDaily * 30)}/tháng) để hoàn thành mục tiêu đúng hạn.`;
+        }
+      }
+    } else {
+      // No target date set
+      if (averageSavedPerDay > 0) {
+        const estDaysToComplete = remaining / averageSavedPerDay;
+        const estFinishDate = new Date();
+        estFinishDate.setDate(today.getDate() + estDaysToComplete);
+        
+        deadlineText = `Tốc độ tích lũy thực tế: ${formatVND(averageSavedPerDay)}/ngày.`;
+        suggestionText = `🔮 Dự báo: Bạn dự kiến sẽ hoàn thành mục tiêu sau khoảng ${Math.ceil(estDaysToComplete)} ngày nữa (ngày ${formatDate(estFinishDate.toISOString())}).`;
+      } else {
+        suggestionText = `💡 Bạn chưa bắt đầu tích lũy. Thử lên kế hoạch nhỏ: trích ${formatVND(remaining / 30)}/ngày để hoàn thành sau 1 tháng, hoặc ${formatVND(remaining / 90)}/ngày để hoàn thành sau 3 tháng.`;
+      }
+    }
+    
+    return {
+      status: averageSavedPerDay > 0 ? 'active' : 'idle',
+      deadlineText,
+      alertText,
+      suggestionText: `${suggestionText}\n\n${getSmartTip(goal.name)}`
+    };
+  }, [goal, curAmt, tarAmt]);
 
   return (
     <div className="dashboard-container savings-main">
@@ -771,7 +808,7 @@ export default function SavingsGoalDetailPage() {
                   >
                     <option value="">Chọn tài khoản ví</option>
                     {wallets
-                      .filter(w => !w.is_hidden)
+                      .filter(w => !w.is_hidden && w.type !== 'cash')
                       .map(w => (
                         <option key={w.id} value={w.id}>
                           {w.name} ({formatVND(w.available_balance || 0)})
