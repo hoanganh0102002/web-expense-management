@@ -916,8 +916,18 @@ export default function Reports() {
     // Category Totals calculation (ignore internal transfers)
     const categoryTotals: Record<string, any> = {};
     let totalVal = 0;
-    const expenseFallbackColors = ['#FE5C73', '#FBBF24', '#A78BFA', '#F472B6', '#FB923C', '#E83E8C'];
-    const incomeFallbackColors = ['#10B981', '#38BDF8', '#34D399', '#2DD4BF', '#4ADE80', '#60A5FA'];
+    const expenseFallbackColors = [
+      '#FE5C73', '#FBBF24', '#A78BFA', '#F472B6', '#FB923C', '#E83E8C',
+      '#EF4444', '#F97316', '#F59E0B', '#84CC16', '#10B981', '#14B8A6',
+      '#06B6D4', '#3B82F6', '#6366F1', '#8B5CF6', '#D946EF', '#F43F5E',
+      '#9F1239', '#C2410C', '#B45309', '#4D7C0F', '#047857', '#0F766E'
+    ];
+    const incomeFallbackColors = [
+      '#10B981', '#38BDF8', '#34D399', '#2DD4BF', '#4ADE80', '#60A5FA',
+      '#059669', '#0284C7', '#0D9488', '#16A34A', '#2563EB', '#4F46E5',
+      '#7C3AED', '#C026D3', '#DB2777', '#E11D48', '#EA580C', '#D97706',
+      '#65A30D', '#0891B2', '#0284C7', '#4338CA', '#5B21B6', '#9D174D'
+    ];
     const fallbackColors = reportType === 'expense' ? expenseFallbackColors : incomeFallbackColors;
     let colorIdx = 0;
     
@@ -960,16 +970,26 @@ export default function Reports() {
       categoryTotals[catId].amount += amount;
     });
 
-    const topList = Object.values(categoryTotals)
+    const sortedCategories = Object.values(categoryTotals)
       .map((cat: any) => ({ ...cat, percentage: totalVal > 0 ? (cat.amount / totalVal) * 100 : 0 }))
       .sort((a: any, b: any) => b.amount - a.amount);
+      
+    const topList = sortedCategories.map((cat: any, idx: number) => ({
+      ...cat,
+      color: fallbackColors[idx % fallbackColors.length]
+    }));
       
     setTopCategories(topList);
 
     // Compute Spending Allocation by Wallet (ignore internal transfers)
     const walletTotals: Record<string, any> = {};
     let totalWalletVal = 0;
-    const walletColors = ['#1814F3', '#10B981', '#FE5C73', '#FBBF24', '#A78BFA', '#F472B6', '#FB923C'];
+    const walletColors = [
+      '#1814F3', '#10B981', '#FE5C73', '#FBBF24', '#A78BFA', '#F472B6', '#FB923C',
+      '#3B82F6', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316', '#6366F1', '#84CC16',
+      '#06B6D4', '#EAB308', '#D946EF', '#22C55E', '#F43F5E', '#0EA5E9', '#059669',
+      '#64748B', '#EF4444', '#34D399', '#FCD34D', '#C084FC', '#FDA4AF', '#FDBA74'
+    ];
     let wColorIdx = 0;
 
     transactions.forEach((tx: any) => {
@@ -992,9 +1012,14 @@ export default function Reports() {
       walletTotals[walletId].amount += amount;
     });
 
-    const topWalletsList = Object.values(walletTotals)
+    const sortedWallets = Object.values(walletTotals)
       .map((w: any) => ({ ...w, percentage: totalWalletVal > 0 ? (w.amount / totalWalletVal) * 100 : 0 }))
       .sort((a: any, b: any) => b.amount - a.amount);
+      
+    const topWalletsList = sortedWallets.map((w: any, idx: number) => ({
+      ...w,
+      color: walletColors[idx % walletColors.length]
+    }));
       
     setTopWallets(topWalletsList);
     
