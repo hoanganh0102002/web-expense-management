@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Sidebar from '../components/Sidebar';
 import { useAppContext } from '../context/AppContext';
 import { useLanguage } from '../lib/translations';
@@ -70,6 +71,7 @@ const renderNotificationIcon = (type: 'danger' | 'warning' | 'info' | 'reminder'
 
 
 export default function Notifications() {
+  const router = useRouter();
   const { isLoggedIn, userData, setHasUnreadNotifications, setUnreadNotificationsCount } = useAppContext();
   const { t } = useLanguage();
   const [notificationsList, setNotificationsList] = useState<any[]>(() => {
@@ -166,6 +168,29 @@ export default function Notifications() {
       }
     }
   };
+
+  const handleNotificationClick = (n: any, e: React.MouseEvent) => {
+    // Prevent redirect if clicking on action buttons
+    const target = e.target as HTMLElement;
+    if (target.closest('button')) {
+      return;
+    }
+
+    // Mark as read automatically if unread
+    if (n.read_at === null) {
+      handleMarkAsRead(n.id);
+    }
+
+    // Redirect based on type
+    if (n.type?.includes('BudgetWarningNotification') || n.title?.toLowerCase().includes('ngân sách') || n.title?.toLowerCase().includes('budget')) {
+      router.push('/budget');
+    } else if (n.type?.includes('RecurringTransaction') || n.title?.toLowerCase().includes('định kỳ') || n.title?.toLowerCase().includes('giao dịch mới') || n.title?.toLowerCase().includes('giao dịch')) {
+      router.push('/transactions');
+    } else {
+      router.push('/transactions'); // Default fallback
+    }
+  };
+
   const typeStyles: Record<string, { color: string, bg: string, glow: string, border: string }> = {
     danger: { color: '#FE5C73', bg: '#FFE0EB', glow: 'rgba(254, 92, 115, 0.15)', border: 'rgba(254, 92, 115, 0.3)' },
     warning: { color: '#FF9800', bg: '#FFF5D9', glow: 'rgba(255, 152, 0, 0.15)', border: 'rgba(255, 152, 0, 0.3)' },
@@ -268,6 +293,7 @@ export default function Notifications() {
                 '--notif-bg-color': styles.bg,
                 '--notif-glow-shadow': styles.glow,
                 '--notif-color-border': styles.border,
+                cursor: 'pointer'
               } as React.CSSProperties;
 
               return (
@@ -275,6 +301,7 @@ export default function Notifications() {
                   key={n.id} 
                   className={`notification-item ${isRead ? 'read' : 'unread'} notifications-fade-in`}
                   style={customStyle}
+                  onClick={(e) => handleNotificationClick(n, e)}
                 >
                   <div className="notif-icon-circle">
                     {renderNotificationIcon(type)}

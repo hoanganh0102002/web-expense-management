@@ -653,6 +653,14 @@ export default function Budget() {
   const overallBudget = budgetsWithRealtimeUsage.find(b => b.category_id === null);
   const categoryBudgets = budgetsWithRealtimeUsage.filter(b => b.category_id !== null);
 
+  const fallbackColors = [
+    '#FE5C73', '#FBBF24', '#A78BFA', '#F472B6', '#FB923C', '#E83E8C',
+    '#EF4444', '#F97316', '#F59E0B', '#84CC16', '#10B981', '#14B8A6',
+    '#06B6D4', '#3B82F6', '#6366F1', '#8B5CF6', '#D946EF', '#F43F5E',
+    '#9F1239', '#C2410C', '#B45309', '#4D7C0F', '#047857', '#0F766E'
+  ];
+
+
   const totalLimit = overallBudget 
     ? parseFloat(overallBudget.limit_amount) 
     : categoryBudgets.reduce((sum, b) => sum + parseFloat(b.limit_amount), 0);
@@ -1019,10 +1027,10 @@ export default function Budget() {
                 <h3 style={{ color: 'var(--text-main)', fontSize: '16px', fontWeight: '700', marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px', marginTop: 0 }}>
                   <span>📊</span> {t('spending_structure_by_category')}
                 </h3>
-                <BudgetDoughnutChart data={categoryBudgets.map(b => ({
+                <BudgetDoughnutChart data={categoryBudgets.map((b, i) => ({
                   name: tCategory(b.category?.name) || t('other_category'),
                   value: Math.abs(parseFloat(b.used_amount)),
-                  color: b.category?.color || '#FF6384',
+                  color: fallbackColors[i % fallbackColors.length],
                   icon: parseIcon(b.category?.icon || 'grid')
                 }))} />
               </div>
@@ -1117,7 +1125,7 @@ export default function Budget() {
                 const pct = limit > 0 ? Math.round(used/limit*100) : 0;
                 const catName = tCategory(b.category?.name) || t('other_category');
                 const catIcon = parseIcon(b.category?.icon || 'grid');
-                const catColor = b.category?.color || '#FF6384';
+                const catColor = fallbackColors[i % fallbackColors.length];
                 
                 const prevB = prevBudgetsList.find(pb => pb.category_id === b.category_id);
                 const prevUsed = prevB ? Math.abs(parseFloat(prevB.used_amount)) : 0;

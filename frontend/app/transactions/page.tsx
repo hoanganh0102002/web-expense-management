@@ -649,6 +649,10 @@ export default function Transactions() {
   const [isLoadingTransfers, setIsLoadingTransfers] = useState(false);
 
   const [recurringTransactions, setRecurringTransactions] = useState<any[]>([]);
+  const [recurringHistoryList, setRecurringHistoryList] = useState<any[]>([]);
+  const [hasLoadedHistory, setHasLoadedHistory] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [tabCaches, setTabCaches] = useState<Record<string, any[]>>({});
   const [isLoadingRecurring, setIsLoadingRecurring] = useState(false);
   const [isEditRecurringModalOpen, setIsEditRecurringModalOpen] = useState(false);
   const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
@@ -731,9 +735,7 @@ export default function Transactions() {
     };
 
     // Apply clean text search
-    if (activeTab === 'recurring_history') {
-      params.per_page = 500; // Lấy nhiều để filter client-side
-    } else if (parsed.cleanSearch) {
+    if (parsed.cleanSearch) {
       params.search = parsed.cleanSearch;
     } else if (debouncedSearch && Object.keys(parsed).length === 0) {
       params.search = debouncedSearch;
@@ -764,6 +766,15 @@ export default function Transactions() {
       if (paginatedData) {
         setNextCursor(paginatedData.next_cursor || null);
         setPrevCursor(paginatedData.prev_cursor || null);
+
+        // Save to cache securely matching the actual fetched data for this tab
+        const hasNoExtraFilters = !debouncedSearch && !startDate && !endDate && !selectedWallet && !selectedCategory && !minAmount && !maxAmount;
+        if (hasNoExtraFilters && !cursorVal && ['all', 'income', 'expense'].includes(activeTab)) {
+          setTabCaches(prev => ({
+            ...prev,
+            [activeTab]: paginatedData.data || paginatedData || []
+          }));
+        }
       }
     } catch (err) {
       console.error("Lỗi khi tải giao dịch:", err);
@@ -772,7 +783,7 @@ export default function Transactions() {
 
   // Trigger transaction reload whenever filters or page cursor changes
   useEffect(() => {
-    if (isLoggedIn && activeTab !== 'transfer' && activeTab !== 'recurring') {
+    if (isLoggedIn && activeTab !== 'transfer' && activeTab !== 'recurring' && activeTab !== 'recurring_history') {
       loadFilteredTransactions(currentCursor);
     }
   }, [
@@ -787,6 +798,7 @@ export default function Transactions() {
     maxAmount,
     sortBy,
     sortOrder,
+    currentCursor
   ]);
 
   // Load saving goals for round-up feature
@@ -808,10 +820,43 @@ export default function Transactions() {
     }
   }, [isLoggedIn]);
 
-  // Fetch transfers when transfer tab is active
+  // Background prefetching for secondary tabs to make them instantaneous
+  useEffect(() => {
+    if (isLoggedIn) {
+      // Prefetch transfers
+      if (internalTransfers.length === 0) {
+        apiFetch('/wallets/transfers')
+          .then(res => setInternalTransfers(res.data || []))
+          .catch(err => console.error('Error prefetching transfers', err));
+      }
+      
+      // Prefetch recurring
+      if (recurringTransactions.length === 0) {
+        apiFetch('/recurring-rules')
+          .then(res => {
+            const data = res.data ? res.data : (Array.isArray(res) ? res : []);
+            setRecurringTransactions(data);
+          })
+          .catch(err => console.error('Error prefetching recurring rules', err));
+      }
+
+      // Prefetch recurring history
+      if (!hasLoadedHistory) {
+        transactionApi.getAll({ per_page: 500 })
+          .then(res => {
+            const data = res.data?.data || res.data || [];
+            setRecurringHistoryList(data.filter((tx: any) => tx.source_type === 'recurring'));
+            setHasLoadedHistory(true);
+          })
+          .catch(err => console.error('Error prefetching recurring history', err));
+      }
+    }
+  }, [isLoggedIn]);
+
+  // Fetch transfers when transfer tab is active (fallback if prefetch hasn't finished)
   useEffect(() => {
     if (activeTab === 'transfer') {
-      setIsLoadingTransfers(true);
+      if (internalTransfers.length === 0) setIsLoadingTransfers(true);
       apiFetch('/wallets/transfers')
         .then(res => setInternalTransfers(res.data || []))
         .catch(err => console.error('Error fetching transfers', err))
@@ -822,7 +867,7 @@ export default function Transactions() {
   // Fetch recurring when recurring tab is active
   useEffect(() => {
     if (activeTab === 'recurring') {
-      setIsLoadingRecurring(true);
+      if (recurringTransactions.length === 0) setIsLoadingRecurring(true);
       apiFetch('/recurring-rules')
         .then(res => {
           const data = res.data ? res.data : (Array.isArray(res) ? res : []);
@@ -832,6 +877,21 @@ export default function Transactions() {
         .finally(() => setIsLoadingRecurring(false));
     }
   }, [activeTab]);
+
+  // Fetch recurring history once
+  useEffect(() => {
+    if (activeTab === 'recurring_history' && !hasLoadedHistory) {
+      setIsLoadingHistory(true);
+      transactionApi.getAll({ per_page: 500 })
+        .then(res => {
+          const data = res.data?.data || res.data || [];
+          setRecurringHistoryList(data.filter((tx: any) => tx.source_type === 'recurring'));
+          setHasLoadedHistory(true);
+        })
+        .catch(err => console.error('Error fetching recurring history', err))
+        .finally(() => setIsLoadingHistory(false));
+    }
+  }, [activeTab, hasLoadedHistory]);
 
   // Client-side filtering and sorting for internal transfers
   const filteredTransfers = useMemo(() => {
@@ -1265,8 +1325,21 @@ export default function Transactions() {
   };
 
   let filtered = transactions;
+  const hasNoExtraFilters = !debouncedSearch && !startDate && !endDate && !selectedWallet && !selectedCategory && !minAmount && !maxAmount;
+
   if (activeTab === 'recurring_history') {
-    filtered = filtered.filter((tx: any) => tx.source_type === 'recurring');
+    filtered = recurringHistoryList;
+    if (debouncedSearch) {
+      filtered = filtered.filter((tx: any) => tx.title.toLowerCase().includes(debouncedSearch.toLowerCase()));
+    }
+  } else if (hasNoExtraFilters && !currentCursor && ['all', 'income', 'expense'].includes(activeTab)) {
+    if (tabCaches[activeTab] && tabCaches[activeTab].length > 0) {
+      filtered = tabCaches[activeTab];
+    } else {
+      // Fallback: client-side filter to prevent wrong list flash while API loads
+      if (activeTab === 'income') filtered = transactions.filter((t: any) => t.type === 'income');
+      if (activeTab === 'expense') filtered = transactions.filter((t: any) => t.type === 'expense');
+    }
   }
 
   return (
