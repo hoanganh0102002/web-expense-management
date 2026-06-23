@@ -338,9 +338,18 @@ export const reportApi = {
 
 // --- AI APIs ---
 export const aiApi = {
-  chat: (prompt: string) => apiFetch('/ai-chat', {
+  chat: (prompt: string, conversationId?: string | null) => apiFetch('/ai-chat', {
     method: 'POST',
-    body: JSON.stringify({ prompt })
+    body: JSON.stringify({ prompt, conversation_id: conversationId || undefined })
+  }),
+  getConversations: () => apiFetch('/ai-conversations'),
+  getMessages: (id: string) => apiFetch(`/ai-conversations/${id}/messages`),
+  updateConversation: (id: string, title: string) => apiFetch(`/ai-conversations/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify({ title })
+  }),
+  deleteConversation: (id: string) => apiFetch(`/ai-conversations/${id}`, {
+    method: 'DELETE'
   })
 };
 
