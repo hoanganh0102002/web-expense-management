@@ -6,7 +6,7 @@ import { useLanguage } from '../lib/translations';
 import { useAIChat } from '../context/AIChatContext';
 
 export default function Sidebar({ activeItem }: { activeItem: string }) {
-  const { isLoggedIn, logout } = useAppContext();
+  const { isLoggedIn, logout, hasUnreadNotifications } = useAppContext();
   const { t } = useLanguage();
   const router = useRouter();
   const { isOpen, setIsOpen } = useAIChat();
@@ -135,8 +135,21 @@ export default function Sidebar({ activeItem }: { activeItem: string }) {
             return (
               <Link key={item.key} href={item.href} style={{ textDecoration: 'none', color: 'inherit' }} onClick={() => setIsMobileOpen(false)}>
                 <li className={`menu-item ${activeItem === item.key ? 'active' : ''}`}>
-                  <span className="menu-icon">
+                  <span className="menu-icon" style={{ position: 'relative' }}>
                     <svg viewBox="0 0 24 24" fill="currentColor"><path d={item.icon} /></svg>
+                    {item.key === 'notifications' && hasUnreadNotifications && (
+                      <span style={{
+                        position: 'absolute',
+                        top: '-2px',
+                        right: '-2px',
+                        width: '10px',
+                        height: '10px',
+                        backgroundColor: '#FE5C73',
+                        borderRadius: '50%',
+                        border: '2px solid var(--card-bg)',
+                        boxShadow: '0 0 0 1px var(--card-bg)'
+                      }}></span>
+                    )}
                   </span>
                   <span className="menu-label">{item.label}</span>
                 </li>

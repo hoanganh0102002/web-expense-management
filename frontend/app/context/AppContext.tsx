@@ -37,6 +37,9 @@ type AppContextType = {
   hasUnreadNotifications: boolean;
   unreadNotificationsCount: number;
   fetchUnreadNotificationsCount: () => Promise<void>;
+  setHasUnreadNotifications: (val: boolean) => void;
+  setUnreadNotificationsCount: (val: number) => void;
+  createSystemNotification: (title: string, content: string, type?: string) => void;
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -56,15 +59,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Warm up notification state from cache if available
   useEffect(() => {
     if (typeof window !== 'undefined') {
+      let combined = [];
+      const localCached = localStorage.getItem('local_notifications');
+      if (localCached) {
+        try { combined.push(...JSON.parse(localCached)); } catch (e) {}
+      }
       const cachedNotifs = localStorage.getItem('cached_notifications');
       if (cachedNotifs) {
-        try {
-          const parsed = JSON.parse(cachedNotifs);
-          const unreadList = parsed.filter((n: any) => n.read_at === null);
-          setUnreadNotificationsCount(unreadList.length);
-          setHasUnreadNotifications(unreadList.length > 0);
-        } catch (e) {}
+        try { combined.push(...JSON.parse(cachedNotifs)); } catch (e) {}
       }
+      
+      const unreadList = combined.filter((n: any) => n.read_at === null);
+      setUnreadNotificationsCount(unreadList.length);
+      setHasUnreadNotifications(unreadList.length > 0);
     }
   }, []);
 
@@ -73,11 +80,39 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await notificationApi.getAll();
       const list = Array.isArray(res.data) ? res.data : (res.data?.data || []);
-      const unreadList = list.filter((n: any) => n.read_at === null);
+      
+      let localNotifs: any[] = [];
+      try { localNotifs = JSON.parse(localStorage.getItem('local_notifications') || '[]'); } catch (e) {}
+      
+      const allNotifs = [...localNotifs, ...list];
+      const unreadList = allNotifs.filter((n: any) => n.read_at === null);
+      
       setUnreadNotificationsCount(unreadList.length);
       setHasUnreadNotifications(unreadList.length > 0);
       localStorage.setItem('cached_notifications', JSON.stringify(list));
     } catch (e) {}
+  };
+
+  const createSystemNotification = (title: string, content: string, type: string = 'info') => {
+    const newNotif = {
+      id: 'local_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+      title,
+      content,
+      type: type === 'warning' ? 'App\\Notifications\\BudgetWarningNotification' : 'App\\Notifications\\SystemNotification',
+      read_at: null,
+      created_at: new Date().toISOString(),
+      metadata: {}
+    };
+    
+    let localNotifs: any[] = [];
+    if (typeof window !== 'undefined') {
+      try { localNotifs = JSON.parse(localStorage.getItem('local_notifications') || '[]'); } catch (e) {}
+      localNotifs.unshift(newNotif);
+      localStorage.setItem('local_notifications', JSON.stringify(localNotifs));
+    }
+    
+    setUnreadNotificationsCount(prev => prev + 1);
+    setHasUnreadNotifications(true);
   };
 
   useEffect(() => {
@@ -188,7 +223,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await transactionApi.create(formData);
     await Promise.all([
       fetchTransactions(),
-      fetchWallets()
+      fetchWallets(),
+      fetchUnreadNotificationsCount()
     ]);
   };
 
@@ -196,7 +232,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await transactionApi.delete(id);
     await Promise.all([
       fetchTransactions(),
-      fetchWallets()
+      fetchWallets(),
+      fetchUnreadNotificationsCount()
     ]);
   };
 
@@ -362,7 +399,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       transactions, isLoadingTransactions, fetchTransactions, createTransaction, deleteTransaction,
       wallets, isLoadingWallets, fetchWallets, createWallet, updateWallet, deleteWallet,
       categories, isLoadingCategories, fetchCategories, createCategory, updateCategory, deleteCategory,
-      hasUnreadNotifications, unreadNotificationsCount, fetchUnreadNotificationsCount
+      hasUnreadNotifications, unreadNotificationsCount, fetchUnreadNotificationsCount,
+      setHasUnreadNotifications, setUnreadNotificationsCount, createSystemNotification
     }}>
       {children}
     </AppContext.Provider>
