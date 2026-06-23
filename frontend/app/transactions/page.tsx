@@ -314,6 +314,10 @@ export default function Transactions() {
   const [editingTx, setEditingTx] = useState<any>(null);
   const [editingRecurringTx, setEditingRecurringTx] = useState<any>(null);
   const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
+  
+  // States for internal transfer detail
+  const [isTransferDetailModalOpen, setIsTransferDetailModalOpen] = useState(false);
+  const [viewingTransferTx, setViewingTransferTx] = useState<any>(null);
 
   const getLocalDateTime = () => {
     const now = new Date();
@@ -527,6 +531,8 @@ export default function Transactions() {
       });
     }
   }, [isEditCashWallet]);
+
+
   const [isPayeeModalOpen, setIsPayeeModalOpen] = useState(false);
   const [payeeSearchTerm, setPayeeSearchTerm] = useState('');
   const [isSearchingSystem, setIsSearchingSystem] = useState(false);
@@ -801,6 +807,63 @@ export default function Transactions() {
     currentCursor
   ]);
 
+  // Auto-open transaction detail from notification link
+  useEffect(() => {
+    if (typeof window !== 'undefined' && isLoggedIn && transactions.length > 0) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const txId = urlParams.get('txId');
+      const autoOpenTitle = urlParams.get('autoOpenTitle');
+      
+      if (!txId && !autoOpenTitle) return;
+
+      const openModalForTx = (tx: any) => {
+         if (tx.from_wallet_id && tx.to_wallet_id) {
+             setViewingTransferTx(tx);
+             setIsTransferDetailModalOpen(true);
+         } else {
+             setViewingTx(tx);
+             setIsDetailModalOpen(true);
+         }
+         window.history.replaceState(null, '', window.location.pathname);
+      };
+
+      if (autoOpenTitle) {
+         // Tối ưu: Tìm ngay trong bộ nhớ (cực nhanh)
+         const tx = transactions.find((t: any) => (t.title || '').toLowerCase().includes(autoOpenTitle.toLowerCase()));
+         if (tx) {
+             openModalForTx(tx);
+         } else {
+             // Dự phòng: gọi API nếu giao dịch nằm ở trang sau
+             transactionApi.getAll({ per_page: 50 }).then(res => {
+                 const data = res.data?.data || res.data || [];
+                 const apiTx = data.find((t: any) => (t.title || '').toLowerCase().includes(autoOpenTitle.toLowerCase()));
+                 if (apiTx) openModalForTx(apiTx);
+                 else window.history.replaceState(null, '', window.location.pathname);
+             }).catch(console.error);
+         }
+      } else if (txId) {
+         // Tối ưu: Tìm ngay trong bộ nhớ
+         const tx = transactions.find((t: any) => String(t.id) === txId);
+         if (tx) {
+             openModalForTx(tx);
+         } else {
+             apiFetch(`/transactions/${txId}`).then(res => {
+                 const apiTx = res.data || res;
+                 if (apiTx && apiTx.id) openModalForTx(apiTx);
+                 else window.history.replaceState(null, '', window.location.pathname);
+             }).catch(err => {
+                 transactionApi.getAll({ per_page: 50 }).then(res => {
+                     const data = res.data?.data || res.data || [];
+                     const fallbackTx = data.find((t: any) => String(t.id) === txId);
+                     if (fallbackTx) openModalForTx(fallbackTx);
+                     else window.history.replaceState(null, '', window.location.pathname);
+                 }).catch(console.error);
+             });
+         }
+      }
+    }
+  }, [isLoggedIn, transactions]);
+
   // Load saving goals for round-up feature
   useEffect(() => {
     if (isLoggedIn) {
@@ -849,6 +912,27 @@ export default function Transactions() {
             setHasLoadedHistory(true);
           })
           .catch(err => console.error('Error prefetching recurring history', err));
+      }
+
+      // Prefetch payees globally to resolve names when nested payee object is missing
+      if (payees.length === 0) {
+        apiFetch('/payees')
+          .then(res => {
+            let rawArray = Array.isArray(res) ? res : (res?.data && Array.isArray(res.data) ? res.data : (res?.data?.data && Array.isArray(res.data.data) ? res.data.data : []));
+            let payeesArray = rawArray.map((item: any) => {
+              if (typeof item === 'string' || typeof item === 'number') {
+                return { id: String(item), payee_name: String(item), identifier: 'ID' };
+              }
+              return {
+                ...item,
+                id: String(item.id || item.user_id || Math.random()),
+                payee_name: String(item.payee_name || item.name || item.full_name || item.id || item.user_id || 'Không xác định'),
+                identifier: String(item.identifier || item.email || item.phone || '')
+              };
+            });
+            setPayees(payeesArray);
+          })
+          .catch(err => console.error('Error prefetching payees', err));
       }
     }
   }, [isLoggedIn]);
@@ -1011,7 +1095,7 @@ export default function Transactions() {
     const isCashWallet = selectedWallet?.type === 'cash';
 
     if (newTx.is_recurring && isCashWallet) {
-      alert('Không được phép chọn ví Tiền mặt để thanh toán. Vui lòng chọn ví khác!');
+      alert('Không thể dùng ví tiền mặt cho giao dịch định kỳ');
       return;
     }
 
@@ -1185,6 +1269,7 @@ export default function Transactions() {
       });
       setIsModalOpen(false);
       setCurrentCursor(null);
+      setHasLoadedHistory(false);
       loadFilteredTransactions(null);
     } catch (error: any) {
       alert(error.message || 'Lỗi khi thêm giao dịch');
@@ -1197,6 +1282,7 @@ export default function Transactions() {
     if (window.confirm(t('confirm_delete_tx') || 'Bạn có chắc chắn muốn xóa giao dịch này?')) {
       try {
         await deleteTransaction(id);
+        setHasLoadedHistory(false);
         loadFilteredTransactions(currentCursor);
         fetchUnreadNotificationsCount();
       } catch (error: any) {
@@ -1260,13 +1346,42 @@ export default function Transactions() {
       await transactionApi.update(editingTx.id, formData);
 
       setIsEditModalOpen(false);
-      setActiveTab('all');
+      
+      if (activeTab === 'recurring_history') {
+        if (payees.length === 0) {
+          try {
+            const res = await apiFetch('/payees');
+            let rawArray = Array.isArray(res) ? res : (res?.data && Array.isArray(res.data) ? res.data : (res?.data?.data && Array.isArray(res.data.data) ? res.data.data : []));
+            let payeesArray = rawArray.map((item: any) => ({
+              ...item,
+              id: String(item.id || item.user_id || Math.random()),
+              payee_name: String(item.payee_name || item.name || item.full_name || item.id || item.user_id || 'Không xác định'),
+              identifier: String(item.identifier || item.email || item.phone || '')
+            }));
+            setPayees(payeesArray);
+          } catch (e) {
+            console.error(e);
+          }
+        }
+        
+        const res = await transactionApi.getAll({ per_page: 500 });
+        const data = res.data?.data || res.data || [];
+        setRecurringHistoryList(data.filter((tx: any) => tx.source_type === 'recurring'));
+        setHasLoadedHistory(true);
+      } else {
+        setHasLoadedHistory(false);
+        setActiveTab('all');
+      }
+
       await Promise.all([
         loadFilteredTransactions(currentCursor),
         fetchWallets(),
         fetchUnreadNotificationsCount()
       ]);
-      alert('Cập nhật giao dịch thành công!');
+      
+      setTimeout(() => {
+        alert('Cập nhật giao dịch thành công!');
+      }, 100);
     } catch (error: any) {
       alert(error.message || 'Lỗi khi cập nhật giao dịch');
     } finally {
@@ -1739,6 +1854,7 @@ export default function Transactions() {
                       <th style={{ fontWeight: '600' }}>Đến ví</th>
                       <th style={{ fontWeight: '600' }}>{t('date_label')}</th>
                       <th style={{ fontWeight: '600' }}>{t('amount_label')}</th>
+                      <th style={{ fontWeight: '600' }}>{t('actions') || 'Thao tác'}</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1802,11 +1918,35 @@ export default function Transactions() {
                           <td style={{ color: 'var(--text-main)', fontWeight: '700', fontSize: '14px' }}>
                             {formatCurrency(tx.amount || 0)}
                           </td>
+                          <td>
+                            <button
+                              onClick={() => {
+                                setViewingTransferTx(tx);
+                                setIsTransferDetailModalOpen(true);
+                              }}
+                              style={{
+                                padding: '6px 12px',
+                                borderRadius: '10px',
+                                background: '#F0F5FF',
+                                color: '#1814F3',
+                                border: 'none',
+                                cursor: 'pointer',
+                                fontSize: '12px',
+                                fontWeight: '700',
+                                transition: 'all 0.2s ease',
+                                outline: 'none'
+                              }}
+                              onMouseOver={(e) => e.currentTarget.style.boxShadow = '0 2px 8px rgba(24, 20, 243, 0.1)'}
+                              onMouseOut={(e) => e.currentTarget.style.boxShadow = 'none'}
+                            >
+                              Chi tiết
+                            </button>
+                          </td>
                         </tr>
                       );
                     }) : (
                       <tr>
-                        <td colSpan={5} style={{ padding: '40px', textAlign: 'center', color: '#718EBF' }}>Chưa có chuyển tiền nội bộ nào</td>
+                        <td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: '#718EBF' }}>Chưa có chuyển tiền nội bộ nào</td>
                       </tr>
                     )}
                   </tbody>
@@ -2039,6 +2179,9 @@ export default function Transactions() {
                     <tr>
                       <th style={{ fontWeight: '600' }}>Tên giao dịch</th>
                       <th style={{ fontWeight: '600' }}>{t('description')}</th>
+                      {activeTab === 'recurring_history' && (
+                        <th style={{ fontWeight: '600' }}>Người hưởng thụ</th>
+                      )}
                       <th style={{ fontWeight: '600' }}>{t('categories')}</th>
                       <th style={{ fontWeight: '600' }}>{t('date_label')}</th>
                       <th style={{ fontWeight: '600' }}>{t('amount_label')}</th>
@@ -2050,6 +2193,30 @@ export default function Transactions() {
                       const isHovered = hoveredRowId === tx.id;
                       const categoryColor = tx.category?.color || '#718EBF';
                       const categoryIcon = parseIcon(tx.category?.icon) || '📁';
+                      
+                      // Helper to aggressively resolve payee name
+                      const getPayeeName = () => {
+                        if (tx.payee?.payee_name || tx.payee?.name) return tx.payee.payee_name || tx.payee.name;
+                        if (tx.payee_id && payees.length > 0) {
+                          const p = payees.find((p: any) => p.id === String(tx.payee_id) || p.id === tx.payee_id);
+                          if (p) return p.payee_name || p.name;
+                        }
+                        if (tx.source_type === 'recurring' && recurringTransactions.length > 0) {
+                          const ruleId = tx.recurring_rule_id || tx.rule_id;
+                          if (ruleId) {
+                            const rule = recurringTransactions.find((r: any) => r.id === ruleId || r.id === String(ruleId));
+                            if (rule) {
+                              if (rule.payee?.payee_name || rule.payee?.name) return rule.payee.payee_name || rule.payee.name;
+                              if (rule.payee_id) {
+                                const p = payees.find((p: any) => p.id === String(rule.payee_id) || p.id === rule.payee_id);
+                                if (p) return p.payee_name || p.name;
+                              }
+                            }
+                          }
+                        }
+                        return null;
+                      };
+                      const resolvedPayeeName = getPayeeName();
 
                       return (
                         <tr
@@ -2088,24 +2255,40 @@ export default function Transactions() {
                           </td>
                           <td style={{ minWidth: '150px' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                              {tx.payee && (
+                              {activeTab !== 'recurring_history' && resolvedPayeeName && (
                                 <div style={{ fontSize: '13px', color: 'var(--text-main)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
                                   <span style={{ fontSize: '14px' }}>👤</span>
                                   <span>
                                     {tx.type === 'income' ? 'Người trả' : 'Người hưởng thụ'}:{' '}
-                                    <strong>{tx.payee.payee_name || tx.payee.name}</strong>
+                                    <strong>{resolvedPayeeName}</strong>
                                   </span>
                                 </div>
                               )}
                               {parseNotesAndTitle(tx.title, tx.notes, tx.payee).displayNotes ? (
-                                <div style={{ fontSize: '12px', color: '#718EBF', fontStyle: 'italic', marginTop: tx.payee ? '2px' : '0' }}>
+                                <div style={{ fontSize: '12px', color: '#718EBF', fontStyle: 'italic', marginTop: (activeTab !== 'recurring_history' && resolvedPayeeName) ? '2px' : '0' }}>
                                   {parseNotesAndTitle(tx.title, tx.notes, tx.payee).displayNotes}
                                 </div>
                               ) : (
-                                !tx.payee && <span style={{ color: 'var(--text-light)', fontSize: '13px' }}>-</span>
+                                ((activeTab !== 'recurring_history' && !resolvedPayeeName) || (activeTab === 'recurring_history')) && <span style={{ color: 'var(--text-light)', fontSize: '13px' }}>-</span>
                               )}
                             </div>
                           </td>
+                          {activeTab === 'recurring_history' && (
+                            <td style={{ minWidth: '150px' }}>
+                              {resolvedPayeeName ? (
+                                <div style={{ fontSize: '13px', color: 'var(--text-main)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <span style={{ fontSize: '14px' }}>👤</span>
+                                  <span>
+                                    <strong>{resolvedPayeeName}</strong>
+                                  </span>
+                                </div>
+                              ) : (
+                                <span style={{ color: 'var(--text-light)', fontSize: '13px', fontWeight: '500' }}>
+                                  {tx.payee_id ? `(ID: ${tx.payee_id})` : '-'}
+                                </span>
+                              )}
+                            </td>
+                          )}
                           <td>
                             {tx.category?.name ? (
                               <span style={{
@@ -2398,7 +2581,14 @@ export default function Transactions() {
                   type="checkbox"
                   id="is_recurring"
                   checked={newTx.is_recurring}
-                  onChange={e => setNewTx({ ...newTx, is_recurring: e.target.checked })}
+                  onChange={e => {
+                    const isChecked = e.target.checked;
+                    setNewTx({ 
+                      ...newTx, 
+                      is_recurring: isChecked,
+                      type: (isChecked && newTx.type === 'income') ? 'expense' : newTx.type 
+                    });
+                  }}
                   style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#1814F3' }}
                 />
                 <label htmlFor="is_recurring" style={{ color: 'var(--text-main)', fontSize: '15px', fontWeight: '500', cursor: 'pointer' }}>
@@ -2445,13 +2635,13 @@ export default function Transactions() {
                 <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>{t('type')} *</label>
                 <select value={newTx.type} onChange={e => setNewTx({ ...newTx, type: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}>
                   <option value="expense">{t('spending')}</option>
-                  <option value="income">{t('income')}</option>
+                  {!newTx.is_recurring && <option value="income">{t('income')}</option>}
                 </select>
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>{t('wallets')} *</label>
                 <select value={newTx.wallet_id} onChange={e => setNewTx({ ...newTx, wallet_id: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}>
-                  {wallets.filter(w => !newTx.is_recurring || w.type !== 'cash').map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
+                  {wallets.map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                 </select>
               </div>
               <div>
@@ -2506,7 +2696,9 @@ export default function Transactions() {
 
             {!isCashWallet && (
               <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Người hưởng thụ / Người trả *</label>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>
+                  Người hưởng thụ / Người trả *
+                </label>
                 <div
                   onClick={() => {
                     setTargetModalForPayee('new');
@@ -2717,7 +2909,6 @@ export default function Transactions() {
                 <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Loại *</label>
                 <select value={editingRecurringTx.type} onChange={e => setEditingRecurringTx({ ...editingRecurringTx, type: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}>
                   <option value="expense">Chi tiêu</option>
-                  <option value="income">Thu nhập</option>
                 </select>
               </div>
               <div>
@@ -2799,6 +2990,62 @@ export default function Transactions() {
         </div>
       )}
       {/* RULE DETAIL MODAL */}
+      {isTransferDetailModalOpen && viewingTransferTx && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }} onClick={() => setIsTransferDetailModalOpen(false)}>
+          <div style={{ background: 'var(--card-bg)', backdropFilter: 'blur(30px)', WebkitBackdropFilter: 'blur(30px)', width: '100%', maxWidth: '450px', borderRadius: '24px', padding: '30px', boxShadow: '0 20px 40px rgba(0,0,0,0.5)', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
+              <h2 style={{ margin: 0, fontSize: '22px', color: 'var(--text-main)', fontWeight: '700' }}>Chi tiết chuyển tiền</h2>
+              <button onClick={() => setIsTransferDetailModalOpen(false)} style={{ background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#718EBF' }}>&times;</button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', color: 'var(--text-main)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                <span style={{ color: '#718EBF', fontWeight: '500' }}>Loại giao dịch</span>
+                <span style={{ fontWeight: '600' }}>🔄 Chuyển tiền nội bộ</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                <span style={{ color: '#718EBF', fontWeight: '500' }}>Từ ví</span>
+                <span style={{ fontWeight: '600' }}>{viewingTransferTx.from_wallet_name}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                <span style={{ color: '#718EBF', fontWeight: '500' }}>Đến ví</span>
+                <span style={{ fontWeight: '600' }}>{viewingTransferTx.to_wallet_name}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                <span style={{ color: '#718EBF', fontWeight: '500' }}>Số tiền chuyển</span>
+                <span style={{ fontWeight: '700', fontSize: '16px', color: '#1814F3' }}>
+                  {formatCurrency(viewingTransferTx.amount || 0)}
+                </span>
+              </div>
+              {(viewingTransferTx.fee || viewingTransferTx.fee_amount) && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                  <span style={{ color: '#718EBF', fontWeight: '500' }}>Phí giao dịch</span>
+                  <span style={{ fontWeight: '600', color: '#FE5C73' }}>
+                    -{formatCurrency(viewingTransferTx.fee || viewingTransferTx.fee_amount || 0)}
+                  </span>
+                </div>
+              )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                <span style={{ color: '#718EBF', fontWeight: '500' }}>Ngày thực hiện</span>
+                <span style={{ fontWeight: '600' }}>{new Date(viewingTransferTx.date || viewingTransferTx.created_at).toLocaleString('vi-VN')}</span>
+              </div>
+              {(viewingTransferTx.notes || viewingTransferTx.description) && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                  <span style={{ color: '#718EBF', fontWeight: '500' }}>Ghi chú / Mô tả</span>
+                  <div style={{ padding: '12px', background: 'var(--bg-color)', borderRadius: '12px', fontSize: '14px', fontStyle: 'italic' }}>
+                    {viewingTransferTx.notes || viewingTransferTx.description}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div style={{ marginTop: '30px', display: 'flex', justifyContent: 'center' }}>
+              <button style={{ padding: '12px 30px', background: '#1814F3', color: '#fff', borderRadius: '12px', border: 'none', cursor: 'pointer', fontWeight: '600', fontSize: '15px', transition: 'background 0.2s' }} onClick={() => setIsTransferDetailModalOpen(false)}>Đóng</button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {isRuleDetailModalOpen && viewingRuleTx && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '20px' }} onClick={() => setIsRuleDetailModalOpen(false)}>
           <div style={{ background: 'var(--card-bg)', backdropFilter: 'blur(30px)', WebkitBackdropFilter: 'blur(30px)', width: '100%', maxWidth: '500px', borderRadius: '24px', padding: '30px', boxShadow: '0 20px 40px rgba(0,0,0,0.5)', maxHeight: '90vh', overflowY: 'auto' }} onClick={e => e.stopPropagation()}>
