@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Sidebar from '../components/Sidebar';
 import { useAppContext } from '../context/AppContext';
 import { useLanguage } from '../lib/translations';
-import { apiFetch, budgetApi, transactionApi, savingsApi } from '../lib/api';
+import { apiFetch, budgetApi, transactionApi } from '../lib/api';
 import CategoryPicker from '../components/CategoryPicker';
 
 const urlToFile = async (url: string, filename: string): Promise<File | null> => {
@@ -299,11 +299,7 @@ export default function Transactions() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // States for Round-up Savings
-  const [savingsGoals, setSavingsGoals] = useState<any[]>([]);
-  const [roundUpEnabled, setRoundUpEnabled] = useState(false);
-  const [selectedGoalId, setSelectedGoalId] = useState('');
-  const [roundUpUnit, setRoundUpUnit] = useState(10000); // 10000, 50000, 100000
+
 
 
 
@@ -864,24 +860,7 @@ export default function Transactions() {
     }
   }, [isLoggedIn, transactions]);
 
-  // Load saving goals for round-up feature
-  useEffect(() => {
-    if (isLoggedIn) {
-      savingsApi.getAll()
-        .then(res => {
-          if (res.status === 'success') {
-            const goals = res.data || [];
-            setSavingsGoals(goals);
-            // Default select the first active goal if any
-            const activeGoals = goals.filter((g: any) => Number(g.current_amount) < Number(g.target_amount));
-            if (activeGoals.length > 0) {
-              setSelectedGoalId(activeGoals[0].id);
-            }
-          }
-        })
-        .catch(err => console.error("Lỗi khi lấy danh sách mục tiêu tích lũy:", err));
-    }
-  }, [isLoggedIn]);
+
 
   // Background prefetching for secondary tabs to make them instantaneous
   useEffect(() => {
@@ -1127,33 +1106,13 @@ export default function Transactions() {
 
       await transactionApi.create(formData);
 
-      // Round-up integration
-      if (roundUpEnabled && newTx.type === 'expense' && selectedGoalId) {
-        const amt = Number(newTx.amount);
-        const rounded = Math.ceil(amt / roundUpUnit) * roundUpUnit;
-        const diff = rounded === amt ? 0 : rounded - amt;
-        
-        if (diff > 0) {
-          try {
-            await savingsApi.deposit(selectedGoalId, {
-              amount: diff,
-              source_wallet_id: newTx.wallet_id,
-              notes: `Trích tích lũy lẻ (Round-up) từ giao dịch chi tiêu: ${newTx.title}`
-            });
-            console.log(`Trích tích lũy lẻ thành công: +${diff}đ vào mục tiêu ${selectedGoalId}`);
-            alert(`Giao dịch chi tiêu được tạo thành công! Đồng thời đã tự động trích lẻ ${new Intl.NumberFormat('vi-VN').format(diff)}đ tích lũy vào heo đất.`);
-          } catch (e) {
-            console.error("Lỗi khi trích tích lũy lẻ (Round-up):", e);
-          }
-        }
-      }
+
 
       // Đóng modal và reset trạng thái ngay lập tức khi tạo thành công!
       setIsModalOpen(false);
       
       setActiveTab('all');
       setCurrentCursor(null);
-      setRoundUpEnabled(false);
       setNewTx({
         title: '',
         amount: '',
@@ -2724,66 +2683,7 @@ export default function Transactions() {
               </div>
             )}
 
-            {newTx.type === 'expense' && savingsGoals.length > 0 && (
-              <div style={{ marginBottom: '15px', background: 'rgba(99, 102, 241, 0.05)', padding: '16px', borderRadius: '16px', border: '1px dashed #6366F1' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                  <input
-                    type="checkbox"
-                    id="roundup_active"
-                    checked={roundUpEnabled}
-                    onChange={e => setRoundUpEnabled(e.target.checked)}
-                    style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#6366F1' }}
-                  />
-                  <label htmlFor="roundup_active" style={{ color: 'var(--text-main)', fontSize: '15px', fontWeight: '700', cursor: 'pointer' }}>
-                    Tích lũy tiền lẻ (Round-up) 🐷
-                  </label>
-                </div>
-                
-                {roundUpEnabled && (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: '12px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                      <div>
-                        <label style={{ display: 'block', marginBottom: '6px', color: '#718EBF', fontSize: '13px', fontWeight: '600' }}>Nuôi heo đất nào *</label>
-                        <select
-                          value={selectedGoalId}
-                          onChange={e => setSelectedGoalId(e.target.value)}
-                          style={{ width: '100%', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '10px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '14px' }}
-                        >
-                          {savingsGoals
-                            .filter(g => Number(g.current_amount) < Number(g.target_amount))
-                            .map(g => (
-                              <option key={g.id} value={g.id}>{g.name}</option>
-                            ))
-                          }
-                        </select>
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', marginBottom: '6px', color: '#718EBF', fontSize: '13px', fontWeight: '600' }}>Làm tròn đến *</label>
-                        <select
-                          value={roundUpUnit}
-                          onChange={e => setRoundUpUnit(Number(e.target.value))}
-                          style={{ width: '100%', padding: '10px', border: '1px solid var(--border-color)', borderRadius: '10px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '14px' }}
-                        >
-                          <option value={10000}>Làm tròn đến 10k</option>
-                          <option value={50000}>Làm tròn đến 50k</option>
-                          <option value={100000}>Làm tròn đến 100k</option>
-                        </select>
-                      </div>
-                    </div>
-                    {newTx.amount && Number(newTx.amount) > 0 && (() => {
-                      const amt = Number(newTx.amount);
-                      const rounded = Math.ceil(amt / roundUpUnit) * roundUpUnit;
-                      const diff = rounded === amt ? 0 : rounded - amt;
-                      return (
-                        <div style={{ fontSize: '13px', color: '#6366F1', fontWeight: '600' }}>
-                          Số tiền thực chi: {formatCurrency(amt)} + Tích lũy lẻ: {formatCurrency(diff)} (Tổng ví nguồn trích: {formatCurrency(amt + diff)})
-                        </div>
-                      );
-                    })()}
-                  </div>
-                )}
-              </div>
-            )}
+
 
             <div style={{ marginBottom: '15px' }}>
               <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>{t('notes')}</label>

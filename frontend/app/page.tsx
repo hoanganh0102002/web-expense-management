@@ -145,7 +145,11 @@ export default function Dashboard() {
         const txList = res.data?.data || res.data || [];
         const filtered = txList.filter((tx: any) => {
           if (tx.type !== 'expense') return false;
-          const txCatId = tx.category_id || 'other';
+          if (tx.source_type === 'transfer' && !tx.category_id) return false;
+          const txCatId = tx.category_id;
+          if (!txCatId) {
+            return catIds.includes('other') || catIds.includes('uncategorized');
+          }
           return catIds.includes(txCatId);
         });
         setModalTransactions(filtered);
@@ -460,8 +464,8 @@ export default function Dashboard() {
             const amt = Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0));
             const type = tx.type;
 
-            // Categories grouping (only for expense)
-            if (type === 'expense' && amt > 0) {
+            // Categories grouping (only for expense, exclude internal transfers)
+            if (type === 'expense' && amt > 0 && !(tx.source_type === 'transfer' && !tx.category_id)) {
               const catId = tx.category_id || 'other';
               const fullCat = categoriesMap[catId];
               
@@ -491,7 +495,7 @@ export default function Dashboard() {
 
             // Trends grouping (daily & monthly)
             const dateStr = tx.transaction_date ? tx.transaction_date.substring(0, 10) : '';
-            if (dateStr) {
+            if (dateStr && !(tx.source_type === 'transfer' && !tx.category_id)) {
               const localDate = getLocalDateString(tx.transaction_date);
               const localMonth = getLocalMonthString(tx.transaction_date);
 
@@ -1283,7 +1287,7 @@ export default function Dashboard() {
                                 width: '100%',
                                 transition: 'color 0.2s ease'
                               }}>
-                                {activeData ? activeData.category_name : t('spending')}
+                                {activeData ? (activeData.category_name === 'uncategorized' ? 'Chưa phân loại' : activeData.category_name) : t('spending')}
                               </span>
                               <span style={{ 
                                 fontSize: '13px', 
@@ -1375,7 +1379,7 @@ export default function Dashboard() {
                                         whiteSpace: 'nowrap',
                                         flex: 1
                                       }}>
-                                        {cat.category_name}
+                                        {cat.category_name === 'uncategorized' ? 'Chưa phân loại' : cat.category_name}
                                       </span>
                                     </div>
                                     {/* Right side: Amount & Chevron */}
@@ -1875,7 +1879,7 @@ export default function Dashboard() {
                               whiteSpace: 'nowrap',
                               flex: 1
                             }}>
-                              {cat.category_name}
+                              {cat.category_name === 'uncategorized' ? 'Chưa phân loại' : cat.category_name}
                             </span>
                             <span style={{
                               fontSize: '12px',
@@ -2229,7 +2233,7 @@ export default function Dashboard() {
                     {parseIcon(transactionModalCategory.category_icon) || '📁'}
                   </div>
                   <div className="dashboard-modal-category-details">
-                    <h4>{transactionModalCategory.category_name}</h4>
+                    <h4>{transactionModalCategory.category_name === 'uncategorized' ? 'Chưa phân loại' : transactionModalCategory.category_name}</h4>
                     <span>{modalTransactions.length} giao dịch</span>
                   </div>
                 </div>

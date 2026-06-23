@@ -213,11 +213,21 @@ export default function Wallets() {
   const [savingsError, setSavingsError] = useState('');
 
   const fetchSavingsGoals = async () => {
-    setIsLoadingSavings(true);
+    const cached = localStorage.getItem('cached_savings_goals');
+    if (cached && savingsGoals.length === 0) {
+      try {
+        setSavingsGoals(JSON.parse(cached));
+      } catch (e) {}
+    }
+
+    setIsLoadingSavings(savingsGoals.length === 0 && !cached);
     try {
       const response = await savingsApi.getAll();
       if (response.status === 'success') {
-        setSavingsGoals(response.data || []);
+        const data = response.data || [];
+        setSavingsGoals(data);
+        localStorage.setItem('cached_savings_goals', JSON.stringify(data));
+        setSavingsError('');
       } else {
         setSavingsError(response.message || 'Lỗi tải mục tiêu tiết kiệm');
       }
@@ -635,39 +645,21 @@ export default function Wallets() {
         <nav className="navbar wallets-navbar">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <h1 className="page-title wallets-title" style={{ margin: 0 }}>{t('wallets_and_accounts')}</h1>
+            <span style={{ color: 'var(--text-light)', opacity: 0.6 }}>•</span>
             <button 
               onClick={() => setShowWalletBalance(!showWalletBalance)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#718EBF', display: 'flex', alignItems: 'center', padding: '5px' }}
               title={showWalletBalance ? "Ẩn số tiền" : "Hiện số tiền"}
             >
               {showWalletBalance ? (
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
                   <circle cx="12" cy="12" r="3"></circle>
                 </svg>
               ) : (
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
                   <line x1="1" y1="1" x2="23" y2="23"></line>
-                </svg>
-              )}
-            </button>
-            <button 
-              onClick={() => setShowHiddenWallets(!showHiddenWallets)}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: showHiddenWallets ? '#1814F3' : '#718EBF', display: 'flex', alignItems: 'center', padding: '5px' }}
-              title={showHiddenWallets ? "Ẩn các ví đã ẩn" : "Hiển thị các ví đã ẩn"}
-            >
-              {showHiddenWallets ? (
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-              ) : (
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9.88 9.88a3 3 0 1 0 4.24 4.24" />
-                  <path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68" />
-                  <path d="M6.61 6.61A13.52 13.52 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61" />
-                  <line x1="2" y1="2" x2="22" y2="22" />
                 </svg>
               )}
             </button>
@@ -747,39 +739,78 @@ export default function Wallets() {
         </nav>
         <div className="content-area wallets-container">
           {/* Tab Selector */}
-          <div className="wallets-tabs" style={{ display: 'flex', gap: '8px', borderBottom: '1px solid var(--border-color)', marginBottom: '24px' }}>
-            <button 
-              onClick={() => setActiveTab('wallets')} 
-              style={{ 
-                padding: '12px 24px', 
-                fontWeight: '700', 
-                fontSize: '16px', 
-                cursor: 'pointer',
-                color: activeTab === 'wallets' ? '#1814F3' : 'var(--text-light)', 
-                borderBottom: activeTab === 'wallets' ? '3px solid #1814F3' : '3px solid transparent',
-                transition: 'all 0.2s',
-                background: 'none',
-                borderTop: 'none', borderLeft: 'none', borderRight: 'none'
-              }}
-            >
-              {t('wallets') || 'Ví của tôi'}
-            </button>
-            <button 
-              onClick={() => setActiveTab('savings')} 
-              style={{ 
-                padding: '12px 24px', 
-                fontWeight: '700', 
-                fontSize: '16px', 
-                cursor: 'pointer',
-                color: activeTab === 'savings' ? '#1814F3' : 'var(--text-light)', 
-                borderBottom: activeTab === 'savings' ? '3px solid #1814F3' : '3px solid transparent',
-                transition: 'all 0.2s',
-                background: 'none',
-                borderTop: 'none', borderLeft: 'none', borderRight: 'none'
-              }}
-            >
-              Ví tiết kiệm (Heo đất)
-            </button>
+          <div className="wallets-tabs" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button 
+                onClick={() => setActiveTab('wallets')} 
+                style={{ 
+                  padding: '12px 24px', 
+                  fontWeight: '700', 
+                  fontSize: '16px', 
+                  cursor: 'pointer',
+                  color: activeTab === 'wallets' ? '#1814F3' : 'var(--text-light)', 
+                  borderBottom: activeTab === 'wallets' ? '3px solid #1814F3' : '3px solid transparent',
+                  transition: 'all 0.2s',
+                  background: 'none',
+                  borderTop: 'none', borderLeft: 'none', borderRight: 'none'
+                }}
+              >
+                {t('wallets') || 'Ví của tôi'}
+              </button>
+              <button 
+                onClick={() => setActiveTab('savings')} 
+                style={{ 
+                  padding: '12px 24px', 
+                  fontWeight: '700', 
+                  fontSize: '16px', 
+                  cursor: 'pointer',
+                  color: activeTab === 'savings' ? '#1814F3' : 'var(--text-light)', 
+                  borderBottom: activeTab === 'savings' ? '3px solid #1814F3' : '3px solid transparent',
+                  transition: 'all 0.2s',
+                  background: 'none',
+                  borderTop: 'none', borderLeft: 'none', borderRight: 'none'
+                }}
+              >
+                Ví tiết kiệm (Heo đất)
+              </button>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
+              {/* Toggle Hidden Wallets (Only show if activeTab === 'wallets') */}
+              {activeTab === 'wallets' && (
+                <button
+                  onClick={() => setShowHiddenWallets(!showHiddenWallets)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '6px 12px',
+                    borderRadius: '20px',
+                    border: '1px solid var(--border-color)',
+                    background: showHiddenWallets ? 'rgba(24, 20, 243, 0.05)' : 'var(--card-bg)',
+                    color: showHiddenWallets ? '#1814F3' : 'var(--text-light)',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    transition: 'all 0.2s'
+                  }}
+                  title={showHiddenWallets ? "Ẩn ví ẩn" : "Hiện ví ẩn"}
+                >
+                  {showHiddenWallets ? (
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                      <line x1="1" y1="1" x2="23" y2="23"></line>
+                    </svg>
+                  ) : (
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  )}
+                  <span>{showHiddenWallets ? 'Ẩn ví ẩn' : 'Hiện ví ẩn'}</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {activeTab === 'wallets' ? (
