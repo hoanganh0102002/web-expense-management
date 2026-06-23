@@ -1007,13 +1007,6 @@ export default function Transactions() {
       // Đóng modal và reset trạng thái ngay lập tức khi tạo thành công!
       setIsModalOpen(false);
       
-      if (createSystemNotification) {
-        createSystemNotification(
-          'Giao dịch mới',
-          `Bạn vừa tạo giao dịch ${newTx.type === 'expense' ? 'chi tiêu' : (newTx.type === 'income' ? 'thu nhập' : 'chuyển tiền')} "${newTx.title}" với số tiền ${formatCurrency(newTx.amount)}.`
-        );
-      }
-      
       setActiveTab('all');
       setCurrentCursor(null);
       setRoundUpEnabled(false);
