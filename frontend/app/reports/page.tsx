@@ -610,7 +610,7 @@ export default function Reports() {
     if (!isLoggedIn) return;
 
     const fetchData = async () => {
-      const cacheKey = `cached_report_${startDate}_${endDate}_${selectedWallet}_${reportType}`;
+      const cacheKey = `cached_report_${startDate}_${endDate}_${selectedWallet}`;
       let hasCache = false;
       if (typeof window !== 'undefined') {
         const cached = localStorage.getItem(cacheKey);
@@ -655,45 +655,76 @@ export default function Reports() {
         const mtdPeriod = getMtdPeriods(startDate, endDate);
         const range6M = getPast6MonthsRange();
 
-        // Fetch Summary for 4 different ranges + 6M trends
-        const [currRes, prevRes, currMtdRes, prevMtdRes, trends6MRes] = await Promise.all([
-          reportApi.getSummary(startDate, endDate, selectedWallet || undefined).catch(() => ({ data: { income: 0, expense: 0 } })),
-          reportApi.getSummary(prevPeriod.startDate, prevPeriod.endDate, selectedWallet || undefined).catch(() => ({ data: { income: 0, expense: 0 } })),
-          reportApi.getSummary(mtdPeriod.currMtdStart, mtdPeriod.currMtdEnd, selectedWallet || undefined).catch(() => ({ data: { income: 0, expense: 0 } })),
-          reportApi.getSummary(mtdPeriod.prevMtdStart, mtdPeriod.prevMtdEnd, selectedWallet || undefined).catch(() => ({ data: { income: 0, expense: 0 } })),
-          reportApi.getTrends(range6M.startDate, range6M.endDate, 'month').catch(() => ({ data: [] }))
+        // Fetch parallel data (only Trends, Budgets, and All Transactions within custom range)
+        const [trends6MRes, budgetsRes, allTxRes] = await Promise.all([
+          reportApi.getTrends(range6M.startDate, range6M.endDate, 'month').catch(() => ({ data: [] })),
+          budgetApi.getAll(month, year).catch(() => ({ data: [] })),
+          transactionApi.getAll({
+            start_date: prevPeriod.startDate,
+            end_date: endDate,
+            per_page: 10000,
+            wallet_id: selectedWallet || undefined
+          }).catch(() => ({ data: [] }))
         ]);
         
-        const currentSummaryData = { income: currRes.data?.income || 0, expense: currRes.data?.expense || 0 };
-        const prevSummaryData = { income: prevRes.data?.income || 0, expense: prevRes.data?.expense || 0 };
-        const currMtdSummaryData = { income: currMtdRes.data?.income || 0, expense: currMtdRes.data?.expense || 0 };
-        const prevMtdSummaryData = { income: prevMtdRes.data?.income || 0, expense: prevMtdRes.data?.expense || 0 };
         const trends6MData = Array.isArray(trends6MRes.data) ? trends6MRes.data : (trends6MRes.data?.data || []);
-
-        setCurrentSummary(currentSummaryData);
-        setPrevSummary(prevSummaryData);
         setTrends6M(trends6MData);
 
         // Fetch budgets
-        const budgetsRes = await budgetApi.getAll(month, year).catch(() => ({ data: [] }));
         const bMap: Record<string, number> = {};
         (budgetsRes.data || []).forEach((b: any) => {
           if (b.category_id) bMap[b.category_id] = parseFloat(b.limit_amount);
         });
         setBudgetMap(bMap);
 
-        // Fetch transactions for current month
-        const txRes = await transactionApi.getAll({
-          start_date: startDate,
-          end_date: endDate,
-          per_page: 10000,
-          wallet_id: selectedWallet || undefined
-        }).catch(() => ({ data: [] }));
+        const allTxs = Array.isArray(allTxRes.data) ? allTxRes.data : (allTxRes.data?.data || []);
 
-        const txs = Array.isArray(txRes.data) ? txRes.data : (txRes.data?.data || []);
+        // Calculate summaries directly at Client (ignoring internal transfers)
+        const currentSummaryData = { income: 0, expense: 0 };
+        const prevSummaryData = { income: 0, expense: 0 };
+        const currMtdSummaryData = { income: 0, expense: 0 };
+        const prevMtdSummaryData = { income: 0, expense: 0 };
+
+        allTxs.forEach((tx: any) => {
+          if (tx.source_type === 'transfer' && !tx.category_id) return;
+          
+          let txDateStr = tx.transaction_date;
+          if (!txDateStr && tx.created_at) txDateStr = tx.created_at.split('T')[0];
+          if (!txDateStr) return;
+          const dateStr = txDateStr.substring(0, 10);
+          const amount = Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0));
+          if (amount === 0) return;
+
+          if (dateStr >= startDate && dateStr <= endDate) {
+            if (tx.type === 'income') currentSummaryData.income += amount;
+            else if (tx.type === 'expense') currentSummaryData.expense += amount;
+          }
+          if (dateStr >= prevPeriod.startDate && dateStr <= prevPeriod.endDate) {
+            if (tx.type === 'income') prevSummaryData.income += amount;
+            else if (tx.type === 'expense') prevSummaryData.expense += amount;
+          }
+          if (dateStr >= mtdPeriod.currMtdStart && dateStr <= mtdPeriod.currMtdEnd) {
+            if (tx.type === 'income') currMtdSummaryData.income += amount;
+            else if (tx.type === 'expense') currMtdSummaryData.expense += amount;
+          }
+          if (dateStr >= mtdPeriod.prevMtdStart && dateStr <= mtdPeriod.prevMtdEnd) {
+            if (tx.type === 'income') prevMtdSummaryData.income += amount;
+            else if (tx.type === 'expense') prevMtdSummaryData.expense += amount;
+          }
+        });
+
+        setCurrentSummary(currentSummaryData);
+        setPrevSummary(prevSummaryData);
+
+        // Filter transactions for current period to store (include all for display, we filter during calculations)
+        const txs = allTxs.filter((tx: any) => {
+          let txDateStr = tx.transaction_date;
+          if (!txDateStr && tx.created_at) txDateStr = tx.created_at.split('T')[0];
+          return txDateStr && txDateStr >= startDate && txDateStr <= endDate;
+        });
         setTransactions(txs);
 
-        // Compute spending by category to check exceeded budgets
+        // Compute spending by category to check exceeded budgets (ignore internal transfers)
         const expenseSpentMap: Record<string, { name: string; amount: number }> = {};
         let totalExpenseVal = 0;
         const dailyExpenseMap: Record<number, number> = {};
@@ -702,6 +733,7 @@ export default function Reports() {
 
         txs.forEach((tx: any) => {
           if (tx.type !== 'expense') return;
+          if (tx.source_type === 'transfer' && !tx.category_id) return;
           const catId = String(tx.category_id || 'other');
           const amount = Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0));
           const name = tx.category?.name || tx.category_name || t('other') || 'Khác';
@@ -803,9 +835,7 @@ export default function Reports() {
         };
         setInsights(generatedInsights);
 
-
-
-        // Dual daily trend data calculation (both income & expense)
+        // Dual daily trend data calculation (both income & expense, ignore internal transfers)
         const dailyIncomeMap: Record<number, number> = {};
         const dailyExpenseMapTrend: Record<number, number> = {};
         for (let i = 1; i <= daysInMonth; i++) {
@@ -814,6 +844,7 @@ export default function Reports() {
         }
 
         txs.forEach((tx: any) => {
+          if (tx.source_type === 'transfer' && !tx.category_id) return;
           const amt = Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0));
           if (amt === 0) return;
           let txDateStr = tx.transaction_date;
@@ -882,7 +913,7 @@ export default function Reports() {
     setIsLoadingTopCategories(true);
     setIsLoadingTopWallets(true);
     
-    // Category Totals calculation
+    // Category Totals calculation (ignore internal transfers)
     const categoryTotals: Record<string, any> = {};
     let totalVal = 0;
     const expenseFallbackColors = ['#FE5C73', '#FBBF24', '#A78BFA', '#F472B6', '#FB923C', '#E83E8C'];
@@ -892,6 +923,7 @@ export default function Reports() {
     
     transactions.forEach((tx: any) => {
       if (tx.type !== reportType) return;
+      if (tx.source_type === 'transfer' && !tx.category_id) return; // ignore internal transfers
       const rawCatId = String(tx.category_id || 'other');
       const amount = Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0));
       if (amount === 0) return;
@@ -934,7 +966,7 @@ export default function Reports() {
       
     setTopCategories(topList);
 
-    // Compute Spending Allocation by Wallet
+    // Compute Spending Allocation by Wallet (ignore internal transfers)
     const walletTotals: Record<string, any> = {};
     let totalWalletVal = 0;
     const walletColors = ['#1814F3', '#10B981', '#FE5C73', '#FBBF24', '#A78BFA', '#F472B6', '#FB923C'];
@@ -942,6 +974,7 @@ export default function Reports() {
 
     transactions.forEach((tx: any) => {
       if (tx.type !== reportType) return;
+      if (tx.source_type === 'transfer' && !tx.category_id) return; // ignore internal transfers
       const walletId = tx.wallet_id || 'other';
       const amount = Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0));
       if (amount === 0) return;
@@ -972,7 +1005,7 @@ export default function Reports() {
   // Save report cache when data updates
   useEffect(() => {
     if (isLoggedIn && typeof window !== 'undefined') {
-      const cacheKey = `cached_report_${startDate}_${endDate}_${selectedWallet}_${reportType}`;
+      const cacheKey = `cached_report_${startDate}_${endDate}_${selectedWallet}`;
       if (
         currentSummary.income !== 0 ||
         currentSummary.expense !== 0 ||
@@ -997,7 +1030,7 @@ export default function Reports() {
   }, [
     currentSummary, prevSummary, trends6M, budgetMap, transactions, insights,
     topCategories, topWallets, dailyData, maxDailyAmt, abnormalDays,
-    isLoggedIn, startDate, endDate, selectedWallet, reportType
+    isLoggedIn, startDate, endDate, selectedWallet
   ]);
 
   useEffect(() => {
@@ -1025,6 +1058,7 @@ export default function Reports() {
     const spentMap: Record<string, number> = {};
     transactions.forEach((tx: any) => {
       if (tx.type !== 'expense') return;
+      if (tx.source_type === 'transfer' && !tx.category_id) return; // ignore internal transfers
       const catId = String(tx.category_id || 'other');
       const amount = Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0));
       spentMap[catId] = (spentMap[catId] || 0) + amount;
