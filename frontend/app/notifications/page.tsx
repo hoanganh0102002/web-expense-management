@@ -74,7 +74,11 @@ export default function Notifications() {
   const router = useRouter();
   const { isLoggedIn, userData, setHasUnreadNotifications, setUnreadNotificationsCount } = useAppContext();
   const { t } = useLanguage();
-  const [notificationsList, setNotificationsList] = useState<any[]>(() => {
+  const [notificationsList, setNotificationsList] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Hydration-safe cache loading
+  useEffect(() => {
     if (typeof window !== 'undefined') {
       let combined = [];
       const localCached = localStorage.getItem('local_notifications');
@@ -85,11 +89,11 @@ export default function Notifications() {
       if (cached) {
         try { combined.push(...JSON.parse(cached)); } catch (e) {}
       }
-      return combined;
+      if (combined.length > 0) {
+        setNotificationsList(prev => prev.length === 0 ? combined : prev);
+      }
     }
-    return [];
-  });
-  const [isLoading, setIsLoading] = useState(false);
+  }, []);
   
   const fetchNotifications = async () => {
     if (!isLoggedIn) return;
@@ -181,11 +185,31 @@ export default function Notifications() {
       handleMarkAsRead(n.id);
     }
 
+    // If it's an error notification, do not redirect
+    const titleLower = (n.title || '').toLowerCase();
+    const contentLower = (n.content || '').toLowerCase();
+    if (titleLower.includes('lỗi') || titleLower.includes('thất bại') || titleLower.includes('không thành công') || 
+        contentLower.includes('lỗi') || contentLower.includes('thất bại') || contentLower.includes('không thành công')) {
+      return;
+    }
+
     // Redirect based on type
     if (n.type?.includes('BudgetWarningNotification') || n.title?.toLowerCase().includes('ngân sách') || n.title?.toLowerCase().includes('budget')) {
       router.push('/budget');
     } else if (n.type?.includes('RecurringTransaction') || n.title?.toLowerCase().includes('định kỳ') || n.title?.toLowerCase().includes('giao dịch mới') || n.title?.toLowerCase().includes('giao dịch')) {
-      router.push('/transactions');
+      const txId = n.transaction_id || (n.metadata && n.metadata.transaction_id) || (n.data && n.data.transaction_id) || n.related_id;
+      if (txId) {
+        router.push(`/transactions?txId=${txId}`);
+      } else {
+        // Fallback: extract title from quotes to find and open the transaction
+        const textToSearch = n.content || n.title || '';
+        const match = textToSearch.match(/"(.*?)"/);
+        if (match && match[1]) {
+           router.push(`/transactions?autoOpenTitle=${encodeURIComponent(match[1])}`);
+        } else {
+           router.push('/transactions');
+        }
+      }
     } else {
       router.push('/transactions'); // Default fallback
     }
