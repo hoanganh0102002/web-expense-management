@@ -21,7 +21,7 @@ const urlToFile = async (url: string, filename: string): Promise<File | null> =>
 
 const parseSafeDate = (dateStr: string) => {
   if (!dateStr) return new Date();
-  return new Date(dateStr.endsWith('Z') ? dateStr.slice(0, -1) : dateStr);
+  return new Date(dateStr);
 };
 
 const parseIcon = (iconName: string) => {
@@ -295,10 +295,15 @@ export default function Transactions() {
     createSystemNotification
   } = useAppContext();
   const { t, tCategory } = useLanguage();
-  const formatCurrency = (amount: number | string) => {
+  const formatCurrency = (amount: number | string, currencyCode: string = 'VND') => {
     const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     if (isNaN(numericAmount)) return '0';
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(Math.round(numericAmount));
+    return new Intl.NumberFormat(currencyCode === 'VND' ? 'vi-VN' : 'en-US', { 
+      style: 'currency', 
+      currency: currencyCode, 
+      minimumFractionDigits: currencyCode === 'VND' ? 0 : 2,
+      maximumFractionDigits: currencyCode === 'VND' ? 0 : 2 
+    }).format(currencyCode === 'VND' ? Math.round(numericAmount) : numericAmount);
   };
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -740,9 +745,8 @@ export default function Transactions() {
 
           // If not found locally, fetch it from API
           try {
-            const res = await transactionApi.getAll({ per_page: 2000 });
-            const allData = res.data?.data || res.data || [];
-            const fetchedTx = allData.find((t: any) => String(t.id) === txId);
+            const res = await transactionApi.getById(txId);
+            const fetchedTx = res.data?.data || res.data;
             if (fetchedTx) {
               if (fetchedTx.source_type === 'recurring') {
                 setViewingRuleTx(fetchedTx); setIsRuleDetailModalOpen(true);
@@ -783,7 +787,9 @@ export default function Transactions() {
 
           // If not found locally, fetch it from API
           try {
-            const res = await transactionApi.getAll({ per_page: 2000 });
+            const params: any = { per_page: 50 };
+            if (titleDecoded) params.search = titleDecoded;
+            const res = await transactionApi.getAll(params);
             const allData = res.data?.data || res.data || [];
             const fetchedTx = allData.find(matchTx);
             if (fetchedTx) {
@@ -1202,11 +1208,6 @@ export default function Transactions() {
       }
     }
 
-    if (newTx.type === 'expense' && !isCashWallet && !newTx.payee_id) {
-      alert('Giao dịch thủ công qua ví ngân hàng hoặc ví điện tử bắt buộc phải có người hưởng thụ.');
-      return;
-    }
-
     setIsSubmitting(true);
     try {
       // 1. Luôn tạo giao dịch thực tế để hiển thị ngay lập tức
@@ -1393,10 +1394,7 @@ export default function Transactions() {
       return;
     }
 
-    if (editingTx.type === 'expense' && !isCashWallet && !editingTx.payee_id) {
-      alert('Giao dịch thủ công qua ví ngân hàng hoặc ví điện tử bắt buộc phải có người hưởng thụ.');
-      return;
-    }
+
 
     setIsSubmittingEdit(true);
     try {
@@ -2022,7 +2020,7 @@ export default function Transactions() {
                             </div>
                           </td>
                           <td style={{ color: 'var(--text-main)', fontWeight: '700', fontSize: '14px' }}>
-                            {formatCurrency(tx.amount || 0)}
+                            {formatCurrency(tx.amount || 0, tx.currency_code || tx.wallet?.currency_code || 'VND')}
                           </td>
                           <td>
                             <button
@@ -2116,7 +2114,7 @@ export default function Transactions() {
                             </div>
                           </td>
                           <td style={{ color: tx.type === 'income' ? '#16DBCC' : '#FE5C73', fontWeight: '700', fontSize: '15px' }}>
-                            {tx.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(Number(tx.amount)))}
+                            {tx.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(Number(tx.amount)), tx.currency_code || tx.wallet?.currency_code || 'VND')}
                           </td>
                           <td>
                             <span style={{
@@ -2424,7 +2422,7 @@ export default function Transactions() {
                             </div>
                           </td>
                           <td style={{ color: tx.type === 'income' ? '#16DBCC' : '#FE5C73', fontWeight: '800', fontSize: '15px' }}>
-                            {tx.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0)))}
+                            {tx.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0)), tx.currency_code || tx.wallet?.currency_code || 'VND')}
                           </td>
                           <td>
                             <div style={{ display: 'flex', gap: '8px' }}>
@@ -2834,7 +2832,7 @@ export default function Transactions() {
                     alignItems: 'center'
                   }}
                 >
-                  <span>{newTx.payee_id ? payees.find(p => p.id === newTx.payee_id)?.payee_name || 'Đã chọn' : 'Chọn người thụ hưởng (Bắt buộc)'}</span>
+                  <span>{newTx.payee_id ? payees.find(p => p.id === newTx.payee_id)?.payee_name || 'Đã chọn' : 'Chọn người thụ hưởng'}</span>
                   <span style={{ color: '#718EBF', fontSize: '12px' }}>▼</span>
                 </div>
               </div>
@@ -3093,14 +3091,14 @@ export default function Transactions() {
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                 <span style={{ color: '#718EBF', fontWeight: '500' }}>Số tiền chuyển</span>
                 <span style={{ fontWeight: '700', fontSize: '16px', color: '#1814F3' }}>
-                  {formatCurrency(viewingTransferTx.amount || 0)}
+                  {formatCurrency(viewingTransferTx.amount || 0, viewingTransferTx.currency_code || 'VND')}
                 </span>
               </div>
               {(viewingTransferTx.fee || viewingTransferTx.fee_amount) && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                   <span style={{ color: '#718EBF', fontWeight: '500' }}>Phí giao dịch</span>
                   <span style={{ fontWeight: '600', color: '#FE5C73' }}>
-                    -{formatCurrency(viewingTransferTx.fee || viewingTransferTx.fee_amount || 0)}
+                    -{formatCurrency(viewingTransferTx.fee || viewingTransferTx.fee_amount || 0, viewingTransferTx.currency_code || 'VND')}
                   </span>
                 </div>
               )}
@@ -3141,7 +3139,7 @@ export default function Transactions() {
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                 <span style={{ color: '#718EBF', fontWeight: '500' }}>Số tiền</span>
                 <span style={{ fontWeight: '600', color: viewingRuleTx.type === 'income' ? '#16DBCC' : '#FE5C73' }}>
-                  {viewingRuleTx.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(Number(viewingRuleTx.amount)))}
+                  {viewingRuleTx.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(Number(viewingRuleTx.amount)), viewingRuleTx.currency_code || viewingRuleTx.wallet?.currency_code || 'VND')}
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
@@ -3401,7 +3399,7 @@ export default function Transactions() {
                   }}
                   style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
                 >
-                  <span>{editingTx.payee_id ? payees.find(p => p.id === editingTx.payee_id)?.payee_name || 'Đã chọn' : 'Chọn người thụ hưởng (Bắt buộc)'}</span>
+                  <span>{editingTx.payee_id ? payees.find(p => p.id === editingTx.payee_id)?.payee_name || 'Đã chọn' : 'Chọn người thụ hưởng'}</span>
                   <span style={{ color: '#718EBF', fontSize: '12px' }}>▼</span>
                 </div>
               </div>
