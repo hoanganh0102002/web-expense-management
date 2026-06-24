@@ -376,19 +376,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       }
     }
     setIsLoggedIn(false);
-    localStorage.setItem('isLoggedIn', 'false');
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user_data');
     if (typeof window !== 'undefined') {
+      const keysToKeep = ['app_lang', 'app-theme', 'sidebar_collapsed'];
       const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && (key.startsWith('cached_') || key === 'transactions')) {
+        if (key && !keysToKeep.includes(key)) {
           keysToRemove.push(key);
         }
       }
       keysToRemove.forEach(key => localStorage.removeItem(key));
+      localStorage.setItem('isLoggedIn', 'false');
     }
     setUserData(null);
     setWallets([]);
