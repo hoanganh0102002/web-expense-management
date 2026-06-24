@@ -219,7 +219,9 @@ export default function Dashboard() {
       if (cached) {
         try {
           setBudgetsList(JSON.parse(cached));
-        } catch (e) {}
+        } catch (e) {
+          localStorage.removeItem(`cached_dashboard_budgets_${currentMonth}_${currentYear}`);
+        }
       }
     }
   }, [currentMonth, currentYear]);
@@ -396,7 +398,10 @@ export default function Dashboard() {
           if (parsed.categoryData) setCategoryData(parsed.categoryData);
           if (parsed.trendsData) setTrendsData(parsed.trendsData);
           if (parsed.dailyTrendsData) setDailyTrendsData(parsed.dailyTrendsData);
-        } catch (e) {}
+        } catch (e) {
+          localStorage.removeItem(cacheKey);
+          hasCache = false;
+        }
       }
     }
 

@@ -1062,7 +1062,11 @@ export default function Reports() {
     if (typeof window !== 'undefined') {
       const history = localStorage.getItem('export_history');
       if (history) {
-        setExportHistory(JSON.parse(history));
+        try {
+          setExportHistory(JSON.parse(history));
+        } catch (e) {
+          localStorage.removeItem('export_history');
+        }
       }
     }
   }, []);
