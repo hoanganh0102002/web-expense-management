@@ -193,25 +193,23 @@ export default function Notifications() {
       return;
     }
 
+    // Extract txId generically
+    const txId = n.transaction_id || (n.metadata && n.metadata.transaction_id) || (n.data && n.data.transaction_id) || n.related_id || (n.data && n.data.id);
+
     // Redirect based on type
-    if (n.type?.includes('BudgetWarningNotification') || n.title?.toLowerCase().includes('ngân sách') || n.title?.toLowerCase().includes('budget')) {
+    if (n.type?.includes('BudgetWarningNotification') || titleLower.includes('ngân sách') || titleLower.includes('budget')) {
       router.push('/budget');
-    } else if (n.type?.includes('RecurringTransaction') || n.title?.toLowerCase().includes('định kỳ') || n.title?.toLowerCase().includes('giao dịch mới') || n.title?.toLowerCase().includes('giao dịch')) {
-      const txId = n.transaction_id || (n.metadata && n.metadata.transaction_id) || (n.data && n.data.transaction_id) || n.related_id;
-      if (txId) {
-        router.push(`/transactions?txId=${txId}`);
-      } else {
-        // Fallback: extract title from quotes to find and open the transaction
-        const textToSearch = n.content || n.title || '';
-        const match = textToSearch.match(/"(.*?)"/);
-        if (match && match[1]) {
-           router.push(`/transactions?autoOpenTitle=${encodeURIComponent(match[1])}`);
-        } else {
-           router.push('/transactions');
-        }
-      }
+    } else if (txId) {
+      router.push(`/transactions?txId=${txId}`);
     } else {
-      router.push('/transactions'); // Default fallback
+      // Fallback: extract title from quotes to find and open the transaction
+      const textToSearch = n.content || n.title || '';
+      const match = textToSearch.match(/"(.*?)"/);
+      if (match && match[1]) {
+         router.push(`/transactions?autoOpenTitle=${encodeURIComponent(match[1])}`);
+      } else {
+         router.push('/transactions');
+      }
     }
   };
 

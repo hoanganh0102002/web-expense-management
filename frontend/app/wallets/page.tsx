@@ -403,7 +403,7 @@ export default function Wallets() {
       const response = await apiFetch(`/wallets/${wallet.id}/transactions`);
       setHistoryTransactions(response.data?.data || response.data || []);
     } catch (e: any) {
-      alert("Lỗi tải lịch sử: " + (e.message || "Không thể tải"));
+      console.log("Lỗi tải lịch sử: " + (e.message || "Không thể tải"));
     } finally {
       setIsLoadingHistory(false);
     }
@@ -435,7 +435,7 @@ export default function Wallets() {
       setTransferAmount('');
       fetchWallets();
     } catch (e: any) {
-      alert("Lỗi chuyển tiền: " + (e.message || "Đã xảy ra lỗi"));
+      console.log("Lỗi chuyển tiền: " + (e.message || "Đã xảy ra lỗi"));
     } finally {
       setIsTransferring(false);
     }
@@ -527,7 +527,7 @@ export default function Wallets() {
       // Reload data
       fetchWallets();
     } catch (e: any) {
-      alert("Lỗi chuyển tiền: " + (e.message || "Không thể hoàn tất giao dịch."));
+      console.log("Lỗi chuyển tiền: " + (e.message || "Không thể hoàn tất giao dịch."));
     } finally {
       setIsP2pTransferring(false);
     }
@@ -551,7 +551,7 @@ export default function Wallets() {
         await apiFetch(`/payees/${id}`, { method: 'DELETE' });
         fetchContacts();
       } catch (e: any) {
-         alert("Lỗi khi xóa: " + e.message);
+         console.log("Lỗi khi xóa: " + e.message);
       }
     }
   };
@@ -573,7 +573,7 @@ export default function Wallets() {
       setShowModal(null);
       resetForm();
     } catch (err) {
-      alert(t('create_wallet_error'));
+      console.log(t('create_wallet_error'));
     }
   };
 
@@ -599,7 +599,7 @@ export default function Wallets() {
       setShowModal(null);
       resetForm();
     } catch (err: any) {
-      alert(err.message || t('update_wallet_error'));
+      console.log(err.message || t('update_wallet_error'));
     }
   };
 
@@ -608,7 +608,7 @@ export default function Wallets() {
       try {
         await deleteWallet(id);
       } catch (err: any) {
-        alert(err.message || t('delete_wallet_error'));
+        console.log(err.message || t('delete_wallet_error'));
       }
     }
   };
