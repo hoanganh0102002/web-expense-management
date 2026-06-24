@@ -273,8 +273,10 @@ export default function Wallets() {
   const calcPercent = (current: string | number, target: string | number) => {
     const curVal = Number(current);
     const tarVal = Number(target);
-    if (!tarVal || isNaN(curVal) || isNaN(tarVal)) return 0;
-    return parseFloat(((curVal / tarVal) * 100).toFixed(1));
+    if (!tarVal || isNaN(curVal) || isNaN(tarVal) || tarVal <= 0) return 0;
+    const pct = (curVal / tarVal) * 100;
+    if (isNaN(pct) || !isFinite(pct)) return 0;
+    return parseFloat(pct.toFixed(1));
   };
 
   const getRemainingDays = (targetDateStr: string | null) => {

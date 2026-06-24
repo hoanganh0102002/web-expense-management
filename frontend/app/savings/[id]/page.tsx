@@ -336,7 +336,13 @@ export default function SavingsGoalDetailPage() {
   // Percentage complete calculation
   const curAmt = goal ? Number(goal.current_amount) : 0;
   const tarAmt = goal ? Number(goal.target_amount) : 0;
-  const percent = tarAmt > 0 ? Math.min(100, Math.max(0, parseFloat(((curAmt / tarAmt) * 100).toFixed(1)))) : 0;
+  let percent = 0;
+  if (tarAmt > 0 && !isNaN(curAmt) && !isNaN(tarAmt)) {
+    const rawPercent = (curAmt / tarAmt) * 100;
+    if (!isNaN(rawPercent) && isFinite(rawPercent)) {
+      percent = Math.min(100, Math.max(0, parseFloat(rawPercent.toFixed(1))));
+    }
+  }
 
   // SVG Circular progress configurations
   const radius = 80;

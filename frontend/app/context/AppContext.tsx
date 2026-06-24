@@ -353,10 +353,27 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   const login = (data?: any) => {
+    // Purge previous user cache and reset states first to avoid data exposure
+    if (typeof window !== 'undefined') {
+      const keysToKeep = ['app_lang', 'app-theme', 'sidebar_collapsed'];
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && !keysToKeep.includes(key)) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach(key => localStorage.removeItem(key));
+    }
+    setUserData(null);
+    setWallets([]);
+    setCategories([]);
+    setTransactions([]);
+    setHasUnreadNotifications(false);
+    setUnreadNotificationsCount(0);
+
     setIsLoggedIn(true);
     localStorage.setItem('isLoggedIn', 'true');
-    setTransactions([]);
-    localStorage.removeItem('transactions');
     
     if (data?.access_token) {
       localStorage.setItem('access_token', data.access_token);
