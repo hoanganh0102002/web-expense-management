@@ -62,11 +62,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       let combined = [];
       const localCached = localStorage.getItem('local_notifications');
       if (localCached) {
-        try { combined.push(...JSON.parse(localCached)); } catch (e) {}
+        try { 
+          const parsed = JSON.parse(localCached);
+          if (Array.isArray(parsed)) combined.push(...parsed); 
+        } catch (e) {}
       }
       const cachedNotifs = localStorage.getItem('cached_notifications');
       if (cachedNotifs) {
-        try { combined.push(...JSON.parse(cachedNotifs)); } catch (e) {}
+        try { 
+          const parsed = JSON.parse(cachedNotifs);
+          if (Array.isArray(parsed)) combined.push(...parsed); 
+        } catch (e) {}
       }
       const isErrorNotif = (n: any) => {
         const titleLower = (n.title || '').toLowerCase();
@@ -103,6 +109,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setUnreadNotificationsCount(unreadList.length);
       setHasUnreadNotifications(unreadList.length > 0);
       localStorage.setItem('cached_notifications', JSON.stringify(list.filter((n: any) => !isErrorNotif(n))));
+
+      // Tự động xóa thông báo lỗi khỏi DB qua API để tránh lưu rác
+      const errorNotifs = list.filter((n: any) => isErrorNotif(n));
+      errorNotifs.forEach((n: any) => {
+        notificationApi.delete(n.id).catch(() => {});
+      });
     } catch (e) {}
   };
 

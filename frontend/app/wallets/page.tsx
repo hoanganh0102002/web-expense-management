@@ -188,14 +188,13 @@ const formatWalletCurrency = (amount: number | string, currencyCode: string = 'V
   const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
   if (isNaN(numericAmount)) return '0';
   
-  const fixedAmount = Math.round(numericAmount * 100) / 100;
-  const isInteger = fixedAmount % 1 === 0;
+  const fixedAmount = currencyCode === 'VND' ? Math.round(numericAmount) : numericAmount;
 
-  return new Intl.NumberFormat('vi-VN', { 
+  return new Intl.NumberFormat(currencyCode === 'VND' ? 'vi-VN' : 'en-US', { 
     style: 'currency', 
-    currency: 'VND', 
-    minimumFractionDigits: 0,
-    maximumFractionDigits: isInteger ? 0 : 2 
+    currency: currencyCode, 
+    minimumFractionDigits: currencyCode === 'VND' ? 0 : 2,
+    maximumFractionDigits: currencyCode === 'VND' ? 0 : 2 
   }).format(fixedAmount);
 };
 

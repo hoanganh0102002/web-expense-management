@@ -245,6 +245,8 @@ export const transactionApi = {
     return apiFetch(`/transactions${queryString ? `?${queryString}` : ''}`);
   },
   
+  getById: (id: string) => apiFetch(`/transactions/${id}`),
+  
   create: (formData: FormData) => {
     const token = localStorage.getItem('access_token');
     return fetch(`${API_BASE_URL}/transactions`, {

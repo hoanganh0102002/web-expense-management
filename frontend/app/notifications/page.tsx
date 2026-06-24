@@ -84,11 +84,17 @@ export default function Notifications() {
       let combined = [];
       const localCached = localStorage.getItem('local_notifications');
       if (localCached) {
-        try { combined.push(...JSON.parse(localCached)); } catch (e) {}
+        try { 
+          const parsed = JSON.parse(localCached);
+          if (Array.isArray(parsed)) combined.push(...parsed); 
+        } catch (e) {}
       }
       const cached = localStorage.getItem('cached_notifications');
       if (cached) {
-        try { combined.push(...JSON.parse(cached)); } catch (e) {}
+        try { 
+          const parsed = JSON.parse(cached);
+          if (Array.isArray(parsed)) combined.push(...parsed); 
+        } catch (e) {}
       }
       const isErrorNotif = (n: any) => {
         const titleLower = (n.title || '').toLowerCase();
