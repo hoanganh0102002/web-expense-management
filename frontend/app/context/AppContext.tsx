@@ -126,13 +126,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const cachedTransactions = localStorage.getItem('cached_transactions');
       
       if (cachedWallets) {
-        try { setWallets(JSON.parse(cachedWallets)); } catch (e) {}
+        try { 
+          const parsed = JSON.parse(cachedWallets);
+          if (Array.isArray(parsed)) setWallets(parsed);
+        } catch (e) {}
       }
       if (cachedCategories) {
-        try { setCategories(JSON.parse(cachedCategories)); } catch (e) {}
+        try { 
+          const parsed = JSON.parse(cachedCategories);
+          if (Array.isArray(parsed)) setCategories(parsed);
+        } catch (e) {}
       }
       if (cachedTransactions) {
-        try { setTransactions(JSON.parse(cachedTransactions)); } catch (e) {}
+        try { 
+          const parsed = JSON.parse(cachedTransactions);
+          if (Array.isArray(parsed)) setTransactions(parsed);
+        } catch (e) {}
       }
 
       fetchWallets();

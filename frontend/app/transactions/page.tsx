@@ -19,6 +19,11 @@ const urlToFile = async (url: string, filename: string): Promise<File | null> =>
   }
 };
 
+const parseSafeDate = (dateStr: string) => {
+  if (!dateStr) return new Date();
+  return new Date(dateStr.endsWith('Z') ? dateStr.slice(0, -1) : dateStr);
+};
+
 const parseIcon = (iconName: string) => {
   const iconMap: Record<string, string> = {
     food: '🍜', car: '🚗', shopping_cart: '🛒', shopping_bag: '🛍️', gamepad: '🎮',
@@ -154,7 +159,7 @@ const parseSmartQuery = (query: string, flatCategories: any[], wallets: any[]): 
       else if (cleanVal.endsWith('trieu')) cleanVal = cleanVal.slice(0, -5);
       else cleanVal = cleanVal.slice(0, -2);
     }
-    const num = parseFloat(cleanVal);
+    const num = parseFloat(cleanVal.replace(',', '.'));
     return isNaN(num) ? 0 : num * factor;
   };
 
@@ -323,7 +328,7 @@ export default function Transactions() {
 
   const toLocalDateTimeInput = (isoString: string) => {
     if (!isoString) return '';
-    const date = new Date(isoString);
+    const date = parseSafeDate(isoString);
     date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
     return date.toISOString().slice(0, 16);
   };
@@ -483,11 +488,11 @@ export default function Transactions() {
           setEditingRecurringTx((prev: any) => ({ ...prev, category_id: res.data.category_id }));
         }
       } else {
-        alert('AI không tìm thấy danh mục nào phù hợp hơn.');
+        console.log('AI không tìm thấy danh mục nào phù hợp hơn.');
       }
     } catch (e) {
-      console.error(e);
-      alert('Có lỗi xảy ra khi gọi AI phân loại.');
+      console.log(e);
+      console.log('Có lỗi xảy ra khi gọi AI phân loại.');
     } finally {
       if (formType === 'new') setIsClassifyingNew(false);
       else if (formType === 'edit') setIsClassifyingEdit(false);
@@ -633,8 +638,8 @@ export default function Transactions() {
           // Store raw res for debugging
           (window as any).debugApiRes = res;
         } catch (e: any) {
-          console.error("Lỗi khi lấy danh sách người hưởng thụ:", e);
-          alert("Lỗi khi tải danh sách người thụ hưởng: " + (e.message || e));
+          console.log("Lỗi khi lấy danh sách người hưởng thụ:", e);
+          console.log("Lỗi khi tải danh sách người thụ hưởng: " + (e.message || e));
         }
       };
 
@@ -702,6 +707,90 @@ export default function Transactions() {
   const smartFilters = useMemo(() => {
     return parseSmartQuery(searchTerm, flatCategories, wallets);
   }, [searchTerm, flatCategories, wallets]);
+
+  // Handle URL parameters for auto-opening transaction details
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const txId = urlParams.get('txId');
+      const autoOpenTitle = urlParams.get('autoOpenTitle');
+      
+      if (!txId && !autoOpenTitle) return;
+
+      const attemptOpen = async () => {
+        if (txId) {
+          const tx = transactions?.find((t: any) => String(t.id) === txId);
+          if (tx) {
+            setViewingTx(tx); setIsDetailModalOpen(true); window.history.replaceState({}, '', '/transactions'); return;
+          }
+          const transfer = internalTransfers?.find((t: any) => String(t.id) === txId);
+          if (transfer) {
+            setViewingTransferTx(transfer); setIsTransferDetailModalOpen(true); window.history.replaceState({}, '', '/transactions'); return;
+          }
+          const rule = recurringTransactions?.find((t: any) => String(t.id) === txId);
+          if (rule) {
+            setViewingRuleTx(rule); setIsRuleDetailModalOpen(true); window.history.replaceState({}, '', '/transactions'); return;
+          }
+
+          // If not found locally, fetch it from API
+          try {
+            const res = await transactionApi.getAll({ per_page: 2000 });
+            const allData = res.data?.data || res.data || [];
+            const fetchedTx = allData.find((t: any) => String(t.id) === txId);
+            if (fetchedTx) {
+              if (fetchedTx.source_type === 'recurring') {
+                setViewingRuleTx(fetchedTx); setIsRuleDetailModalOpen(true);
+              } else if (fetchedTx.is_internal_transfer) {
+                setViewingTransferTx(fetchedTx); setIsTransferDetailModalOpen(true);
+              } else {
+                setViewingTx(fetchedTx); setIsDetailModalOpen(true);
+              }
+            }
+          } catch(e) { console.error(e); }
+          window.history.replaceState({}, '', '/transactions');
+          
+        } else if (autoOpenTitle) {
+          const titleDecoded = decodeURIComponent(autoOpenTitle).toLowerCase();
+          const tx = transactions?.find((t: any) => {
+            const tName = (t.title || t.description || t.name || '').toLowerCase();
+            return tName === titleDecoded || tName.includes(titleDecoded);
+          });
+          if (tx) {
+            setViewingTx(tx); setIsDetailModalOpen(true); window.history.replaceState({}, '', '/transactions'); return;
+          }
+          const rule = recurringTransactions?.find((t: any) => {
+            const tName = (t.title || t.description || t.name || '').toLowerCase();
+            return tName === titleDecoded || tName.includes(titleDecoded);
+          });
+          if (rule) {
+            setViewingRuleTx(rule); setIsRuleDetailModalOpen(true); window.history.replaceState({}, '', '/transactions'); return;
+          }
+          
+          // If not found locally, fetch it from API
+          try {
+            const res = await transactionApi.getAll({ per_page: 2000 });
+            const allData = res.data?.data || res.data || [];
+            const fetchedTx = allData.find((t: any) => {
+              const tName = (t.title || t.description || t.name || '').toLowerCase();
+              return tName === titleDecoded || tName.includes(titleDecoded);
+            });
+            if (fetchedTx) {
+              if (fetchedTx.source_type === 'recurring') {
+                setViewingRuleTx(fetchedTx); setIsRuleDetailModalOpen(true);
+              } else if (fetchedTx.is_internal_transfer) {
+                setViewingTransferTx(fetchedTx); setIsTransferDetailModalOpen(true);
+              } else {
+                setViewingTx(fetchedTx); setIsDetailModalOpen(true);
+              }
+            }
+          } catch(e) { console.error(e); }
+          window.history.replaceState({}, '', '/transactions');
+        }
+      };
+
+      attemptOpen();
+    }
+  }, [transactions, internalTransfers, recurringTransactions]);
 
   // Helper to change filter states and automatically reset pagination cursor
   const handleFilterChange = (updater: () => void) => {
@@ -1037,7 +1126,10 @@ export default function Transactions() {
     }
   }, [wallets]);
 
-  const handleAdd = () => setIsModalOpen(true);
+  const handleAdd = () => {
+    setNewTx(prev => ({ ...prev, transaction_date: getLocalDateTime() }));
+    setIsModalOpen(true);
+  };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -1060,8 +1152,8 @@ export default function Transactions() {
       });
       setRecurringTransactions(prev => prev.map(item => item.id === tx.id ? { ...item, is_active: !tx.is_active } : item));
     } catch (error) {
-      console.error('Lỗi khi cập nhật trạng thái:', error);
-      alert('Không thể thay đổi trạng thái lúc này. Vui lòng thử lại sau.');
+      console.log('Lỗi khi cập nhật trạng thái:', error);
+      console.log('Không thể thay đổi trạng thái lúc này. Vui lòng thử lại sau.');
     }
   };
 
@@ -1096,7 +1188,7 @@ export default function Transactions() {
       }
       if (newTx.category_id) formData.append('category_id', newTx.category_id);
       if (newTx.payee_id) formData.append('payee_id', newTx.payee_id);
-      formData.append('transaction_date', new Date(newTx.transaction_date).toISOString());
+      formData.append('transaction_date', newTx.transaction_date.replace('T', ' ') + ':00');
       formData.append('notes', formatNotesWithTitle(newTx.title, newTx.notes || ''));
       if (newTx.attachments && newTx.attachments.length > 0) {
         newTx.attachments.forEach((file) => {
@@ -1198,7 +1290,7 @@ export default function Transactions() {
             category_id: newTx.category_id || null,
             payee_id: newTx.payee_id || null,
             frequency: newTx.frequency,
-            next_run_at: new Date(newTx.transaction_date).toISOString(),
+            next_run_at: newTx.transaction_date.replace('T', ' ') + ':00',
             end_at: newTx.end_date || null,
             notes: formatNotesWithTitle(newTx.title, newTx.notes || '')
           })
@@ -1231,7 +1323,7 @@ export default function Transactions() {
       setHasLoadedHistory(false);
       loadFilteredTransactions(null);
     } catch (error: any) {
-      alert(error.message || 'Lỗi khi thêm giao dịch');
+      console.log(error.message || 'Lỗi khi thêm giao dịch');
     } finally {
       setIsSubmitting(false);
     }
@@ -1245,7 +1337,7 @@ export default function Transactions() {
         loadFilteredTransactions(currentCursor);
         fetchUnreadNotificationsCount();
       } catch (error: any) {
-        alert(error.message || 'Lỗi khi xóa giao dịch');
+        console.log(error.message || 'Lỗi khi xóa giao dịch');
       }
     }
   };
@@ -1274,7 +1366,7 @@ export default function Transactions() {
         formData.append('source_type', 'adjustment');
       }
       formData.append('category_id', editingTx.category_id || '');
-      formData.append('transaction_date', new Date(editingTx.transaction_date).toISOString());
+      formData.append('transaction_date', editingTx.transaction_date.replace('T', ' ') + ':00');
       formData.append('notes', formatNotesWithTitle(editingTx.title, editingTx.notes || ''));
       if (editingTx.payee_id) {
         formData.append('payee_id', editingTx.payee_id);
@@ -1342,7 +1434,7 @@ export default function Transactions() {
         alert('Cập nhật giao dịch thành công!');
       }, 100);
     } catch (error: any) {
-      alert(error.message || 'Lỗi khi cập nhật giao dịch');
+      console.log(error.message || 'Lỗi khi cập nhật giao dịch');
     } finally {
       setIsSubmittingEdit(false);
     }
@@ -1354,7 +1446,7 @@ export default function Transactions() {
         await apiFetch(`/recurring-rules/${id}`, { method: 'DELETE' });
         setRecurringTransactions(prev => prev.filter(tx => tx.id !== id));
       } catch (error: any) {
-        alert(error.message || 'Lỗi khi xóa giao dịch định kỳ');
+        console.log(error.message || 'Lỗi khi xóa giao dịch định kỳ');
       }
     }
   };
@@ -1382,7 +1474,7 @@ export default function Transactions() {
           wallet_id: editingRecurringTx.wallet_id,
           category_id: editingRecurringTx.category_id || null,
           frequency: editingRecurringTx.frequency,
-          next_run_at: new Date(editingRecurringTx.start_date).toISOString(),
+          next_run_at: editingRecurringTx.start_date.replace('T', ' ') + ':00',
           end_at: editingRecurringTx.end_date || null,
           notes: formatNotesWithTitle(editingRecurringTx.title, editingRecurringTx.notes || '')
         })
@@ -1392,7 +1484,7 @@ export default function Transactions() {
       setRecurringTransactions(res.data ? res.data : (Array.isArray(res) ? res : []));
       setIsEditRecurringModalOpen(false);
     } catch (error: any) {
-      alert(error.message || 'Lỗi khi cập nhật giao dịch định kỳ');
+      console.log(error.message || 'Lỗi khi cập nhật giao dịch định kỳ');
     } finally {
       setIsSubmittingEdit(false);
     }
@@ -1868,10 +1960,10 @@ export default function Transactions() {
                           </td>
                           <td>
                             <div style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '13px' }}>
-                              {new Date(tx.date).toLocaleDateString('vi-VN')}
+                              {parseSafeDate(tx.date).toLocaleDateString('vi-VN')}
                             </div>
                             <div style={{ fontSize: '11px', color: '#718EBF', marginTop: '2px', fontWeight: '500' }}>
-                              {new Date(tx.date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                              {parseSafeDate(tx.date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                             </div>
                           </td>
                           <td style={{ color: 'var(--text-main)', fontWeight: '700', fontSize: '14px' }}>
@@ -1997,11 +2089,11 @@ export default function Transactions() {
                           </td>
                           <td>
                             <div style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '13px' }}>
-                              {tx.next_run_at ? new Date(tx.next_run_at).toLocaleDateString('vi-VN') : '-'}
+                              {tx.next_run_at ? parseSafeDate(tx.next_run_at).toLocaleDateString('vi-VN') : '-'}
                             </div>
                             {tx.next_run_at && (
                               <div style={{ fontSize: '11px', color: '#718EBF', marginTop: '2px', fontWeight: '500' }}>
-                                {new Date(tx.next_run_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                                {parseSafeDate(tx.next_run_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                               </div>
                             )}
                           </td>
@@ -2270,10 +2362,10 @@ export default function Transactions() {
                           </td>
                           <td>
                             <div style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '13px' }}>
-                              {new Date(tx.transaction_date).toLocaleDateString('vi-VN')}
+                              {parseSafeDate(tx.transaction_date).toLocaleDateString('vi-VN')}
                             </div>
                             <div style={{ fontSize: '11px', color: '#718EBF', marginTop: '2px', fontWeight: '500' }}>
-                              {new Date(tx.transaction_date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                              {parseSafeDate(tx.transaction_date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                             </div>
                           </td>
                           <td style={{ color: tx.type === 'income' ? '#16DBCC' : '#FE5C73', fontWeight: '800', fontSize: '15px' }}>
@@ -2927,7 +3019,7 @@ export default function Transactions() {
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                 <span style={{ color: '#718EBF', fontWeight: '500' }}>Ngày thực hiện</span>
-                <span style={{ fontWeight: '600' }}>{new Date(viewingTransferTx.date || viewingTransferTx.created_at).toLocaleString('vi-VN')}</span>
+                <span style={{ fontWeight: '600' }}>{parseSafeDate(viewingTransferTx.date || viewingTransferTx.created_at).toLocaleString('vi-VN')}</span>
               </div>
               {(viewingTransferTx.notes || viewingTransferTx.description) && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
@@ -2991,18 +3083,18 @@ export default function Transactions() {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                 <span style={{ color: '#718EBF', fontWeight: '500' }}>Ngày bắt đầu</span>
-                <span style={{ fontWeight: '600' }}>{viewingRuleTx.start_date ? new Date(viewingRuleTx.start_date).toLocaleDateString('vi-VN') : '-'}</span>
+                <span style={{ fontWeight: '600' }}>{viewingRuleTx.start_date ? parseSafeDate(viewingRuleTx.start_date).toLocaleDateString('vi-VN') : '-'}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                 <span style={{ color: '#718EBF', fontWeight: '500' }}>Lần chạy tiếp theo</span>
                 <span style={{ fontWeight: '600', textAlign: 'right' }}>
-                  <div>{viewingRuleTx.next_run_at ? new Date(viewingRuleTx.next_run_at).toLocaleDateString('vi-VN') : '-'}</div>
-                  {viewingRuleTx.next_run_at && <div style={{ fontSize: '13px', color: '#718EBF', marginTop: '4px' }}>{new Date(viewingRuleTx.next_run_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>}
+                  <div>{viewingRuleTx.next_run_at ? parseSafeDate(viewingRuleTx.next_run_at).toLocaleDateString('vi-VN') : '-'}</div>
+                  {viewingRuleTx.next_run_at && <div style={{ fontSize: '13px', color: '#718EBF', marginTop: '4px' }}>{parseSafeDate(viewingRuleTx.next_run_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</div>}
                 </span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                 <span style={{ color: '#718EBF', fontWeight: '500' }}>Ngày kết thúc</span>
-                <span style={{ fontWeight: '600' }}>{viewingRuleTx.end_at ? new Date(viewingRuleTx.end_at).toLocaleDateString('vi-VN') : 'Không giới hạn'}</span>
+                <span style={{ fontWeight: '600' }}>{viewingRuleTx.end_at ? parseSafeDate(viewingRuleTx.end_at).toLocaleDateString('vi-VN') : 'Không giới hạn'}</span>
               </div>
               {parseNotesAndTitle(viewingRuleTx.title || viewingRuleTx.description || viewingRuleTx.name, viewingRuleTx.notes, viewingRuleTx.payee).displayNotes && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
@@ -3060,7 +3152,7 @@ export default function Transactions() {
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                 <span style={{ color: '#718EBF', fontWeight: '500' }}>Ngày giao dịch</span>
-                <span style={{ fontWeight: '600' }}>{new Date(viewingTx.transaction_date).toLocaleString('vi-VN')}</span>
+                <span style={{ fontWeight: '600' }}>{parseSafeDate(viewingTx.transaction_date).toLocaleString('vi-VN')}</span>
               </div>
               {parseNotesAndTitle(viewingTx.title, viewingTx.notes, viewingTx.payee).displayNotes && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
