@@ -165,7 +165,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
     const savedUser = localStorage.getItem('user_data');
     if (savedUser) {
-      setUserData(JSON.parse(savedUser));
+      try {
+        setUserData(JSON.parse(savedUser));
+      } catch (e) {
+        console.error('Failed to parse user_data from localStorage:', e);
+        localStorage.removeItem('user_data');
+      }
     }
 
     // Global listener for 401 errors

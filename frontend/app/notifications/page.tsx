@@ -212,17 +212,64 @@ export default function Notifications() {
       return;
     }
 
-    // Extract txId generically
+    // Extract common identifiers generically
     const txId = n.transaction_id || 
                  (n.metadata && (n.metadata.transaction_id || n.metadata.id || n.metadata.model_id || n.metadata.transfer_id)) || 
                  (n.data && (n.data.transaction_id || n.data.id || n.data.model_id || n.data.transfer_id)) || 
                  n.related_id;
     
-    // Extract category ID generically
     const catId = n.category_id || (n.metadata && n.metadata.category_id) || (n.data && n.data.category_id);
+    const typeStr = n.type || (n.metadata && n.metadata.type) || (n.data && n.data.type) || '';
 
-    // Redirect based on type
-    if (n.type?.includes('BudgetWarningNotification') || titleLower.includes('ngân sách') || titleLower.includes('budget')) {
+    // -- Tối ưu hóa điều hướng (Navigation Optimization) --
+    
+    // 1. Weekly Summary Notification
+    if (typeStr.includes('WeeklySummaryNotification') || typeStr === 'weekly_summary') {
+      router.push('/reports');
+      return;
+    }
+
+    // 2. Financial Month Start Notification
+    if (typeStr.includes('FinancialMonthStartNotification')) {
+      router.push('/budget');
+      return;
+    }
+
+    // 3. Import / Export Notifications
+    if (typeStr.includes('ImportCompletedNotification') || typeStr.includes('ExportCompletedNotification')) {
+      router.push('/transactions');
+      return;
+    }
+
+    // 4. Daily Reminder Notification
+    if (typeStr.includes('DailyReminderNotification')) {
+      router.push('/transactions');
+      return;
+    }
+
+    // 5. P2P Transfer Received
+    if (typeStr.includes('P2pTransferReceivedNotification')) {
+      if (txId) {
+        router.push(`/transactions?txId=${txId}`);
+      } else {
+        router.push('/wallets'); // Nhận tiền vào ví
+      }
+      return;
+    }
+
+    // 6. Recurring Transaction Executed
+    if (typeStr.includes('RecurringTransactionExecutedNotification')) {
+      const status = (n.metadata && n.metadata.status) || (n.data && n.data.status);
+      if (status === 'success' && txId) {
+        router.push(`/transactions?txId=${txId}`);
+      } else {
+        router.push('/transactions');
+      }
+      return;
+    }
+
+    // 7. Budget Warning Notification
+    if (typeStr.includes('BudgetWarningNotification') || titleLower.includes('ngân sách') || titleLower.includes('budget')) {
       if (catId) {
         router.push(`/budget?categoryId=${catId}`);
       } else {
@@ -234,33 +281,38 @@ export default function Notifications() {
            router.push('/budget');
         }
       }
-    } else if (txId) {
+      return;
+    } 
+    
+    // 8. General Transaction Match
+    if (txId) {
       router.push(`/transactions?txId=${txId}`);
+      return;
+    } 
+    
+    // Fallback: extract title from quotes to find and open the transaction
+    const textToSearch = n.content || n.title || '';
+    const match = textToSearch.match(/"(.*?)"/);
+    if (match && match[1]) {
+       router.push(`/transactions?autoOpenTitle=${encodeURIComponent(match[1])}`);
     } else {
-      // Fallback: extract title from quotes to find and open the transaction
-      const textToSearch = n.content || n.title || '';
-      const match = textToSearch.match(/"(.*?)"/);
-      if (match && match[1]) {
-         router.push(`/transactions?autoOpenTitle=${encodeURIComponent(match[1])}`);
-      } else {
-         const fromMatch = textToSearch.match(/từ\s+(.*?)(?:\.|$)/i);
-         const toMatch = textToSearch.match(/đến\s+(.*?)(?:\.|$)/i);
-         const amountMatch = textToSearch.match(/([0-9,.]+)\s*VND/i);
+       const fromMatch = textToSearch.match(/từ\s+(.*?)(?:\.|$)/i);
+       const toMatch = textToSearch.match(/đến\s+(.*?)(?:\.|$)/i);
+       const amountMatch = textToSearch.match(/([0-9,.]+)\s*VND/i);
 
-         let url = '/transactions';
-         if (fromMatch && fromMatch[1]) {
-           url = `/transactions?autoOpenTitle=${encodeURIComponent(fromMatch[1].trim())}`;
-         } else if (toMatch && toMatch[1]) {
-           url = `/transactions?autoOpenTitle=${encodeURIComponent(toMatch[1].trim())}`;
-         }
+       let url = '/transactions';
+       if (fromMatch && fromMatch[1]) {
+         url = `/transactions?autoOpenTitle=${encodeURIComponent(fromMatch[1].trim())}`;
+       } else if (toMatch && toMatch[1]) {
+         url = `/transactions?autoOpenTitle=${encodeURIComponent(toMatch[1].trim())}`;
+       }
 
-         if (amountMatch && amountMatch[1]) {
-           const amt = amountMatch[1].replace(/,/g, '');
-           url += (url.includes('?') ? '&' : '?') + `autoOpenAmount=${amt}`;
-         }
-         
-         router.push(url);
-      }
+       if (amountMatch && amountMatch[1]) {
+         const amt = amountMatch[1].replace(/,/g, '');
+         url += (url.includes('?') ? '&' : '?') + `autoOpenAmount=${amt}`;
+       }
+       
+       router.push(url);
     }
   };
 

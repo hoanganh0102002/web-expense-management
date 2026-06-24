@@ -43,23 +43,23 @@ const parseIcon = (iconName: string) => {
 const cleanTransactionTitle = (title: string, payee: any): string => {
   if (!title) return '';
   if (!payee) return title;
-  
+
   const payeeName = payee.payee_name || payee.name;
   if (!payeeName) return title;
-  
+
   let cleaned = title;
-  
+
   // Try to remove "đến [PayeeName]"
   const target1 = `đến ${payeeName}`;
   const target2 = `den ${payeeName}`;
-  
+
   // Try to remove "cho [PayeeName]"
   const target3 = `cho ${payeeName}`;
-  
+
   // Try to remove "từ [PayeeName]" or "tu [PayeeName]"
   const target4 = `từ ${payeeName}`;
   const target5 = `tu ${payeeName}`;
-  
+
   if (cleaned.includes(target1)) {
     cleaned = cleaned.replace(target1, '');
   } else if (cleaned.includes(target2)) {
@@ -73,9 +73,9 @@ const cleanTransactionTitle = (title: string, payee: any): string => {
   } else {
     cleaned = cleaned.replace(payeeName, '');
   }
-  
+
   cleaned = cleaned.trim();
-  
+
   if (cleaned.endsWith('qua mã QR') || cleaned.endsWith('qua ma QR')) {
     return 'Chuyển tiền qua mã QR';
   }
@@ -85,7 +85,7 @@ const cleanTransactionTitle = (title: string, payee: any): string => {
   if (cleaned.endsWith('đến') || cleaned.endsWith('den') || cleaned.endsWith('cho') || cleaned.endsWith('từ') || cleaned.endsWith('tu')) {
     cleaned = cleaned.replace(/(?:đến|den|cho|từ|tu)$/i, '').trim();
   }
-  
+
   return cleaned || 'Chuyển tiền';
 };
 
@@ -315,7 +315,7 @@ export default function Transactions() {
   const [editingTx, setEditingTx] = useState<any>(null);
   const [editingRecurringTx, setEditingRecurringTx] = useState<any>(null);
   const [hoveredRowId, setHoveredRowId] = useState<string | null>(null);
-  
+
   // States for internal transfer detail
   const [isTransferDetailModalOpen, setIsTransferDetailModalOpen] = useState(false);
   const [viewingTransferTx, setViewingTransferTx] = useState<any>(null);
@@ -457,7 +457,7 @@ export default function Transactions() {
     let title = '';
     let notes = '';
     let type = 'expense';
-    
+
     if (formType === 'new') {
       title = newTx.title;
       notes = newTx.notes;
@@ -718,7 +718,7 @@ export default function Transactions() {
       const txId = urlParams.get('txId');
       const autoOpenTitle = urlParams.get('autoOpenTitle');
       const autoOpenAmount = urlParams.get('autoOpenAmount');
-      
+
       if (!txId && !autoOpenTitle && !autoOpenAmount) return;
       if (hasAttemptedOpen.current) return;
       hasAttemptedOpen.current = true;
@@ -752,13 +752,13 @@ export default function Transactions() {
                 setViewingTx(fetchedTx); setIsDetailModalOpen(true);
               }
             }
-          } catch(e) { console.error(e); }
+          } catch (e) { console.error(e); }
           window.history.replaceState({}, '', '/transactions');
-          
+
         } else if (autoOpenTitle || autoOpenAmount) {
           const titleDecoded = autoOpenTitle ? decodeURIComponent(autoOpenTitle).toLowerCase() : null;
           const targetAmount = autoOpenAmount ? parseFloat(autoOpenAmount) : null;
-          
+
           const matchTx = (t: any) => {
             let isMatch = true;
             if (titleDecoded) {
@@ -780,7 +780,7 @@ export default function Transactions() {
           if (rule) {
             setViewingRuleTx(rule); setIsRuleDetailModalOpen(true); window.history.replaceState({}, '', '/transactions'); return;
           }
-          
+
           // If not found locally, fetch it from API
           try {
             const res = await transactionApi.getAll({ per_page: 2000 });
@@ -795,7 +795,7 @@ export default function Transactions() {
                 setViewingTx(fetchedTx); setIsDetailModalOpen(true);
               }
             }
-          } catch(e) { console.error(e); }
+          } catch (e) { console.error(e); }
           window.history.replaceState({}, '', '/transactions');
         }
       };
@@ -910,53 +910,53 @@ export default function Transactions() {
       const urlParams = new URLSearchParams(window.location.search);
       const txId = urlParams.get('txId');
       const autoOpenTitle = urlParams.get('autoOpenTitle');
-      
+
       if (!txId && !autoOpenTitle) return;
 
       const openModalForTx = (tx: any) => {
-         if (tx.from_wallet_id && tx.to_wallet_id) {
-             setViewingTransferTx(tx);
-             setIsTransferDetailModalOpen(true);
-         } else {
-             setViewingTx(tx);
-             setIsDetailModalOpen(true);
-         }
-         window.history.replaceState(null, '', window.location.pathname);
+        if (tx.from_wallet_id && tx.to_wallet_id) {
+          setViewingTransferTx(tx);
+          setIsTransferDetailModalOpen(true);
+        } else {
+          setViewingTx(tx);
+          setIsDetailModalOpen(true);
+        }
+        window.history.replaceState(null, '', window.location.pathname);
       };
 
       if (autoOpenTitle) {
-         // Tối ưu: Tìm ngay trong bộ nhớ (cực nhanh)
-         const tx = transactions.find((t: any) => (t.title || '').toLowerCase().includes(autoOpenTitle.toLowerCase()));
-         if (tx) {
-             openModalForTx(tx);
-         } else {
-             // Dự phòng: gọi API nếu giao dịch nằm ở trang sau
-             transactionApi.getAll({ per_page: 50 }).then(res => {
-                 const data = res.data?.data || res.data || [];
-                 const apiTx = data.find((t: any) => (t.title || '').toLowerCase().includes(autoOpenTitle.toLowerCase()));
-                 if (apiTx) openModalForTx(apiTx);
-                 else window.history.replaceState(null, '', window.location.pathname);
-             }).catch(console.error);
-         }
+        // Tối ưu: Tìm ngay trong bộ nhớ (cực nhanh)
+        const tx = transactions.find((t: any) => (t.title || '').toLowerCase().includes(autoOpenTitle.toLowerCase()));
+        if (tx) {
+          openModalForTx(tx);
+        } else {
+          // Dự phòng: gọi API nếu giao dịch nằm ở trang sau
+          transactionApi.getAll({ per_page: 50 }).then(res => {
+            const data = res.data?.data || res.data || [];
+            const apiTx = data.find((t: any) => (t.title || '').toLowerCase().includes(autoOpenTitle.toLowerCase()));
+            if (apiTx) openModalForTx(apiTx);
+            else window.history.replaceState(null, '', window.location.pathname);
+          }).catch(console.error);
+        }
       } else if (txId) {
-         // Tối ưu: Tìm ngay trong bộ nhớ
-         const tx = transactions.find((t: any) => String(t.id) === txId);
-         if (tx) {
-             openModalForTx(tx);
-         } else {
-             apiFetch(`/transactions/${txId}`).then(res => {
-                 const apiTx = res.data || res;
-                 if (apiTx && apiTx.id) openModalForTx(apiTx);
-                 else window.history.replaceState(null, '', window.location.pathname);
-             }).catch(err => {
-                 transactionApi.getAll({ per_page: 50 }).then(res => {
-                     const data = res.data?.data || res.data || [];
-                     const fallbackTx = data.find((t: any) => String(t.id) === txId);
-                     if (fallbackTx) openModalForTx(fallbackTx);
-                     else window.history.replaceState(null, '', window.location.pathname);
-                 }).catch(console.error);
-             });
-         }
+        // Tối ưu: Tìm ngay trong bộ nhớ
+        const tx = transactions.find((t: any) => String(t.id) === txId);
+        if (tx) {
+          openModalForTx(tx);
+        } else {
+          apiFetch(`/transactions/${txId}`).then(res => {
+            const apiTx = res.data || res;
+            if (apiTx && apiTx.id) openModalForTx(apiTx);
+            else window.history.replaceState(null, '', window.location.pathname);
+          }).catch(err => {
+            transactionApi.getAll({ per_page: 50 }).then(res => {
+              const data = res.data?.data || res.data || [];
+              const fallbackTx = data.find((t: any) => String(t.id) === txId);
+              if (fallbackTx) openModalForTx(fallbackTx);
+              else window.history.replaceState(null, '', window.location.pathname);
+            }).catch(console.error);
+          });
+        }
       }
     }
   }, [isLoggedIn, transactions]);
@@ -972,7 +972,7 @@ export default function Transactions() {
           .then(res => setInternalTransfers(res.data || []))
           .catch(err => console.error('Error prefetching transfers', err));
       }
-      
+
       // Prefetch recurring
       if (recurringTransactions.length === 0) {
         apiFetch('/recurring-rules')
@@ -1079,12 +1079,12 @@ export default function Transactions() {
 
     if (finalStartDate) {
       const start = new Date(finalStartDate);
-      result = result.filter(t => new Date(t.date) >= start);
+      result = result.filter(t => parseSafeDate(t.date || t.transaction_date || t.created_at) >= start);
     }
     if (finalEndDate) {
       const end = new Date(finalEndDate);
       end.setHours(23, 59, 59, 999);
-      result = result.filter(t => new Date(t.date) <= end);
+      result = result.filter(t => parseSafeDate(t.date || t.transaction_date || t.created_at) <= end);
     }
 
     if (finalWalletId) {
@@ -1107,7 +1107,7 @@ export default function Transactions() {
       if (sortBy === 'amount') {
         comparison = a.amount - b.amount;
       } else {
-        comparison = new Date(a.date).getTime() - new Date(b.date).getTime();
+        comparison = parseSafeDate(a.date || a.transaction_date || a.created_at).getTime() - parseSafeDate(b.date || b.transaction_date || b.created_at).getTime();
       }
       return sortOrder === 'desc' ? -comparison : comparison;
     });
@@ -1146,9 +1146,9 @@ export default function Transactions() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const selectedFiles = Array.from(e.target.files);
-      setNewTx(prev => ({ 
-        ...prev, 
-        attachments: [...prev.attachments, ...selectedFiles] 
+      setNewTx(prev => ({
+        ...prev,
+        attachments: [...prev.attachments, ...selectedFiles]
       }));
     }
   };
@@ -1212,7 +1212,7 @@ export default function Transactions() {
       // 1. Luôn tạo giao dịch thực tế để hiển thị ngay lập tức
       const formData = new FormData();
       formData.append('title', newTx.title);
-      formData.append('amount', newTx.amount);
+      formData.append('amount', newTx.amount.toString().replace(/\./g, ''));
       formData.append('type', newTx.type);
       formData.append('wallet_id', newTx.wallet_id);
       if (newTx.type === 'income') {
@@ -1234,7 +1234,7 @@ export default function Transactions() {
 
       // Đóng modal và reset trạng thái ngay lập tức khi tạo thành công!
       setIsModalOpen(false);
-      
+
       setActiveTab('all');
       setCurrentCursor(null);
       setNewTx({
@@ -1402,7 +1402,7 @@ export default function Transactions() {
     try {
       const formData = new FormData();
       formData.append('title', editingTx.title);
-      formData.append('amount', editingTx.amount);
+      formData.append('amount', editingTx.amount.toString().replace(/\./g, ''));
       formData.append('type', editingTx.type);
       formData.append('wallet_id', editingTx.wallet_id);
       if (editingTx.type === 'income') {
@@ -1430,7 +1430,7 @@ export default function Transactions() {
           );
           const validRemainingFiles = remainingFiles.filter((f): f is File => f !== null);
           const finalFiles = [...validRemainingFiles, ...(editingTx.attachments || [])];
-          
+
           finalFiles.forEach((file) => {
             formData.append('attachments[]', file);
           });
@@ -1440,7 +1440,7 @@ export default function Transactions() {
       await transactionApi.update(editingTx.id, formData);
 
       setIsEditModalOpen(false);
-      
+
       if (activeTab === 'recurring_history') {
         if (payees.length === 0) {
           try {
@@ -1457,7 +1457,7 @@ export default function Transactions() {
             console.error(e);
           }
         }
-        
+
         const res = await transactionApi.getAll({ per_page: 500 });
         const data = res.data?.data || res.data || [];
         setRecurringHistoryList(data.filter((tx: any) => tx.source_type === 'recurring'));
@@ -1472,7 +1472,7 @@ export default function Transactions() {
         fetchWallets(),
         fetchUnreadNotificationsCount()
       ]);
-      
+
       setTimeout(() => {
         alert('Cập nhật giao dịch thành công!');
       }, 100);
@@ -1523,7 +1523,7 @@ export default function Transactions() {
         method: 'POST',
         body: JSON.stringify({
           title: editingRecurringTx.title,
-          amount: editingRecurringTx.amount,
+          amount: editingRecurringTx.amount.toString().replace(/\./g, ''),
           type: editingRecurringTx.type,
           wallet_id: editingRecurringTx.wallet_id,
           category_id: editingRecurringTx.category_id || null,
@@ -2213,7 +2213,7 @@ export default function Transactions() {
                                   setEditingRecurringTx({
                                     id: tx.id,
                                     title: displayTitle,
-                                    amount: tx.amount || '',
+                                    amount: tx.amount ? parseInt(tx.amount).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") : '',
                                     type: tx.type || 'expense',
                                     wallet_id: tx.wallet_id || (wallets.length > 0 ? wallets[0].id : ''),
                                     category_id: tx.category_id || '',
@@ -2299,7 +2299,7 @@ export default function Transactions() {
                       const isHovered = hoveredRowId === tx.id;
                       const categoryColor = tx.category?.color || '#718EBF';
                       const categoryIcon = parseIcon(tx.category?.icon) || '📁';
-                      
+
                       // Helper to aggressively resolve payee name
                       const getPayeeName = () => {
                         if (tx.payee?.payee_name || tx.payee?.name) return tx.payee.payee_name || tx.payee.name;
@@ -2456,7 +2456,7 @@ export default function Transactions() {
                                   setEditingTx({
                                     id: tx.id,
                                     title: displayTitle,
-                                    amount: tx.amount || '',
+                                    amount: tx.amount ? parseInt(tx.amount).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") : '',
                                     type: tx.type || 'expense',
                                     wallet_id: tx.wallet_id || '',
                                     category_id: tx.category_id || '',
@@ -2689,10 +2689,10 @@ export default function Transactions() {
                   checked={newTx.is_recurring}
                   onChange={e => {
                     const isChecked = e.target.checked;
-                    setNewTx({ 
-                      ...newTx, 
+                    setNewTx({
+                      ...newTx,
                       is_recurring: isChecked,
-                      type: (isChecked && newTx.type === 'income') ? 'expense' : newTx.type 
+                      type: (isChecked && newTx.type === 'income') ? 'expense' : newTx.type
                     });
                   }}
                   style={{ width: '18px', height: '18px', cursor: 'pointer', accentColor: '#1814F3' }}
@@ -2732,7 +2732,17 @@ export default function Transactions() {
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>{t('amount_label')} *</label>
-                <input type="number" value={newTx.amount} onChange={e => setNewTx({ ...newTx, amount: e.target.value })} placeholder={t('tx_amount_placeholder')} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }} />
+                <input 
+                  type="text" 
+                  value={newTx.amount} 
+                  onChange={e => {
+                    const rawValue = e.target.value.replace(/[^0-9]/g, '');
+                    const formattedValue = rawValue ? parseInt(rawValue, 10).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") : '';
+                    setNewTx({ ...newTx, amount: formattedValue });
+                  }} 
+                  placeholder={t('tx_amount_placeholder')} 
+                  style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }} 
+                />
               </div>
             </div>
 
@@ -2859,7 +2869,7 @@ export default function Transactions() {
                 <div>{t('click_to_upload') || 'Nhấn để tải lên ảnh hóa đơn (Có thể chọn nhiều)'}</div>
               </div>
               <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/*" multiple style={{ display: 'none' }} />
-              
+
               {newTx.attachments && newTx.attachments.length > 0 && (
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '10px', background: 'var(--bg-color)', padding: '10px', borderRadius: '12px' }}>
                   {newTx.attachments.map((file: File, index: number) => {
@@ -2947,7 +2957,16 @@ export default function Transactions() {
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Số tiền *</label>
-                <input type="number" value={editingRecurringTx.amount} onChange={e => setEditingRecurringTx({ ...editingRecurringTx, amount: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }} />
+                <input 
+                  type="text" 
+                  value={editingRecurringTx.amount} 
+                  onChange={e => {
+                    const rawValue = e.target.value.replace(/[^0-9]/g, '');
+                    const formattedValue = rawValue ? parseInt(rawValue, 10).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") : '';
+                    setEditingRecurringTx({ ...editingRecurringTx, amount: formattedValue });
+                  }} 
+                  style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }} 
+                />
               </div>
             </div>
 
@@ -3294,7 +3313,17 @@ export default function Transactions() {
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Số tiền *</label>
-                <input type="number" value={editingTx.amount} onChange={e => setEditingTx({ ...editingTx, amount: e.target.value })} placeholder={t('tx_amount_placeholder')} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }} />
+                <input 
+                  type="text" 
+                  value={editingTx.amount} 
+                  onChange={e => {
+                    const rawValue = e.target.value.replace(/[^0-9]/g, '');
+                    const formattedValue = rawValue ? parseInt(rawValue, 10).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") : '';
+                    setEditingTx({ ...editingTx, amount: formattedValue });
+                  }} 
+                  placeholder={t('tx_amount_placeholder')} 
+                  style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }} 
+                />
               </div>
             </div>
 
@@ -3385,7 +3414,7 @@ export default function Transactions() {
 
             <div style={{ marginBottom: '25px' }}>
               <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Ảnh hóa đơn</label>
-              
+
               {/* Existing attachments list */}
               {editingTx.existing_attachments && editingTx.existing_attachments.length > 0 && (
                 <div style={{ marginBottom: '15px' }}>

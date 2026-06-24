@@ -187,13 +187,29 @@ const renderWalletIcon = (iconName: string, size = 22, style = {}) => {
 const formatWalletCurrency = (amount: number | string, currencyCode: string = 'VND') => {
   const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
   if (isNaN(numericAmount)) return '0';
-  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND', maximumFractionDigits: 0 }).format(Math.round(numericAmount));
+  
+  const fixedAmount = Math.round(numericAmount * 100) / 100;
+  const isInteger = fixedAmount % 1 === 0;
+
+  return new Intl.NumberFormat('vi-VN', { 
+    style: 'currency', 
+    currency: 'VND', 
+    minimumFractionDigits: 0,
+    maximumFractionDigits: isInteger ? 0 : 2 
+  }).format(fixedAmount);
 };
 
 const formatWalletBalance = (amount: number | string) => {
   const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
   if (isNaN(numericAmount)) return '0';
-  return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(Math.round(numericAmount));
+  
+  const fixedAmount = Math.round(numericAmount * 100) / 100;
+  const isInteger = fixedAmount % 1 === 0;
+
+  return new Intl.NumberFormat('vi-VN', { 
+    minimumFractionDigits: 0,
+    maximumFractionDigits: isInteger ? 0 : 2 
+  }).format(fixedAmount);
 };
 
 // ==========================================
@@ -214,10 +230,12 @@ export default function Wallets() {
 
   const fetchSavingsGoals = async () => {
     const cached = localStorage.getItem('cached_savings_goals');
-    if (cached && savingsGoals.length === 0) {
+    if (cached) {
       try {
         setSavingsGoals(JSON.parse(cached));
-      } catch (e) {}
+      } catch (e) {
+        localStorage.removeItem('cached_savings_goals');
+      }
     }
 
     setIsLoadingSavings(savingsGoals.length === 0 && !cached);
