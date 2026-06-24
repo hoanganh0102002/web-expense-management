@@ -640,15 +640,19 @@ export default function Dashboard() {
   const overallBudget = budgetsList.find(b => b.category_id === null);
   const categoryBudgets = budgetsList.filter(b => b.category_id !== null);
 
-  const totalLimit = overallBudget 
+  const rawTotalLimit = overallBudget 
     ? parseFloat(overallBudget.limit_amount) 
     : categoryBudgets.reduce((sum, b) => sum + parseFloat(b.limit_amount), 0);
+  const totalLimit = isNaN(rawTotalLimit) || !isFinite(rawTotalLimit) ? 0 : rawTotalLimit;
 
-  const totalUsed = overallBudget 
+  const rawTotalUsed = overallBudget 
     ? parseFloat(overallBudget.used_amount) 
     : categoryBudgets.reduce((sum, b) => sum + parseFloat(b.used_amount), 0);
+  const totalUsed = isNaN(rawTotalUsed) || !isFinite(rawTotalUsed) ? 0 : rawTotalUsed;
 
-  const totalPct = totalLimit > 0 ? Math.round((totalUsed / totalLimit) * 100) : 0;
+  const totalPct = (totalLimit > 0 && isFinite(totalLimit) && !isNaN(totalLimit) && isFinite(totalUsed) && !isNaN(totalUsed)) 
+    ? Math.round((totalUsed / totalLimit) * 100) 
+    : 0;
 
   // Tính toán số liệu từ dữ liệu thật
   const totalBalance = wallets.reduce((sum, w) => sum + parseFloat(w.available_balance || 0), 0);
@@ -658,9 +662,11 @@ export default function Dashboard() {
 
   // So sánh tháng này vs tháng trước (tăng/giảm %)
   const lastExpense = lastMonthSummary.expense;
-  const expenseChangePercent = lastExpense > 0 
-    ? ((displayExpense - lastExpense) / lastExpense) * 100 
-    : (displayExpense > 0 ? 100 : 0);
+  const safeDisplayExpense = isNaN(displayExpense) || !isFinite(displayExpense) ? 0 : displayExpense;
+  const safeLastExpense = isNaN(lastExpense) || !isFinite(lastExpense) ? 0 : lastExpense;
+  const expenseChangePercent = (safeLastExpense > 0 && isFinite(safeLastExpense) && !isNaN(safeLastExpense) && isFinite(safeDisplayExpense) && !isNaN(safeDisplayExpense)) 
+    ? ((safeDisplayExpense - safeLastExpense) / safeLastExpense) * 100 
+    : (safeDisplayExpense > 0 ? 100 : 0);
 
   // Group all categories by their parent category to avoid double counting
   const rootCategoriesMap: Record<string, any> = {};
@@ -717,7 +723,9 @@ export default function Dashboard() {
 
   // Compute correct percentages
   const processedCategoryData = activeCategoriesList.map((cat: any) => {
-    const pct = totalCategoryExpense > 0 ? Math.round((cat.amount / totalCategoryExpense) * 100) : 0;
+    const amt = isNaN(cat.amount) || !isFinite(cat.amount) ? 0 : cat.amount;
+    const totalExp = isNaN(totalCategoryExpense) || !isFinite(totalCategoryExpense) ? 0 : totalCategoryExpense;
+    const pct = (totalExp > 0 && isFinite(totalExp) && !isNaN(totalExp) && isFinite(amt) && !isNaN(amt)) ? Math.round((amt / totalExp) * 100) : 0;
     return {
       ...cat,
       percentage: pct
@@ -725,7 +733,9 @@ export default function Dashboard() {
   });
 
   const top5Categories = rootCategoriesList.map((cat: any) => {
-    const pct = totalCategoryExpense > 0 ? Math.round((cat.amount / totalCategoryExpense) * 100) : 0;
+    const amt = isNaN(cat.amount) || !isFinite(cat.amount) ? 0 : cat.amount;
+    const totalExp = isNaN(totalCategoryExpense) || !isFinite(totalCategoryExpense) ? 0 : totalCategoryExpense;
+    const pct = (totalExp > 0 && isFinite(totalExp) && !isNaN(totalExp) && isFinite(amt) && !isNaN(amt)) ? Math.round((amt / totalExp) * 100) : 0;
     return {
       ...cat,
       percentage: pct

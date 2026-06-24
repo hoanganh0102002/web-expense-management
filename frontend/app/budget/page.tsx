@@ -705,15 +705,19 @@ export default function Budget() {
   ];
 
 
-  const totalLimit = overallBudget 
+  const rawTotalLimit = overallBudget 
     ? parseFloat(overallBudget.limit_amount) 
     : categoryBudgets.reduce((sum, b) => sum + parseFloat(b.limit_amount), 0);
+  const totalLimit = isNaN(rawTotalLimit) || !isFinite(rawTotalLimit) ? 0 : rawTotalLimit;
 
-  const totalUsed = overallBudget 
+  const rawTotalUsed = overallBudget 
     ? Math.abs(parseFloat(overallBudget.used_amount)) 
     : categoryBudgets.reduce((sum, b) => sum + Math.abs(parseFloat(b.used_amount)), 0);
+  const totalUsed = isNaN(rawTotalUsed) || !isFinite(rawTotalUsed) ? 0 : rawTotalUsed;
 
-  const totalPct = totalLimit > 0 ? Math.round((totalUsed / totalLimit) * 100) : 0;
+  const totalPct = (totalLimit > 0 && isFinite(totalLimit) && !isNaN(totalLimit) && isFinite(totalUsed) && !isNaN(totalUsed)) 
+    ? Math.round((totalUsed / totalLimit) * 100) 
+    : 0;
   const formatCurrency = (amount: number | string) => {
     const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     if (isNaN(numericAmount)) return '0';
@@ -737,7 +741,7 @@ export default function Budget() {
   
   // Stats calculations
   const remainingAmount = Math.max(totalLimit - totalUsed, 0);
-  const averagePerDay = totalUsed / passedDays;
+  const averagePerDay = (isNaN(totalUsed) || !isFinite(totalUsed) || isNaN(passedDays) || passedDays <= 0) ? 0 : totalUsed / passedDays;
   const projectedTotal = averagePerDay * totalDaysInMonth;
   const isOverBudget = totalUsed > totalLimit;
 
@@ -745,16 +749,20 @@ export default function Budget() {
   const prevOverallBudget = prevBudgetsWithRealtimeUsage.find(b => b.category_id === null);
   const prevCategoryBudgets = prevBudgetsWithRealtimeUsage.filter(b => b.category_id !== null);
   
-  const prevTotalUsed = prevOverallBudget
+  const rawPrevTotalUsed = prevOverallBudget
     ? Math.abs(parseFloat(prevOverallBudget.used_amount))
     : prevCategoryBudgets.reduce((sum, b) => sum + Math.abs(parseFloat(b.used_amount)), 0);
+  const prevTotalUsed = isNaN(rawPrevTotalUsed) || !isFinite(rawPrevTotalUsed) ? 0 : rawPrevTotalUsed;
 
-  const prevTotalLimit = prevOverallBudget
+  const rawPrevTotalLimit = prevOverallBudget
     ? parseFloat(prevOverallBudget.limit_amount)
     : prevCategoryBudgets.reduce((sum, b) => sum + parseFloat(b.limit_amount), 0);
+  const prevTotalLimit = isNaN(rawPrevTotalLimit) || !isFinite(rawPrevTotalLimit) ? 0 : rawPrevTotalLimit;
 
   const totalDiff = totalUsed - prevTotalUsed;
-  const totalPctDiff = prevTotalUsed > 0 ? Math.round((totalDiff / prevTotalUsed) * 100) : null;
+  const totalPctDiff = (prevTotalUsed > 0 && isFinite(prevTotalUsed) && !isNaN(prevTotalUsed) && isFinite(totalDiff) && !isNaN(totalDiff)) 
+    ? Math.round((totalDiff / prevTotalUsed) * 100) 
+    : null;
 
   // Create or update budget
   const handleSaveBudget = async () => {
@@ -819,9 +827,9 @@ export default function Budget() {
   };
   
   const maxUsed = Math.max(totalUsed, prevTotalUsed, 1);
-  const prevBarHeight = (prevTotalUsed / maxUsed) * 120;
-  const currBarHeight = (totalUsed / maxUsed) * 120;
-  const limitLineHeight = totalLimit > 0 ? (totalLimit / maxUsed) * 120 : 0;
+  const prevBarHeight = (prevTotalUsed && isFinite(prevTotalUsed) && !isNaN(prevTotalUsed) && isFinite(maxUsed) && maxUsed > 0) ? (prevTotalUsed / maxUsed) * 120 : 0;
+  const currBarHeight = (totalUsed && isFinite(totalUsed) && !isNaN(totalUsed) && isFinite(maxUsed) && maxUsed > 0) ? (totalUsed / maxUsed) * 120 : 0;
+  const limitLineHeight = (totalLimit > 0 && isFinite(totalLimit) && !isNaN(totalLimit) && isFinite(maxUsed) && maxUsed > 0) ? (totalLimit / maxUsed) * 120 : 0;
 
 
   return (
@@ -1164,9 +1172,11 @@ export default function Budget() {
           ) : categoryBudgets.length > 0 ? (
             <div className="budget-grid">
               {categoryBudgets.map((b,i)=>{
-                const limit = parseFloat(b.limit_amount);
-                const used = Math.abs(parseFloat(b.used_amount));
-                const pct = limit > 0 ? Math.round(used/limit*100) : 0;
+                const rawLimit = parseFloat(b.limit_amount);
+                const limit = isNaN(rawLimit) || !isFinite(rawLimit) ? 0 : rawLimit;
+                const rawUsed = Math.abs(parseFloat(b.used_amount));
+                const used = isNaN(rawUsed) || !isFinite(rawUsed) ? 0 : rawUsed;
+                const pct = (limit > 0 && isFinite(limit) && !isNaN(limit) && isFinite(used) && !isNaN(used)) ? Math.round(used/limit*100) : 0;
                 const catName = tCategory(b.category?.name) || t('other_category');
                 const catIcon = parseIcon(b.category?.icon || 'grid');
                 const catColor = fallbackColors[i % fallbackColors.length];
@@ -1174,7 +1184,7 @@ export default function Budget() {
                 const prevB = prevBudgetsList.find(pb => pb.category_id === b.category_id);
                 const prevUsed = prevB ? Math.abs(parseFloat(prevB.used_amount)) : 0;
                 const diff = used - prevUsed;
-                const pctDiff = prevUsed > 0 ? Math.round((diff / prevUsed) * 100) : null;
+                const pctDiff = (prevUsed > 0 && isFinite(prevUsed) && !isNaN(prevUsed) && isFinite(diff) && !isNaN(diff)) ? Math.round((diff / prevUsed) * 100) : null;
                 
                 return(
                   <div 
@@ -1366,7 +1376,7 @@ export default function Budget() {
                   ) : budgetHistory.length > 0 ? (
                     <div style={{display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(300px, 1fr))', gap:'20px'}}>
                       {budgetHistory.map((h, i) => {
-                        const pct = h.limit > 0 ? Math.round((h.used / h.limit) * 100) : 0;
+                        const pct = (h.limit > 0 && isFinite(h.limit) && !isNaN(h.limit) && isFinite(h.used) && !isNaN(h.used)) ? Math.round((h.used / h.limit) * 100) : 0;
                         const barColor = pct >= 100 ? '#EF4444' : pct >= 80 ? '#F59E0B' : '#10B981';
                         return (
                           <div 

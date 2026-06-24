@@ -226,7 +226,8 @@ const generateFinancialInsights = (
   // 1. Overview
   const netBalance = curr.income - curr.expense;
   const isSurplus = netBalance >= 0;
-  const surplusPct = curr.income > 0 ? (netBalance / curr.income) * 100 : 0;
+  let surplusPct = curr.income > 0 ? (netBalance / curr.income) * 100 : 0;
+  if (isNaN(surplusPct) || !isFinite(surplusPct)) surplusPct = 0;
   
   let overviewText = '';
   let overviewStatus: 'surplus' | 'deficit' = 'surplus';
@@ -239,7 +240,8 @@ const generateFinancialInsights = (
   }
 
   // 2. Saving Rate
-  const savingRate = curr.income > 0 ? (netBalance / curr.income) * 100 : (netBalance < 0 ? -100 : 0);
+  let savingRate = curr.income > 0 ? (netBalance / curr.income) * 100 : (netBalance < 0 ? -100 : 0);
+  if (isNaN(savingRate) || !isFinite(savingRate)) savingRate = 0;
   let savingRateCommentary = '';
   let savingRateStatus: 'excellent' | 'good' | 'fair' | 'warning' = 'fair';
   
@@ -261,8 +263,10 @@ const generateFinancialInsights = (
   const incomeDiff = curr.income - prev.income;
   const expenseDiff = curr.expense - prev.expense;
   
-  const incomeChangePct = prev.income > 0 ? (incomeDiff / prev.income) * 100 : 0;
-  const expenseChangePct = prev.expense > 0 ? (expenseDiff / prev.expense) * 100 : 0;
+  let incomeChangePct = prev.income > 0 ? (incomeDiff / prev.income) * 100 : 0;
+  let expenseChangePct = prev.expense > 0 ? (expenseDiff / prev.expense) * 100 : 0;
+  if (isNaN(incomeChangePct) || !isFinite(incomeChangePct)) incomeChangePct = 0;
+  if (isNaN(expenseChangePct) || !isFinite(expenseChangePct)) expenseChangePct = 0;
   
   let comparisonText = '';
   const incStr = incomeDiff > 0 ? `tăng ${incomeChangePct.toFixed(1)}% (+${formatCurrencyLocal(incomeDiff)})` : (incomeDiff < 0 ? `giảm ${Math.abs(incomeChangePct).toFixed(1)}% (-${formatCurrencyLocal(Math.abs(incomeDiff))})` : 'không đổi');
@@ -285,7 +289,8 @@ const generateFinancialInsights = (
 
   // 4. MTD Comparison (same point in previous month)
   const mtdExpenseDiff = mtdCurr.expense - mtdPrev.expense;
-  const mtdExpenseChangePct = mtdPrev.expense > 0 ? (mtdExpenseDiff / mtdPrev.expense) * 100 : 0;
+  let mtdExpenseChangePct = mtdPrev.expense > 0 ? (mtdExpenseDiff / mtdPrev.expense) * 100 : 0;
+  if (isNaN(mtdExpenseChangePct) || !isFinite(mtdExpenseChangePct)) mtdExpenseChangePct = 0;
   
   let mtdComparisonText = '';
   let mtdStatus: 'increase' | 'decrease' | 'equal' | 'none' = 'none';
@@ -808,7 +813,10 @@ export default function Reports() {
         let forecastStatus: 'safe' | 'warning' | 'exceeded' = 'safe';
         let forecastCommentary = '';
         if (totalBudgetLimit > 0) {
-          const forecastPct = (forecastedExpense / totalBudgetLimit) * 100;
+          let forecastPct = (forecastedExpense / totalBudgetLimit) * 100;
+          if (isNaN(forecastPct) || !isFinite(forecastPct)) {
+            forecastPct = 0;
+          }
           if (forecastPct >= 100) {
             forecastStatus = 'exceeded';
             forecastCommentary = `Cảnh báo: Dự báo chi tiêu cuối tháng đạt ${formatCurrencyLocal(forecastedExpense)} (vượt hạn mức tổng ngân sách ${formatCurrencyLocal(totalBudgetLimit)}). Hãy thắt chặt chi tiêu danh mục không thiết yếu ngay lập tức!`;
@@ -831,7 +839,10 @@ export default function Reports() {
           forecastStatus,
           forecastCommentary,
           totalDaysInMonth,
-          forecastPct: totalBudgetLimit > 0 ? (forecastedExpense / totalBudgetLimit) * 100 : 0
+          forecastPct: totalBudgetLimit > 0 ? (() => {
+            const pct = (forecastedExpense / totalBudgetLimit) * 100;
+            return (isNaN(pct) || !isFinite(pct)) ? 0 : pct;
+          })() : 0
         };
         setInsights(generatedInsights);
 
@@ -971,7 +982,11 @@ export default function Reports() {
     });
 
     const sortedCategories = Object.values(categoryTotals)
-      .map((cat: any) => ({ ...cat, percentage: totalVal > 0 ? (cat.amount / totalVal) * 100 : 0 }))
+      .map((cat: any) => {
+        let pct = totalVal > 0 ? (cat.amount / totalVal) * 100 : 0;
+        if (isNaN(pct) || !isFinite(pct)) pct = 0;
+        return { ...cat, percentage: pct };
+      })
       .sort((a: any, b: any) => b.amount - a.amount);
       
     const topList = sortedCategories.map((cat: any, idx: number) => ({
@@ -1013,7 +1028,11 @@ export default function Reports() {
     });
 
     const sortedWallets = Object.values(walletTotals)
-      .map((w: any) => ({ ...w, percentage: totalWalletVal > 0 ? (w.amount / totalWalletVal) * 100 : 0 }))
+      .map((w: any) => {
+        let pct = totalWalletVal > 0 ? (w.amount / totalWalletVal) * 100 : 0;
+        if (isNaN(pct) || !isFinite(pct)) pct = 0;
+        return { ...w, percentage: pct };
+      })
       .sort((a: any, b: any) => b.amount - a.amount);
       
     const topWalletsList = sortedWallets.map((w: any, idx: number) => ({
