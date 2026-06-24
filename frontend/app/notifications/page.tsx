@@ -75,6 +75,7 @@ export default function Notifications() {
   const { isLoggedIn, userData, setHasUnreadNotifications, setUnreadNotificationsCount } = useAppContext();
   const { t } = useLanguage();
   const [notificationsList, setNotificationsList] = useState<any[]>([]);
+  const [visibleCount, setVisibleCount] = useState(20);
   const [isLoading, setIsLoading] = useState(false);
 
   // Hydration-safe cache loading
@@ -89,6 +90,14 @@ export default function Notifications() {
       if (cached) {
         try { combined.push(...JSON.parse(cached)); } catch (e) {}
       }
+      const isErrorNotif = (n: any) => {
+        const titleLower = (n.title || '').toLowerCase();
+        const contentLower = (n.content || '').toLowerCase();
+        return titleLower.includes('lỗi') || titleLower.includes('thất bại') || titleLower.includes('không thành công') ||
+               contentLower.includes('lỗi') || contentLower.includes('thất bại') || contentLower.includes('không thành công') || (n.type && n.type.toLowerCase().includes('error'));
+      };
+      combined = combined.filter((n: any) => !isErrorNotif(n));
+
       if (combined.length > 0) {
         setNotificationsList(prev => prev.length === 0 ? combined : prev);
       }
@@ -108,8 +117,18 @@ export default function Notifications() {
       let localNotifs = [];
       try { localNotifs = JSON.parse(localStorage.getItem('local_notifications') || '[]'); } catch (e) {}
       
-      setNotificationsList([...localNotifs, ...list]);
-      localStorage.setItem('cached_notifications', JSON.stringify(list));
+      const isErrorNotif = (n: any) => {
+        const titleLower = (n.title || '').toLowerCase();
+        const contentLower = (n.content || '').toLowerCase();
+        return titleLower.includes('lỗi') || titleLower.includes('thất bại') || titleLower.includes('không thành công') ||
+               contentLower.includes('lỗi') || contentLower.includes('thất bại') || contentLower.includes('không thành công') || (n.type && n.type.toLowerCase().includes('error'));
+      };
+
+      const filteredList = list.filter((n: any) => !isErrorNotif(n));
+      const filteredLocalNotifs = localNotifs.filter((n: any) => !isErrorNotif(n));
+
+      setNotificationsList([...filteredLocalNotifs, ...filteredList]);
+      localStorage.setItem('cached_notifications', JSON.stringify(filteredList));
     } catch (e) {
       console.error("Lỗi khi tải thông báo:", e);
     } finally {
@@ -194,11 +213,27 @@ export default function Notifications() {
     }
 
     // Extract txId generically
-    const txId = n.transaction_id || (n.metadata && n.metadata.transaction_id) || (n.data && n.data.transaction_id) || n.related_id || (n.data && n.data.id);
+    const txId = n.transaction_id || 
+                 (n.metadata && (n.metadata.transaction_id || n.metadata.id || n.metadata.model_id || n.metadata.transfer_id)) || 
+                 (n.data && (n.data.transaction_id || n.data.id || n.data.model_id || n.data.transfer_id)) || 
+                 n.related_id;
+    
+    // Extract category ID generically
+    const catId = n.category_id || (n.metadata && n.metadata.category_id) || (n.data && n.data.category_id);
 
     // Redirect based on type
     if (n.type?.includes('BudgetWarningNotification') || titleLower.includes('ngân sách') || titleLower.includes('budget')) {
-      router.push('/budget');
+      if (catId) {
+        router.push(`/budget?categoryId=${catId}`);
+      } else {
+        const textToSearch = n.content || n.title || '';
+        const match = textToSearch.match(/"(.*?)"/);
+        if (match && match[1]) {
+           router.push(`/budget?autoExpandTitle=${encodeURIComponent(match[1])}`);
+        } else {
+           router.push('/budget');
+        }
+      }
     } else if (txId) {
       router.push(`/transactions?txId=${txId}`);
     } else {
@@ -208,7 +243,23 @@ export default function Notifications() {
       if (match && match[1]) {
          router.push(`/transactions?autoOpenTitle=${encodeURIComponent(match[1])}`);
       } else {
-         router.push('/transactions');
+         const fromMatch = textToSearch.match(/từ\s+(.*?)(?:\.|$)/i);
+         const toMatch = textToSearch.match(/đến\s+(.*?)(?:\.|$)/i);
+         const amountMatch = textToSearch.match(/([0-9,.]+)\s*VND/i);
+
+         let url = '/transactions';
+         if (fromMatch && fromMatch[1]) {
+           url = `/transactions?autoOpenTitle=${encodeURIComponent(fromMatch[1].trim())}`;
+         } else if (toMatch && toMatch[1]) {
+           url = `/transactions?autoOpenTitle=${encodeURIComponent(toMatch[1].trim())}`;
+         }
+
+         if (amountMatch && amountMatch[1]) {
+           const amt = amountMatch[1].replace(/,/g, '');
+           url += (url.includes('?') ? '&' : '?') + `autoOpenAmount=${amt}`;
+         }
+         
+         router.push(url);
       }
     }
   };
@@ -291,7 +342,8 @@ export default function Notifications() {
           {isLoading ? (
             <div style={{display:'flex', justifyContent:'center', padding:'80px', color:'var(--text-main)', fontSize:'16px'}}>{t('loading')}...</div>
           ) : notificationsList.length > 0 ? (
-            notificationsList.map((n) => {
+            <>
+              {notificationsList.slice(0, visibleCount).map((n) => {
               let type: 'danger' | 'warning' | 'info' | 'reminder' | 'success' = 'info';
               
               if (n.type?.includes('BudgetWarningNotification') || n.title?.toLowerCase().includes('ngân sách') || n.title?.toLowerCase().includes('budget')) {
@@ -353,7 +405,30 @@ export default function Notifications() {
                   </div>
                 </div>
               );
-            })
+            })}
+            
+            {visibleCount < notificationsList.length && (
+              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '20px', paddingBottom: '20px' }}>
+                <button
+                  onClick={() => setVisibleCount(prev => prev + 20)}
+                  style={{
+                    padding: '10px 24px',
+                    borderRadius: '24px',
+                    background: 'rgba(24, 20, 243, 0.05)',
+                    color: '#1814F3',
+                    border: '1px solid rgba(24, 20, 243, 0.2)',
+                    fontWeight: '700',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.background = 'rgba(24, 20, 243, 0.1)'}
+                  onMouseOut={(e) => e.currentTarget.style.background = 'rgba(24, 20, 243, 0.05)'}
+                >
+                  Xem thêm
+                </button>
+              </div>
+            )}
+            </>
           ) : (
             <div className="notif-empty-state notifications-fade-in">
               <div className="notif-empty-icon">

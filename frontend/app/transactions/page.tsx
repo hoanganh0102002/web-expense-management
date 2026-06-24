@@ -353,6 +353,7 @@ export default function Transactions() {
   const [isClassifyingNew, setIsClassifyingNew] = useState(false);
   const [isClassifyingEdit, setIsClassifyingEdit] = useState(false);
   const [isClassifyingRecurring, setIsClassifyingRecurring] = useState(false);
+  const hasAttemptedOpen = useRef(false);
 
   // Auto-classify category for newTx
   useEffect(() => {
@@ -375,7 +376,7 @@ export default function Transactions() {
           setNewTx(prev => ({ ...prev, category_id: res.data.category_id }));
         }
       } catch (e) {
-        console.error("Lỗi tự động phân loại danh mục:", e);
+        console.log("Lỗi tự động phân loại danh mục:", e);
       } finally {
         setIsClassifyingNew(false);
       }
@@ -409,7 +410,7 @@ export default function Transactions() {
           });
         }
       } catch (e) {
-        console.error("Lỗi tự động phân loại danh mục chỉnh sửa:", e);
+        console.log("Lỗi tự động phân loại danh mục chỉnh sửa:", e);
       } finally {
         setIsClassifyingEdit(false);
       }
@@ -443,7 +444,7 @@ export default function Transactions() {
           });
         }
       } catch (e) {
-        console.error("Lỗi tự động phân loại danh mục định kỳ:", e);
+        console.log("Lỗi tự động phân loại danh mục định kỳ:", e);
       } finally {
         setIsClassifyingRecurring(false);
       }
@@ -538,7 +539,7 @@ export default function Transactions() {
   const [payeeSearchTerm, setPayeeSearchTerm] = useState('');
   const [isSearchingSystem, setIsSearchingSystem] = useState(false);
   const [searchSystemError, setSearchSystemError] = useState('');
-  const [targetModalForPayee, setTargetModalForPayee] = useState<'new' | 'edit'>('new');
+  const [targetModalForPayee, setTargetModalForPayee] = useState<'new' | 'edit' | 'edit_recurring'>('new');
 
   const handleSearchSystemPayee = async () => {
     let term = payeeSearchTerm.trim();
@@ -581,8 +582,10 @@ export default function Transactions() {
         // Set the active payee
         if (targetModalForPayee === 'new') {
           setNewTx((prev: any) => ({ ...prev, payee_id: newPayee.id }));
-        } else {
+        } else if (targetModalForPayee === 'edit') {
           setEditingTx((prev: any) => ({ ...prev, payee_id: newPayee.id }));
+        } else {
+          setEditingRecurringTx((prev: any) => ({ ...prev, payee_id: newPayee.id }));
         }
         setIsPayeeModalOpen(false);
         setPayeeSearchTerm('');
@@ -714,8 +717,11 @@ export default function Transactions() {
       const urlParams = new URLSearchParams(window.location.search);
       const txId = urlParams.get('txId');
       const autoOpenTitle = urlParams.get('autoOpenTitle');
+      const autoOpenAmount = urlParams.get('autoOpenAmount');
       
-      if (!txId && !autoOpenTitle) return;
+      if (!txId && !autoOpenTitle && !autoOpenAmount) return;
+      if (hasAttemptedOpen.current) return;
+      hasAttemptedOpen.current = true;
 
       const attemptOpen = async () => {
         if (txId) {
@@ -749,19 +755,28 @@ export default function Transactions() {
           } catch(e) { console.error(e); }
           window.history.replaceState({}, '', '/transactions');
           
-        } else if (autoOpenTitle) {
-          const titleDecoded = decodeURIComponent(autoOpenTitle).toLowerCase();
-          const tx = transactions?.find((t: any) => {
-            const tName = (t.title || t.description || t.name || '').toLowerCase();
-            return tName === titleDecoded || tName.includes(titleDecoded);
-          });
+        } else if (autoOpenTitle || autoOpenAmount) {
+          const titleDecoded = autoOpenTitle ? decodeURIComponent(autoOpenTitle).toLowerCase() : null;
+          const targetAmount = autoOpenAmount ? parseFloat(autoOpenAmount) : null;
+          
+          const matchTx = (t: any) => {
+            let isMatch = true;
+            if (titleDecoded) {
+              const tName = (t.title || t.description || t.name || '').toLowerCase();
+              isMatch = isMatch && (tName === titleDecoded || tName.includes(titleDecoded));
+            }
+            if (targetAmount) {
+              const tAmt = Math.abs(parseFloat(t.amount_in_user_currency || t.amount || '0'));
+              isMatch = isMatch && (tAmt === targetAmount);
+            }
+            return isMatch;
+          };
+
+          const tx = transactions?.find(matchTx);
           if (tx) {
             setViewingTx(tx); setIsDetailModalOpen(true); window.history.replaceState({}, '', '/transactions'); return;
           }
-          const rule = recurringTransactions?.find((t: any) => {
-            const tName = (t.title || t.description || t.name || '').toLowerCase();
-            return tName === titleDecoded || tName.includes(titleDecoded);
-          });
+          const rule = recurringTransactions?.find(matchTx);
           if (rule) {
             setViewingRuleTx(rule); setIsRuleDetailModalOpen(true); window.history.replaceState({}, '', '/transactions'); return;
           }
@@ -770,10 +785,7 @@ export default function Transactions() {
           try {
             const res = await transactionApi.getAll({ per_page: 2000 });
             const allData = res.data?.data || res.data || [];
-            const fetchedTx = allData.find((t: any) => {
-              const tName = (t.title || t.description || t.name || '').toLowerCase();
-              return tName === titleDecoded || tName.includes(titleDecoded);
-            });
+            const fetchedTx = allData.find(matchTx);
             if (fetchedTx) {
               if (fetchedTx.source_type === 'recurring') {
                 setViewingRuleTx(fetchedTx); setIsRuleDetailModalOpen(true);
@@ -1473,6 +1485,7 @@ export default function Transactions() {
           type: editingRecurringTx.type,
           wallet_id: editingRecurringTx.wallet_id,
           category_id: editingRecurringTx.category_id || null,
+          payee_id: editingRecurringTx.payee_id || null,
           frequency: editingRecurringTx.frequency,
           next_run_at: editingRecurringTx.start_date.replace('T', ' ') + ':00',
           end_at: editingRecurringTx.end_date || null,
@@ -2253,7 +2266,7 @@ export default function Transactions() {
                           if (p) return p.payee_name || p.name;
                         }
                         if (tx.source_type === 'recurring' && recurringTransactions.length > 0) {
-                          const ruleId = tx.recurring_rule_id || tx.rule_id;
+                          const ruleId = tx.recurring_rule_id || tx.rule_id || tx.source_id;
                           if (ruleId) {
                             const rule = recurringTransactions.find((r: any) => r.id === ruleId || r.id === String(ruleId));
                             if (rule) {
@@ -2896,7 +2909,7 @@ export default function Transactions() {
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '15px', marginBottom: '15px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '15px', marginBottom: '15px' }}>
               <div>
                 <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Loại *</label>
                 <select value={editingRecurringTx.type} onChange={e => setEditingRecurringTx({ ...editingRecurringTx, type: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}>
@@ -2908,6 +2921,19 @@ export default function Transactions() {
                 <select value={editingRecurringTx.wallet_id} onChange={e => setEditingRecurringTx({ ...editingRecurringTx, wallet_id: e.target.value })} style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px' }}>
                   {wallets.filter(w => w.type !== 'cash').map(w => <option key={w.id} value={w.id}>{w.name}</option>)}
                 </select>
+              </div>
+              <div>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Người hưởng thụ *</label>
+                <div
+                  onClick={() => {
+                    setTargetModalForPayee('edit_recurring');
+                    setIsPayeeModalOpen(true);
+                  }}
+                  style={{ width: '100%', padding: '12px', border: '1px solid var(--border-color)', borderRadius: '12px', background: 'var(--bg-color)', color: 'var(--text-main)', fontSize: '15px', cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                >
+                  <span>{editingRecurringTx.payee_id ? payees.find(p => p.id === editingRecurringTx.payee_id)?.payee_name || 'Đã chọn' : 'Chọn người thụ hưởng'}</span>
+                  <span style={{ color: '#718EBF', fontSize: '12px' }}>▼</span>
+                </div>
               </div>
               <div>
                 <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Ngày bắt đầu *</label>
@@ -3560,8 +3586,10 @@ export default function Transactions() {
                   onClick={() => {
                     if (targetModalForPayee === 'new') {
                       setNewTx({ ...newTx, payee_id: p.id });
-                    } else {
+                    } else if (targetModalForPayee === 'edit') {
                       setEditingTx({ ...editingTx, payee_id: p.id });
+                    } else {
+                      setEditingRecurringTx({ ...editingRecurringTx, payee_id: p.id });
                     }
                     setIsPayeeModalOpen(false);
                   }}

@@ -618,6 +618,50 @@ export default function Budget() {
     }
   }, [showHistory, isLoggedIn]);
 
+  // Handle URL parameters for auto-expanding budget category
+  useEffect(() => {
+    if (typeof window !== 'undefined' && budgetsList.length > 0) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const categoryId = urlParams.get('categoryId');
+      const autoExpandTitle = urlParams.get('autoExpandTitle');
+      
+      if (!categoryId && !autoExpandTitle) return;
+
+      let targetBudget = null;
+      if (categoryId) {
+        targetBudget = budgetsList.find((b: any) => String(b.category_id) === categoryId);
+      } else if (autoExpandTitle) {
+        const titleDecoded = decodeURIComponent(autoExpandTitle).toLowerCase();
+        targetBudget = budgetsList.find((b: any) => {
+          const rawName = (b.category?.name || '').toLowerCase();
+          const translatedName = (tCategory(b.category?.name) || '').toLowerCase();
+          return rawName === titleDecoded || rawName.includes(titleDecoded) || 
+                 translatedName === titleDecoded || translatedName.includes(titleDecoded);
+        });
+      }
+
+      if (targetBudget) {
+        if (expandedBudgetId !== targetBudget.id) {
+          handleToggleExpand(targetBudget);
+        }
+        window.history.replaceState({}, '', '/budget');
+        
+        // Scroll to it
+        setTimeout(() => {
+          const element = document.getElementById(`budget-item-${targetBudget.id}`);
+          if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            element.style.transition = 'box-shadow 0.5s ease';
+            element.style.boxShadow = '0 0 20px rgba(254, 92, 115, 0.4)';
+            setTimeout(() => {
+              element.style.boxShadow = '';
+            }, 2000);
+          }
+        }, 500);
+      }
+    }
+  }, [budgetsList]);
+
   // Flatten categories list for dropdown selection
   const flatCategories = useMemo(() => {
     const flatten = (cats: any[], prefix = ''): any[] => {
@@ -1135,6 +1179,7 @@ export default function Budget() {
                 return(
                   <div 
                     key={b.id} 
+                    id={`budget-item-${b.id}`}
                     className={`bdg-card-animate budget-card ${pct >= 100 ? 'exceeded pulse-exceeded' : ''}`} 
                     style={{
                       animationDelay: `${i * 0.07}s`,

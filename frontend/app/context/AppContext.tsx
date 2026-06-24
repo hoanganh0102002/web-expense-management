@@ -68,6 +68,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       if (cachedNotifs) {
         try { combined.push(...JSON.parse(cachedNotifs)); } catch (e) {}
       }
+      const isErrorNotif = (n: any) => {
+        const titleLower = (n.title || '').toLowerCase();
+        const contentLower = (n.content || '').toLowerCase();
+        return titleLower.includes('lỗi') || titleLower.includes('thất bại') || titleLower.includes('không thành công') ||
+               contentLower.includes('lỗi') || contentLower.includes('thất bại') || contentLower.includes('không thành công') || (n.type && n.type.toLowerCase().includes('error'));
+      };
+      combined = combined.filter((n: any) => !isErrorNotif(n));
       
       const unreadList = combined.filter((n: any) => n.read_at === null);
       setUnreadNotificationsCount(unreadList.length);
@@ -83,13 +90,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       
       let localNotifs: any[] = [];
       try { localNotifs = JSON.parse(localStorage.getItem('local_notifications') || '[]'); } catch (e) {}
-      
-      const allNotifs = [...localNotifs, ...list];
+      const isErrorNotif = (n: any) => {
+        const titleLower = (n.title || '').toLowerCase();
+        const contentLower = (n.content || '').toLowerCase();
+        return titleLower.includes('lỗi') || titleLower.includes('thất bại') || titleLower.includes('không thành công') ||
+               contentLower.includes('lỗi') || contentLower.includes('thất bại') || contentLower.includes('không thành công') || (n.type && n.type.toLowerCase().includes('error'));
+      };
+
+      const allNotifs = [...localNotifs, ...list].filter((n: any) => !isErrorNotif(n));
       const unreadList = allNotifs.filter((n: any) => n.read_at === null);
       
       setUnreadNotificationsCount(unreadList.length);
       setHasUnreadNotifications(unreadList.length > 0);
-      localStorage.setItem('cached_notifications', JSON.stringify(list));
+      localStorage.setItem('cached_notifications', JSON.stringify(list.filter((n: any) => !isErrorNotif(n))));
     } catch (e) {}
   };
 
