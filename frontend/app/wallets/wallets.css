@@ -1706,4 +1706,7 @@
   box-shadow: 0 0 0 3px rgba(24, 20, 243, 0.15);
 }
 
-
+/* Entry animation for active tab content */
+.tab-pane-animation {
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}

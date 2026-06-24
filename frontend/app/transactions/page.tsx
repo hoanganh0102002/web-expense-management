@@ -1163,9 +1163,8 @@ export default function Transactions() {
         })
       });
       setRecurringTransactions(prev => prev.map(item => item.id === tx.id ? { ...item, is_active: !tx.is_active } : item));
-    } catch (error) {
-      console.log('Lỗi khi cập nhật trạng thái:', error);
-      console.log('Không thể thay đổi trạng thái lúc này. Vui lòng thử lại sau.');
+    } catch (error: any) {
+      alert(error.message || 'Không thể thay đổi trạng thái lúc này. Vui lòng thử lại sau.');
     }
   };
 
@@ -1177,13 +1176,34 @@ export default function Transactions() {
     const selectedWallet = wallets.find(w => w.id === newTx.wallet_id);
     const isCashWallet = selectedWallet?.type === 'cash';
 
-    if (newTx.is_recurring && isCashWallet) {
-      alert('Không thể dùng ví tiền mặt cho giao dịch định kỳ');
+    if (selectedWallet && selectedWallet.currency_code !== 'VND') {
+      alert('Giao dịch thủ công chỉ hỗ trợ đơn vị tiền tệ VND.');
       return;
     }
 
-    if (!isCashWallet && !newTx.payee_id) {
-      alert('Giao dịch online cần có người hưởng thụ. Vui lòng chọn người thụ hưởng!');
+    const selectedCategoryObj = flatCategories.find(c => c.id === newTx.category_id);
+    if (!isCashWallet && selectedCategoryObj?.type === 'income') {
+      alert('Giao dịch thủ công qua ví ngân hàng hoặc ví điện tử không được chọn danh mục thu nhập.');
+      return;
+    }
+
+    if (newTx.is_recurring) {
+      if (isCashWallet) {
+        alert('Không thể dùng ví tiền mặt cho giao dịch định kỳ');
+        return;
+      }
+      if (selectedWallet && selectedWallet.currency_code !== 'VND') {
+        alert('Giao dịch định kỳ chỉ hỗ trợ đơn vị tiền tệ VND.');
+        return;
+      }
+      if (!isCashWallet && selectedCategoryObj?.type === 'income') {
+        alert('Giao dịch định kỳ qua ví ngân hàng hoặc ví điện tử không được chọn danh mục thu nhập.');
+        return;
+      }
+    }
+
+    if (newTx.type === 'expense' && !isCashWallet && !newTx.payee_id) {
+      alert('Giao dịch thủ công qua ví ngân hàng hoặc ví điện tử bắt buộc phải có người hưởng thụ.');
       return;
     }
 
@@ -1335,7 +1355,7 @@ export default function Transactions() {
       setHasLoadedHistory(false);
       loadFilteredTransactions(null);
     } catch (error: any) {
-      console.log(error.message || 'Lỗi khi thêm giao dịch');
+      alert(error.message || 'Lỗi khi thêm giao dịch');
     } finally {
       setIsSubmitting(false);
     }
@@ -1349,7 +1369,7 @@ export default function Transactions() {
         loadFilteredTransactions(currentCursor);
         fetchUnreadNotificationsCount();
       } catch (error: any) {
-        console.log(error.message || 'Lỗi khi xóa giao dịch');
+        alert(error.message || 'Lỗi khi xóa giao dịch');
       }
     }
   };
@@ -1362,8 +1382,19 @@ export default function Transactions() {
     const selectedWallet = wallets.find(w => w.id === editingTx.wallet_id);
     const isCashWallet = selectedWallet?.type === 'cash';
 
-    if (!isCashWallet && !editingTx.payee_id) {
-      alert('Giao dịch online cần có người hưởng thụ. Vui lòng chọn người thụ hưởng!');
+    if (selectedWallet && selectedWallet.currency_code !== 'VND') {
+      alert('Giao dịch thủ công chỉ hỗ trợ đơn vị tiền tệ VND.');
+      return;
+    }
+
+    const selectedCategoryObj = flatCategories.find(c => c.id === editingTx.category_id);
+    if (!isCashWallet && selectedCategoryObj?.type === 'income') {
+      alert('Giao dịch thủ công qua ví ngân hàng hoặc ví điện tử không được chọn danh mục thu nhập.');
+      return;
+    }
+
+    if (editingTx.type === 'expense' && !isCashWallet && !editingTx.payee_id) {
+      alert('Giao dịch thủ công qua ví ngân hàng hoặc ví điện tử bắt buộc phải có người hưởng thụ.');
       return;
     }
 
@@ -1446,7 +1477,7 @@ export default function Transactions() {
         alert('Cập nhật giao dịch thành công!');
       }, 100);
     } catch (error: any) {
-      console.log(error.message || 'Lỗi khi cập nhật giao dịch');
+      alert(error.message || 'Lỗi khi cập nhật giao dịch');
     } finally {
       setIsSubmittingEdit(false);
     }
@@ -1458,7 +1489,7 @@ export default function Transactions() {
         await apiFetch(`/recurring-rules/${id}`, { method: 'DELETE' });
         setRecurringTransactions(prev => prev.filter(tx => tx.id !== id));
       } catch (error: any) {
-        console.log(error.message || 'Lỗi khi xóa giao dịch định kỳ');
+        alert(error.message || 'Lỗi khi xóa giao dịch định kỳ');
       }
     }
   };
@@ -1472,6 +1503,17 @@ export default function Transactions() {
     const selectedEditWallet = wallets.find(w => w.id === editingRecurringTx.wallet_id);
     if (selectedEditWallet?.type === 'cash') {
       alert('Không được phép chọn ví Tiền mặt để thanh toán. Vui lòng chọn ví khác!');
+      return;
+    }
+
+    if (selectedEditWallet && selectedEditWallet.currency_code !== 'VND') {
+      alert('Giao dịch định kỳ chỉ hỗ trợ đơn vị tiền tệ VND.');
+      return;
+    }
+
+    const selectedCategoryObj = flatCategories.find(c => c.id === editingRecurringTx.category_id);
+    if (selectedEditWallet?.type !== 'cash' && selectedCategoryObj?.type === 'income') {
+      alert('Giao dịch định kỳ qua ví ngân hàng hoặc ví điện tử không được chọn danh mục thu nhập.');
       return;
     }
 
@@ -1497,7 +1539,7 @@ export default function Transactions() {
       setRecurringTransactions(res.data ? res.data : (Array.isArray(res) ? res : []));
       setIsEditRecurringModalOpen(false);
     } catch (error: any) {
-      console.log(error.message || 'Lỗi khi cập nhật giao dịch định kỳ');
+      alert(error.message || 'Lỗi khi cập nhật giao dịch định kỳ');
     } finally {
       setIsSubmittingEdit(false);
     }
@@ -2751,7 +2793,7 @@ export default function Transactions() {
               <CategoryPicker
                 value={newTx.category_id}
                 onChange={(id) => setNewTx({ ...newTx, category_id: id })}
-                type={newTx.type}
+                type={!isCashWallet ? 'expense' : newTx.type}
                 categories={categories}
                 tCategory={tCategory}
                 placeholder={t('select_category') || 'Chọn danh mục'}
@@ -2978,7 +3020,7 @@ export default function Transactions() {
               <CategoryPicker
                 value={editingRecurringTx.category_id}
                 onChange={(id) => setEditingRecurringTx({ ...editingRecurringTx, category_id: id })}
-                type={editingRecurringTx.type}
+                type="expense"
                 categories={categories}
                 placeholder="Chọn danh mục"
               />
@@ -3313,7 +3355,7 @@ export default function Transactions() {
               <CategoryPicker
                 value={editingTx.category_id}
                 onChange={(id) => setEditingTx({ ...editingTx, category_id: id })}
-                type={editingTx.type}
+                type={!isEditCashWallet ? 'expense' : editingTx.type}
                 categories={categories}
                 tCategory={tCategory}
                 placeholder={t('select_category') || 'Chọn danh mục'}
