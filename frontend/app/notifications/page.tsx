@@ -218,14 +218,28 @@ export default function Notifications() {
       return;
     }
 
+    // Safely parse metadata and data in case they are stringified JSON
+    let metadataObj = n.metadata;
+    if (typeof metadataObj === 'string') {
+      try {
+        metadataObj = JSON.parse(metadataObj);
+      } catch (e) {}
+    }
+    let dataObj = n.data;
+    if (typeof dataObj === 'string') {
+      try {
+        dataObj = JSON.parse(dataObj);
+      } catch (e) {}
+    }
+
     // Extract common identifiers generically
     const txId = n.transaction_id || 
-                 (n.metadata && (n.metadata.transaction_id || n.metadata.id || n.metadata.model_id || n.metadata.transfer_id)) || 
-                 (n.data && (n.data.transaction_id || n.data.id || n.data.model_id || n.data.transfer_id)) || 
+                 (metadataObj && (metadataObj.transaction_id || metadataObj.id || metadataObj.model_id || metadataObj.transfer_id)) || 
+                 (dataObj && (dataObj.transaction_id || dataObj.id || dataObj.model_id || dataObj.transfer_id)) || 
                  n.related_id;
     
-    const catId = n.category_id || (n.metadata && n.metadata.category_id) || (n.data && n.data.category_id);
-    const typeStr = n.type || (n.metadata && n.metadata.type) || (n.data && n.data.type) || '';
+    const catId = n.category_id || (metadataObj && metadataObj.category_id) || (dataObj && dataObj.category_id);
+    const typeStr = n.type || (metadataObj && metadataObj.type) || (dataObj && dataObj.type) || '';
 
     // -- Tối ưu hóa điều hướng (Navigation Optimization) --
     
@@ -258,14 +272,40 @@ export default function Notifications() {
       if (txId) {
         router.push(`/transactions?txId=${txId}`);
       } else {
-        router.push('/wallets'); // Nhận tiền vào ví
+        // Fallback: search for P2P transaction by matching sender name and amount
+        const sender = (metadataObj && (metadataObj.sender_name || metadataObj.senderName)) ||
+                       (dataObj && (dataObj.sender_name || dataObj.senderName));
+        const amount = (metadataObj && metadataObj.amount) || (dataObj && dataObj.amount);
+        
+        if (sender) {
+          let url = `/transactions?autoOpenTitle=${encodeURIComponent(`Nhận tiền từ ${sender}`)}`;
+          if (amount) {
+            url += `&autoOpenAmount=${amount}`;
+          }
+          router.push(url);
+        } else {
+          // If we can't extract sender, use regular text parsing fallback
+          const textToSearch = n.content || n.title || '';
+          const fromMatch = textToSearch.match(/từ\s+(.*?)(?:\.|$)/i);
+          const amountMatch = textToSearch.match(/([0-9,.]+)/);
+          
+          let url = '/transactions';
+          if (fromMatch && fromMatch[1]) {
+            url = `/transactions?autoOpenTitle=${encodeURIComponent(`Nhận tiền từ ${fromMatch[1].trim()}`)}`;
+          }
+          if (amountMatch && amountMatch[1]) {
+            const amt = amountMatch[1].replace(/,/g, '');
+            url += (url.includes('?') ? '&' : '?') + `autoOpenAmount=${amt}`;
+          }
+          router.push(url);
+        }
       }
       return;
     }
 
     // 6. Recurring Transaction Executed
     if (typeStr.includes('RecurringTransactionExecutedNotification')) {
-      const status = (n.metadata && n.metadata.status) || (n.data && n.data.status);
+      const status = (metadataObj && metadataObj.status) || (dataObj && dataObj.status);
       if (status === 'success' && txId) {
         router.push(`/transactions?txId=${txId}`);
       } else {

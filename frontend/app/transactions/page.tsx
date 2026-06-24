@@ -1182,6 +1182,11 @@ export default function Transactions() {
     const selectedWallet = wallets.find(w => w.id === newTx.wallet_id);
     const isCashWallet = selectedWallet?.type === 'cash';
 
+    if (!isCashWallet && newTx.type === 'expense' && !newTx.payee_id) {
+      alert('Giao dịch thủ công qua ví ngân hàng hoặc ví điện tử bắt buộc phải có người hưởng thụ.');
+      return;
+    }
+
     if (selectedWallet && selectedWallet.currency_code !== 'VND') {
       alert('Giao dịch thủ công chỉ hỗ trợ đơn vị tiền tệ VND.');
       return;
@@ -1382,6 +1387,11 @@ export default function Transactions() {
     }
     const selectedWallet = wallets.find(w => w.id === editingTx.wallet_id);
     const isCashWallet = selectedWallet?.type === 'cash';
+
+    if (!isCashWallet && editingTx.type === 'expense' && !editingTx.payee_id) {
+      alert('Giao dịch thủ công qua ví ngân hàng hoặc ví điện tử bắt buộc phải có người hưởng thụ.');
+      return;
+    }
 
     if (selectedWallet && selectedWallet.currency_code !== 'VND') {
       alert('Giao dịch thủ công chỉ hỗ trợ đơn vị tiền tệ VND.');
@@ -2811,7 +2821,7 @@ export default function Transactions() {
             {!isCashWallet && (
               <div style={{ marginBottom: '15px' }}>
                 <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>
-                  Người hưởng thụ / Người trả *
+                  {newTx.type === 'income' ? 'Người hưởng thụ / Người trả (Tùy chọn)' : 'Người hưởng thụ / Người trả (Bắt buộc) *'}
                 </label>
                 <div
                   onClick={() => {
@@ -3391,7 +3401,9 @@ export default function Transactions() {
 
             {!isEditCashWallet && (
               <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>Người hưởng thụ / Người trả *</label>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '14px', fontWeight: '500' }}>
+                  {editingTx.type === 'income' ? 'Người hưởng thụ / Người trả (Tùy chọn)' : 'Người hưởng thụ / Người trả (Bắt buộc) *'}
+                </label>
                 <div
                   onClick={() => {
                     setTargetModalForPayee('edit');
