@@ -360,6 +360,61 @@ export default function Transactions() {
   const [isClassifyingRecurring, setIsClassifyingRecurring] = useState(false);
   const hasAttemptedOpen = useRef(false);
 
+  // Handle auto-open from notifications
+  useEffect(() => {
+    if (typeof window === 'undefined' || hasAttemptedOpen.current || !transactions || transactions.length === 0) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const txIdParam = params.get('txId');
+    const autoOpenTitleParam = params.get('autoOpenTitle');
+    const autoOpenAmountParam = params.get('autoOpenAmount');
+
+    if (!txIdParam && !autoOpenTitleParam) return;
+
+    // Immediately mark as attempted to prevent infinite loops
+    hasAttemptedOpen.current = true;
+
+    // Clean up URL so it doesn't trigger again on reload
+    const newUrl = window.location.pathname;
+    window.history.replaceState({}, document.title, newUrl);
+
+    if (txIdParam) {
+      const targetTx = transactions.find((tx: any) => String(tx.id) === String(txIdParam));
+      if (targetTx) {
+        setViewingTx(targetTx);
+        setIsDetailModalOpen(true);
+      } else {
+        // Fetch from API for older transactions
+        apiFetch(`/transactions/${txIdParam}`)
+          .then(res => {
+            if (res && (res.data || res.id)) {
+              setViewingTx(res.data || res);
+              setIsDetailModalOpen(true);
+            }
+          })
+          .catch(err => console.error("Không tìm thấy giao dịch:", err));
+      }
+    } else if (autoOpenTitleParam) {
+      const targetTx = transactions.find((tx: any) => {
+        const matchTitle = (tx.title?.toLowerCase().includes(autoOpenTitleParam.toLowerCase()) || 
+                            tx.description?.toLowerCase().includes(autoOpenTitleParam.toLowerCase()) ||
+                            tx.category?.name?.toLowerCase().includes(autoOpenTitleParam.toLowerCase()));
+        if (!autoOpenAmountParam) return matchTitle;
+        const searchAmt = parseFloat(autoOpenAmountParam);
+        const txAmt = Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0));
+        return matchTitle && txAmt === searchAmt;
+      });
+
+      if (targetTx) {
+        setViewingTx(targetTx);
+        setIsDetailModalOpen(true);
+      } else {
+        setSearchTerm(autoOpenTitleParam);
+        setDebouncedSearch(autoOpenTitleParam);
+      }
+    }
+  }, [transactions]);
+
   // Auto-classify category for newTx
   useEffect(() => {
     const title = newTx.title?.trim();
@@ -1226,7 +1281,7 @@ export default function Transactions() {
       }
       if (newTx.category_id) formData.append('category_id', newTx.category_id);
       if (newTx.payee_id) formData.append('payee_id', newTx.payee_id);
-      formData.append('transaction_date', newTx.transaction_date.replace('T', ' ') + ':00');
+      formData.append('transaction_date', new Date(newTx.transaction_date).toISOString().slice(0, 19).replace('T', ' '));
       formData.append('notes', formatNotesWithTitle(newTx.title, newTx.notes || ''));
       if (newTx.attachments && newTx.attachments.length > 0) {
         newTx.attachments.forEach((file) => {
@@ -1328,7 +1383,7 @@ export default function Transactions() {
             category_id: newTx.category_id || null,
             payee_id: newTx.payee_id || null,
             frequency: newTx.frequency,
-            next_run_at: newTx.transaction_date.replace('T', ' ') + ':00',
+            next_run_at: new Date(newTx.transaction_date).toISOString().slice(0, 19).replace('T', ' '),
             end_at: newTx.end_date || null,
             notes: formatNotesWithTitle(newTx.title, newTx.notes || '')
           })
@@ -1417,7 +1472,7 @@ export default function Transactions() {
         formData.append('source_type', 'adjustment');
       }
       formData.append('category_id', editingTx.category_id || '');
-      formData.append('transaction_date', editingTx.transaction_date.replace('T', ' ') + ':00');
+      formData.append('transaction_date', new Date(editingTx.transaction_date).toISOString().slice(0, 19).replace('T', ' '));
       formData.append('notes', formatNotesWithTitle(editingTx.title, editingTx.notes || ''));
       if (editingTx.payee_id) {
         formData.append('payee_id', editingTx.payee_id);
@@ -1537,7 +1592,7 @@ export default function Transactions() {
           category_id: editingRecurringTx.category_id || null,
           payee_id: editingRecurringTx.payee_id || null,
           frequency: editingRecurringTx.frequency,
-          next_run_at: editingRecurringTx.start_date.replace('T', ' ') + ':00',
+          next_run_at: new Date(editingRecurringTx.start_date).toISOString().slice(0, 19).replace('T', ' '),
           end_at: editingRecurringTx.end_date || null,
           notes: formatNotesWithTitle(editingRecurringTx.title, editingRecurringTx.notes || '')
         })

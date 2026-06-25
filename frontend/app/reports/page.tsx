@@ -59,10 +59,34 @@ const renderFormatIcon = (type: 'pdf' | 'excel' | 'csv', size: number = 26) => {
   return null;
 };
 
-const formatCurrencyLocal = (val: number | string) => {
+const formatCurrencyLocal = (val: number | string, customCurrency?: string) => {
+  let currencyCode = customCurrency || 'VND';
+  if (!customCurrency && typeof window !== 'undefined') {
+    try {
+      const userData = JSON.parse(localStorage.getItem('user_data') || '{}');
+      if (userData?.preference?.currency) {
+        currencyCode = userData.preference.currency;
+      }
+    } catch(e) {}
+  }
+  
   const numericAmount = typeof val === 'string' ? parseFloat(val) : val;
-  if (isNaN(numericAmount)) return '0đ';
+  if (isNaN(numericAmount)) return `0${currencyCode === 'USD' ? '$' : currencyCode === 'EUR' ? '€' : 'đ'}`;
+  
+  if (currencyCode === 'USD') {
+    return '$' + new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(numericAmount);
+  } else if (currencyCode === 'EUR') {
+    return new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(numericAmount) + '€';
+  }
   return new Intl.NumberFormat('vi-VN').format(Math.round(numericAmount)) + 'đ';
+};
+
+const getLocalDateString = (dateStr: string) => {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return dateStr.split('T')[0];
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
 
 const getPrevPeriod = (startStr: string, endStr: string) => {
@@ -461,8 +485,8 @@ export default function Reports() {
   const computedRanges = React.useMemo(() => {
     return balanceRanges.map((r, idx) => {
       const txsInRange = balanceTransactions.filter(tx => {
-        let txDateStr = tx.transaction_date;
-        if (!txDateStr && tx.created_at) txDateStr = tx.created_at.split('T')[0];
+        let txDateStr = tx.transaction_date ? getLocalDateString(tx.transaction_date) : '';
+        if (!txDateStr && tx.created_at) txDateStr = getLocalDateString(tx.created_at);
         return txDateStr && txDateStr >= r.startStr && txDateStr <= r.endStr;
       });
       
@@ -574,8 +598,8 @@ export default function Reports() {
           const monthEnd = `${yearVal}-${pad(monthVal)}-${pad(new Date(yearVal, monthVal, 0).getDate())}`;
           
           const monthTxs = txList.filter((tx: any) => {
-            let txDateStr = tx.transaction_date;
-            if (!txDateStr && tx.created_at) txDateStr = tx.created_at.split('T')[0];
+            let txDateStr = tx.transaction_date ? getLocalDateString(tx.transaction_date) : '';
+            if (!txDateStr && tx.created_at) txDateStr = getLocalDateString(tx.created_at);
             return txDateStr && txDateStr >= monthStart && txDateStr <= monthEnd;
           });
           
@@ -605,9 +629,15 @@ export default function Reports() {
     fetchCategoryDetails();
   }, [isLoggedIn, selectedReportCategory, startDate]);
 
-  const formatCurrency = (val: number | string) => {
+  const formatCurrency = (val: number | string, customCurrency?: string) => {
+    const currencyCode = customCurrency || userData?.preference?.currency || 'VND';
     const numericAmount = typeof val === 'string' ? parseFloat(val) : val;
-    if (isNaN(numericAmount)) return '0';
+    if (isNaN(numericAmount)) return `0${currencyCode === 'USD' ? '$' : currencyCode === 'EUR' ? '€' : 'đ'}`;
+    if (currencyCode === 'USD') {
+      return '$' + new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(numericAmount);
+    } else if (currencyCode === 'EUR') {
+      return new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(numericAmount) + '€';
+    }
     return new Intl.NumberFormat('vi-VN').format(Math.round(numericAmount)) + 'đ';
   };
 
@@ -693,8 +723,8 @@ export default function Reports() {
         allTxs.forEach((tx: any) => {
           if (tx.source_type === 'transfer' && !tx.category_id) return;
           
-          let txDateStr = tx.transaction_date;
-          if (!txDateStr && tx.created_at) txDateStr = tx.created_at.split('T')[0];
+          let txDateStr = tx.transaction_date ? getLocalDateString(tx.transaction_date) : '';
+          if (!txDateStr && tx.created_at) txDateStr = getLocalDateString(tx.created_at);
           if (!txDateStr) return;
           const dateStr = txDateStr.substring(0, 10);
           const amount = Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0));
@@ -723,8 +753,8 @@ export default function Reports() {
 
         // Filter transactions for current period to store (include all for display, we filter during calculations)
         const txs = allTxs.filter((tx: any) => {
-          let txDateStr = tx.transaction_date;
-          if (!txDateStr && tx.created_at) txDateStr = tx.created_at.split('T')[0];
+          let txDateStr = tx.transaction_date ? getLocalDateString(tx.transaction_date) : '';
+          if (!txDateStr && tx.created_at) txDateStr = getLocalDateString(tx.created_at);
           return txDateStr && txDateStr >= startDate && txDateStr <= endDate;
         });
         setTransactions(txs);
@@ -748,8 +778,8 @@ export default function Reports() {
           expenseSpentMap[catId].amount += amount;
           totalExpenseVal += amount;
 
-          let txDateStr = tx.transaction_date;
-          if (!txDateStr && tx.created_at) txDateStr = tx.created_at.split('T')[0];
+          let txDateStr = tx.transaction_date ? getLocalDateString(tx.transaction_date) : '';
+          if (!txDateStr && tx.created_at) txDateStr = getLocalDateString(tx.created_at);
           
           if (txDateStr) {
             const parts = txDateStr.split('-');
@@ -858,8 +888,8 @@ export default function Reports() {
           if (tx.source_type === 'transfer' && !tx.category_id) return;
           const amt = Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0));
           if (amt === 0) return;
-          let txDateStr = tx.transaction_date;
-          if (!txDateStr && tx.created_at) txDateStr = tx.created_at.split('T')[0];
+          let txDateStr = tx.transaction_date ? getLocalDateString(tx.transaction_date) : '';
+          if (!txDateStr && tx.created_at) txDateStr = getLocalDateString(tx.created_at);
           
           if (txDateStr) {
             const parts = txDateStr.split('-');
@@ -1751,8 +1781,8 @@ export default function Reports() {
       txs.forEach((tx: any) => {
         const amt = Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0));
         if (amt === 0) return;
-        let txDateStr = tx.transaction_date;
-        if (!txDateStr && tx.created_at) txDateStr = tx.created_at.split('T')[0];
+        let txDateStr = tx.transaction_date ? getLocalDateString(tx.transaction_date) : '';
+        if (!txDateStr && tx.created_at) txDateStr = getLocalDateString(tx.created_at);
         if (txDateStr) {
           const localDate = txDateStr.substring(0, 10);
           const found = dailyTrends.find((item: any) => item.date === localDate);
@@ -2434,7 +2464,7 @@ export default function Reports() {
                         const groups: Record<string, any[]> = {};
                         txsList.forEach((tx: any) => {
                           let dateStr = tx.transaction_date;
-                          if (!dateStr && tx.created_at) dateStr = tx.created_at.split('T')[0];
+                          if (!dateStr && tx.created_at) dateStr = getLocalDateString(tx.created_at);
                           
                           let formattedDate = 'Không rõ ngày';
                           if (dateStr) {
