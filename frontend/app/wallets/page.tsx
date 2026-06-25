@@ -864,8 +864,8 @@ export default function Wallets() {
             </div>
             
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
-              {/* Toggle Hidden Wallets (Only show if activeTab === 'wallets') */}
-              {activeTab === 'wallets' && (
+              {/* Toggle Hidden Wallets (Only show if activeTab === 'wallets' and there are hidden wallets) */}
+              {activeTab === 'wallets' && wallets.some(w => w.is_hidden) && (
                 <button
                   onClick={() => setShowHiddenWallets(!showHiddenWallets)}
                   style={{

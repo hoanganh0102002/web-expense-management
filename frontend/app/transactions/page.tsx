@@ -6,6 +6,7 @@ import { useAppContext } from '../context/AppContext';
 import { useLanguage } from '../lib/translations';
 import { apiFetch, budgetApi, transactionApi } from '../lib/api';
 import CategoryPicker from '../components/CategoryPicker';
+import Script from 'next/script';
 
 const urlToFile = async (url: string, filename: string): Promise<File | null> => {
   try {
@@ -135,6 +136,35 @@ interface SmartFilters {
   type?: string;
   typeName?: string;
   cleanSearch?: string;
+}
+
+interface FlatCategoryItem {
+  id: string | number;
+  name?: string;
+  parent_id?: string | number | null;
+  displayName?: string;
+}
+
+interface TransactionItem {
+  id?: string | number;
+  amount_in_user_currency?: string | number;
+  amount?: string | number;
+  type?: string;
+  category?: {
+    name?: string;
+    parent_id?: string | number;
+  } | null;
+  category_name?: string;
+  category_id?: string | number;
+  wallet?: {
+    name?: string;
+  } | null;
+  wallet_name?: string;
+  title?: string;
+  description?: string;
+  note?: string;
+  transaction_date?: string;
+  date?: string;
 }
 
 const parseSmartQuery = (query: string, flatCategories: any[], wallets: any[]): SmartFilters => {
@@ -308,6 +338,7 @@ export default function Transactions() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isExporting, setIsExporting] = useState(false);
 
 
 
@@ -905,11 +936,266 @@ export default function Transactions() {
     }
   };
 
+  const handleExportPDF = async () => {
+    if (!isLoggedIn) return;
+    setIsExporting(true);
+    try {
+      const parsed = parseSmartQuery(searchTerm, flatCategories, wallets);
+      
+      const finalStartDate = parsed.startDate || startDate;
+      const finalEndDate = parsed.endDate || endDate;
+      const finalWalletId = parsed.wallet_id || selectedWallet;
+      const finalCategoryId = parsed.category_id || selectedCategory;
+      const finalMinAmount = parsed.minAmount || minAmount;
+      const finalMaxAmount = parsed.maxAmount || maxAmount;
+      const finalType = parsed.type || (activeTab !== 'all' && activeTab !== 'transfer' && activeTab !== 'recurring_history' ? activeTab : undefined);
+
+      const params: Record<string, unknown> = {
+        per_page: 10000
+      };
+
+      if (finalStartDate) params.start_date = finalStartDate;
+      if (finalEndDate) params.end_date = finalEndDate;
+      if (finalWalletId) params.wallet_id = finalWalletId;
+      if (finalCategoryId) params.category_id = finalCategoryId;
+      if (finalMinAmount) params.min_amount = finalMinAmount;
+      if (finalMaxAmount) params.max_amount = finalMaxAmount;
+      if (finalType) params.type = finalType;
+
+      const res = await transactionApi.getAll(params);
+      const data = res.data || res;
+      const txs = Array.isArray(data) ? data : (data.data || []);
+
+      let totalIncome = 0;
+      let totalExpense = 0;
+
+      txs.forEach((t: TransactionItem) => {
+        const amt = Math.abs(Number(t.amount_in_user_currency || t.amount || 0));
+        if (t.type === 'income') {
+          totalIncome += amt;
+        } else if (t.type === 'expense') {
+          totalExpense += amt;
+        }
+      });
+
+      const netBalance = totalIncome - totalExpense;
+
+      const container = document.createElement('div');
+      container.style.padding = '24px';
+      container.style.background = '#ffffff';
+      container.style.color = '#1e293b';
+      container.style.width = '720px'; // Perfect width for standard Letter/A4 page size with 0.5in margins
+      container.style.boxSizing = 'border-box';
+      container.style.fontFamily = "'Inter', -apple-system, system-ui, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+
+      const userCurrency = userData?.preference?.currency || 'VND';
+
+      let html = `
+        <!-- Header -->
+        <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:2px solid #f1f5f9; padding-bottom:16px; margin-bottom:24px;">
+          <div>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span style="display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px;">
+                <svg viewBox="0 0 24 24" fill="none" style="width:100%; height:100%;">
+                  <defs>
+                    <linearGradient id="pdfLogoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                      <stop offset="0%" stop-color="#60A5FA" />
+                      <stop offset="100%" stop-color="#3B82F6" />
+                    </linearGradient>
+                  </defs>
+                  <path d="M4 4h4v16H4zM10 8h4v12h-4zM16 12h4v8h-4z" fill="url(#pdfLogoGrad)" />
+                </svg>
+              </span>
+              <h2 style="margin:0; font-size:22px; color:#0f172a; font-weight:800; letter-spacing:0.5px;">EM</h2>
+            </div>
+            <div style="font-size:11px; color:#64748b; margin-top:4px; font-weight:500;">Hệ thống Quản lý Chi tiêu Cá nhân</div>
+            <div style="font-size:10px; color:#94a3b8; margin-top:2px;">Email liên hệ: support@em.vn</div>
+          </div>
+          <div style="text-align:right;">
+            <h1 style="margin:0; font-size:18px; color:#0f172a; font-weight:800; letter-spacing:-0.3px;">SAO KÊ CHI TIẾT GIAO DỊCH</h1>
+            <div style="font-size:11px; color:#475569; margin-top:6px; font-weight:600; background:#f1f5f9; padding:4px 8px; border-radius:6px; display:inline-block;">
+              ${finalStartDate || finalEndDate ? `Kỳ báo cáo: ${finalStartDate || 'Bắt đầu'} đến ${finalEndDate || 'Hiện tại'}` : 'Tất cả thời gian'}
+            </div>
+            <div style="font-size:10px; color:#94a3b8; margin-top:4px;">Ngày xuất: ${new Date().toLocaleString('vi-VN')}</div>
+          </div>
+        </div>
+
+        <!-- Info Block -->
+        <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-bottom:24px; display:flex; justify-content:space-between; font-size:12px; line-height:1.4;">
+          <div style="flex:1; padding-right:16px;">
+            <div style="font-size:10px; text-transform:uppercase; color:#64748b; font-weight:700; letter-spacing:0.5px; margin-bottom:6px;">Thông tin khách hàng</div>
+            <div style="font-size:13px; font-weight:700; color:#0f172a;">${userData?.profile?.full_name || userData?.full_name || userData?.name || 'Khách hàng'}</div>
+            <div style="font-size:11px; color:#64748b; margin-top:4px;">Email: ${userData?.email || 'N/A'}</div>
+          </div>
+          <div style="flex:1; text-align:right; border-left:1px dashed #e2e8f0; padding-left:16px;">
+            <div style="font-size:10px; text-transform:uppercase; color:#64748b; font-weight:700; letter-spacing:0.5px; margin-bottom:6px;">Tiêu chí bộ lọc</div>
+            <div style="color:#475569; display:flex; flex-direction:column; gap:3px; align-items:flex-end; font-size:11px;">
+              <div>Ví tài khoản: <span style="font-weight:600; color:#0f172a;">${(wallets as { id: string | number; name: string }[]).find((w) => String(w.id) === String(finalWalletId))?.name || 'Tất cả ví'}</span></div>
+              <div>Danh mục: <span style="font-weight:600; color:#0f172a;">${(flatCategories as FlatCategoryItem[]).find((c) => String(c.id) === String(finalCategoryId))?.name || 'Tất cả danh mục'}</span></div>
+              ${finalType ? `<div>Phân loại: <span style="font-weight:600; color:#0f172a;">${finalType === 'income' ? 'Khoản thu' : 'Khoản chi'}</span></div>` : ''}
+              ${searchTerm ? `<div>Từ khóa: <span style="font-weight:600; color:#0f172a; font-style:italic;">"${searchTerm}"</span></div>` : ''}
+            </div>
+          </div>
+        </div>
+
+        <!-- Financial Cards -->
+        <table style="width:100%; border-collapse:separate; border-spacing:12px; margin-left:-12px; margin-right:-12px; margin-bottom:24px;">
+          <tr>
+            <td style="width:33.3%; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:16px; box-sizing:border-box;">
+              <div style="font-size:11px; font-weight:700; color:#166534; text-transform:uppercase; letter-spacing:0.5px;">Tổng Thu Nhập</div>
+              <div style="font-size:18px; font-weight:800; color:#16a34a; margin-top:6px;">+${formatCurrency(totalIncome, userCurrency)}</div>
+            </td>
+            <td style="width:33.3%; background:#fef2f2; border:1px solid #fecaca; border-radius:12px; padding:16px; box-sizing:border-box;">
+              <div style="font-size:11px; font-weight:700; color:#991b1b; text-transform:uppercase; letter-spacing:0.5px;">Tổng Chi Tiêu</div>
+              <div style="font-size:18px; font-weight:800; color:#dc2626; margin-top:6px;">-${formatCurrency(totalExpense, userCurrency)}</div>
+            </td>
+            <td style="width:33.3%; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:16px; box-sizing:border-box;">
+              <div style="font-size:11px; font-weight:700; color:#334155; text-transform:uppercase; letter-spacing:0.5px;">Số Dư Ròng</div>
+              <div style="font-size:18px; font-weight:800; color:${netBalance >= 0 ? '#16a34a' : '#dc2626'}; margin-top:6px;">
+                ${netBalance >= 0 ? '+' : ''}${formatCurrency(netBalance, userCurrency)}
+              </div>
+            </td>
+          </tr>
+        </table>
+
+        <!-- Table Header -->
+        <h3 style="font-size:13px; color:#0f172a; text-transform:uppercase; font-weight:800; letter-spacing:0.5px; margin-bottom:12px; margin-top:0;">Danh sách giao dịch phát sinh</h3>
+
+        <!-- Transaction Table -->
+        <table style="width:100%; border-collapse:collapse; font-size:10px; margin-bottom:30px;">
+          <thead>
+            <tr style="background:#0f172a; color:#ffffff;">
+              <th style="padding:10px 8px; text-align:center; font-weight:700; width:35px; border-top-left-radius:6px; border-bottom-left-radius:6px;">STT</th>
+              <th style="padding:10px 8px; text-align:left; font-weight:700; width:80px;">Ngày GD</th>
+              <th style="padding:10px 8px; text-align:left; font-weight:700; width:180px;">Nội dung giao dịch</th>
+              <th style="padding:10px 8px; text-align:left; font-weight:700; width:120px;">Danh mục</th>
+              <th style="padding:10px 8px; text-align:left; font-weight:700; width:90px;">Tài khoản/Ví</th>
+              <th style="padding:10px 8px; text-align:center; font-weight:700; width:45px;">Loại</th>
+              <th style="padding:10px 8px; text-align:right; font-weight:700; width:110px; border-top-right-radius:6px; border-bottom-right-radius:6px;">Số tiền</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      txs.forEach((t: TransactionItem, index: number) => {
+        let datePart = '';
+        const rawDate = t.transaction_date || t.date || '';
+        if (rawDate) {
+          const d = new Date(rawDate);
+          if (!isNaN(d.getTime())) {
+            const pad = (n: number) => String(n).padStart(2, '0');
+            datePart = `${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`;
+          } else {
+            datePart = rawDate;
+          }
+        }
+
+        const note = t.title || t.description || t.note || '';
+        let categoryName = t.category?.name || t.category_name || 'Không phân mục';
+        const catIdStr = String(t.category_id || 'other');
+        const catInfoObj = (flatCategories as FlatCategoryItem[]).find((c) => String(c.id) === catIdStr);
+        if (catInfoObj && catInfoObj.parent_id) {
+          const parentObj = (flatCategories as FlatCategoryItem[]).find((c) => String(c.id) === String(catInfoObj.parent_id));
+          if (parentObj) {
+            categoryName = parentObj.name + ' - ' + categoryName;
+          }
+        }
+
+        const walletName = t.wallet?.name || t.wallet_name || 'Ví đã xóa';
+        const isIncome = t.type === 'income';
+        const isExpense = t.type === 'expense';
+        const typeStr = isIncome ? 'Thu' : (isExpense ? 'Chi' : 'Chuyển');
+        const amountVal = Number(t.amount_in_user_currency || t.amount) || 0;
+        const amountStr = `${isIncome ? '+' : (isExpense ? '-' : '')}${formatCurrency(amountVal, userCurrency)}`;
+        const amountColor = isIncome ? '#16a34a' : (isExpense ? '#dc2626' : '#2563eb');
+        const rowBg = index % 2 === 1 ? '#f8fafc' : '#ffffff';
+
+        html += `
+          <tr style="background:${rowBg}; page-break-inside: avoid; break-inside: avoid;">
+            <td style="padding:10px 8px; text-align:center; border-bottom:1px solid #f1f5f9; color:#64748b;">${index + 1}</td>
+            <td style="padding:10px 8px; border-bottom:1px solid #f1f5f9; color:#64748b;">${datePart}</td>
+            <td style="padding:10px 8px; border-bottom:1px solid #f1f5f9; color:#0f172a; font-weight:500; word-break:break-word; max-width:180px;">${note}</td>
+            <td style="padding:10px 8px; border-bottom:1px solid #f1f5f9; color:#475569;">${categoryName}</td>
+            <td style="padding:10px 8px; border-bottom:1px solid #f1f5f9; color:#64748b;">${walletName}</td>
+            <td style="padding:10px 8px; border-bottom:1px solid #f1f5f9; text-align:center; color:${amountColor}; font-weight:700;">${typeStr}</td>
+            <td style="padding:10px 8px; border-bottom:1px solid #f1f5f9; text-align:right; color:${amountColor}; font-weight:700;">${amountStr}</td>
+          </tr>
+        `;
+      });
+
+      if (txs.length === 0) {
+        html += `
+          <tr>
+            <td colspan="7" style="padding:24px; text-align:center; color:#94a3b8; border-bottom:1px solid #f1f5f9; font-style:italic;">Không có giao dịch nào được ghi nhận phù hợp với bộ lọc hiện tại.</td>
+          </tr>
+        `;
+      }
+
+      html += `
+          </tbody>
+        </table>
+
+        <!-- Signatures -->
+        <div style="display:flex; justify-content:space-between; margin-top:40px; page-break-inside:avoid;">
+          <div style="width:200px; text-align:center;">
+            <div style="font-size:11px; color:#475569; font-weight:700; margin-bottom:44px;">Người lập biểu</div>
+            <div style="font-size:11px; color:#94a3b8;">(Ký và ghi rõ họ tên)</div>
+          </div>
+          <div style="width:250px; text-align:center;">
+            <div style="font-size:11px; color:#475569; font-weight:700; margin-bottom:44px;">Xác nhận Hệ thống EM</div>
+            <div style="font-size:11px; color:#4f46e5; font-weight:800; border:2px dashed #4f46e5; padding:6px 12px; border-radius:8px; display:inline-block; transform:rotate(-2deg);">
+              ✔ ĐÃ XÁC THỰC HỆ THỐNG
+            </div>
+          </div>
+        </div>
+
+        <!-- Disclaimer -->
+        <div style="border-top:1px solid #f1f5f9; padding-top:16px; margin-top:48px; text-align:center; font-size:9px; color:#94a3b8;">
+          Đây là tài liệu được xuất tự động từ Hệ thống Quản lý Chi tiêu Cá nhân EM và chỉ mang tính chất thống kê, đối soát cá nhân.
+        </div>
+      `;
+
+      container.innerHTML = html;
+
+      const opt = {
+        margin:       0.5,
+        filename:     'Sao_ke_chi_tiet_' + (finalStartDate || 'Bat_dau') + '_den_' + (finalEndDate || 'Hien_tai') + '.pdf',
+        image:        { type: 'jpeg', quality: 0.98 },
+        html2canvas:  { scale: 2, useCORS: true },
+        jsPDF:        { unit: 'in', format: 'letter', orientation: 'portrait' },
+        pagebreak:    { mode: ['css', 'legacy'], avoid: 'tr' }
+      };
+
+      interface Html2Pdf {
+        set: (opt: unknown) => {
+          from: (container: unknown) => {
+            save: () => Promise<void>;
+          };
+        };
+      }
+      const html2pdf = (window as unknown as { html2pdf?: (opt?: unknown) => Html2Pdf }).html2pdf;
+      if (html2pdf) {
+        await html2pdf().set(opt).from(container).save();
+      } else {
+        alert("Thư viện in PDF đang tải, vui lòng đợi 1 giây rồi thử lại!");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Có lỗi xảy ra khi tạo file sao kê PDF!");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   // Trigger transaction reload whenever filters or page cursor changes
   useEffect(() => {
     if (isLoggedIn && activeTab !== 'transfer' && activeTab !== 'recurring' && activeTab !== 'recurring_history') {
-      loadFilteredTransactions(currentCursor);
+      const timer = setTimeout(() => {
+        loadFilteredTransactions(currentCursor);
+      }, 0);
+      return () => clearTimeout(timer);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     isLoggedIn,
     activeTab,
@@ -1616,6 +1902,7 @@ export default function Transactions() {
 
   return (
     <div className="dashboard-container">
+      <Script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" strategy="lazyOnload" />
       <style>{`
         @keyframes fadeUpIn {
           from { opacity: 0; transform: translateY(8px); }
@@ -1717,6 +2004,33 @@ export default function Transactions() {
                 <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
               </svg>
               Bộ lọc
+            </button>
+
+            <button
+              onClick={handleExportPDF}
+              disabled={isExporting}
+              style={{
+                background: 'var(--bg-color)',
+                color: '#10B981',
+                padding: '10px 18px',
+                borderRadius: '24px',
+                fontWeight: '600',
+                border: '1px solid #10B981',
+                cursor: 'pointer',
+                fontSize: '15px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                transition: 'all 0.2s',
+                opacity: isExporting ? 0.7 : 1
+              }}
+              title="Xuất bảng sao kê giao dịch chi tiết ra file PDF"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+                <rect x="6" y="14" width="12" height="8" />
+              </svg>
+              {isExporting ? 'Đang tạo...' : 'In sao kê'}
             </button>
 
             <button style={{ background: '#1814F3', color: '#fff', padding: '10px 20px', borderRadius: '24px', fontWeight: '600', border: 'none', cursor: 'pointer', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={handleAdd}>

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Sidebar from '../components/Sidebar';
@@ -8,6 +8,35 @@ import { useLanguage } from '../lib/translations';
 import { notificationApi } from '../lib/api';
 
 import './notifications.css';
+
+interface NotificationMetadata {
+  transaction_id?: string | number;
+  id?: string | number;
+  model_id?: string | number;
+  transfer_id?: string | number;
+  category_id?: string | number;
+  type?: string;
+  sender_name?: string;
+  senderName?: string;
+  amount?: string | number;
+  status?: string;
+  threshold_percent?: number;
+}
+
+interface NotificationItem {
+  id: string;
+  title: string;
+  content: string;
+  type?: string;
+  read_at: string | null;
+  created_at: string;
+  date?: string;
+  transaction_id?: string | number;
+  related_id?: string | number;
+  category_id?: string | number;
+  metadata?: string | NotificationMetadata | null;
+  data?: string | NotificationMetadata | null;
+}
 
 const formatRelativeTime = (dateStr: string) => {
   try {
@@ -22,7 +51,7 @@ const formatRelativeTime = (dateStr: string) => {
     if (diffMins < 60) return `${diffMins} phút trước`;
     if (diffHours < 24) return `${diffHours} giờ trước`;
     return `${diffDays} ngày trước`;
-  } catch (e) {
+  } catch {
     return dateStr;
   }
 };
@@ -74,79 +103,97 @@ export default function Notifications() {
   const router = useRouter();
   const { isLoggedIn, userData, setHasUnreadNotifications, setUnreadNotificationsCount } = useAppContext();
   const { t } = useLanguage();
-  const [notificationsList, setNotificationsList] = useState<any[]>([]);
-  const [visibleCount, setVisibleCount] = useState(20);
+  const [notificationsList, setNotificationsList] = useState<NotificationItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
 
   // Hydration-safe cache loading
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      let combined = [];
+      let combined: NotificationItem[] = [];
       const localCached = localStorage.getItem('local_notifications');
       if (localCached) {
         try { 
           const parsed = JSON.parse(localCached);
           if (Array.isArray(parsed)) combined.push(...parsed); 
-        } catch (e) {}
+        } catch {}
       }
       const cached = localStorage.getItem('cached_notifications');
       if (cached) {
         try { 
           const parsed = JSON.parse(cached);
           if (Array.isArray(parsed)) combined.push(...parsed); 
-        } catch (e) {}
+        } catch {}
       }
-      const isErrorNotif = (n: any) => {
+      const isErrorNotif = (n: NotificationItem) => {
         const titleLower = (n.title || '').toLowerCase();
         const contentLower = (n.content || '').toLowerCase();
         return titleLower.includes('lỗi') || titleLower.includes('thất bại') || titleLower.includes('không thành công') ||
                contentLower.includes('lỗi') || contentLower.includes('thất bại') || contentLower.includes('không thành công') || (n.type && n.type.toLowerCase().includes('error'));
       };
-      combined = combined.filter((n: any) => !isErrorNotif(n));
+      combined = combined.filter((n) => !isErrorNotif(n));
 
       if (combined.length > 0) {
-        setNotificationsList(prev => prev.length === 0 ? combined : prev);
+        setTimeout(() => {
+          setNotificationsList(prev => prev.length === 0 ? combined : prev);
+        }, 0);
       }
     }
   }, []);
   
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async (page: number = 1) => {
     if (!isLoggedIn) return;
-    const hasCache = notificationsList.length > 0 || (typeof window !== 'undefined' && localStorage.getItem('cached_notifications'));
-    if (!hasCache) {
-      setIsLoading(true);
-    }
+    setIsLoading(true);
     try {
-      const res = await notificationApi.getAll();
-      const list = res.data || [];
+      const res = await notificationApi.getAll(page);
+      const list: NotificationItem[] = res.data || [];
       
-      let localNotifs = [];
-      try { localNotifs = JSON.parse(localStorage.getItem('local_notifications') || '[]'); } catch (e) {}
+      let localNotifs: NotificationItem[] = [];
+      try { localNotifs = JSON.parse(localStorage.getItem('local_notifications') || '[]'); } catch {}
       
-      const isErrorNotif = (n: any) => {
+      const isErrorNotif = (n: NotificationItem) => {
         const titleLower = (n.title || '').toLowerCase();
         const contentLower = (n.content || '').toLowerCase();
         return titleLower.includes('lỗi') || titleLower.includes('thất bại') || titleLower.includes('không thành công') ||
                contentLower.includes('lỗi') || contentLower.includes('thất bại') || contentLower.includes('không thành công') || (n.type && n.type.toLowerCase().includes('error'));
       };
 
-      const filteredList = list.filter((n: any) => !isErrorNotif(n));
-      const filteredLocalNotifs = localNotifs.filter((n: any) => !isErrorNotif(n));
+      const filteredList = list.filter((n) => !isErrorNotif(n));
+      const filteredLocalNotifs = localNotifs.filter((n) => !isErrorNotif(n));
 
-      setNotificationsList([...filteredLocalNotifs, ...filteredList]);
-      localStorage.setItem('cached_notifications', JSON.stringify(filteredList));
+      // Show local notifications prepended on page 1 only
+      if (page === 1) {
+        setNotificationsList([...filteredLocalNotifs, ...filteredList]);
+      } else {
+        setNotificationsList(filteredList);
+      }
+
+      if (res.pagination) {
+        setTotalPages(res.pagination.last_page || 1);
+        setTotalItems(res.pagination.total || 0);
+        setCurrentPage(res.pagination.current_page || page);
+      }
+      
+      if (page === 1) {
+        localStorage.setItem('cached_notifications', JSON.stringify(filteredList));
+      }
     } catch (e) {
       console.error("Lỗi khi tải thông báo:", e);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [isLoggedIn]);
 
   useEffect(() => {
     if (isLoggedIn) {
-      fetchNotifications();
+      const timer = setTimeout(() => {
+        fetchNotifications(currentPage);
+      }, 0);
+      return () => clearTimeout(timer);
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, currentPage, fetchNotifications]);
 
   useEffect(() => {
     const unreadList = notificationsList.filter(n => n.read_at === null);
@@ -154,13 +201,50 @@ export default function Notifications() {
     setHasUnreadNotifications(unreadList.length > 0);
   }, [notificationsList, setHasUnreadNotifications, setUnreadNotificationsCount]);
 
+  const getPageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      pages.push(1);
+      
+      let start = Math.max(2, currentPage - 1);
+      let end = Math.min(totalPages - 1, currentPage + 1);
+      
+      if (currentPage <= 2) {
+        end = 4;
+      } else if (currentPage >= totalPages - 1) {
+        start = totalPages - 3;
+      }
+      
+      if (start > 2) {
+        pages.push('ellipsis-start');
+      }
+      
+      for (let i = start; i <= end; i++) {
+        pages.push(i);
+      }
+      
+      if (end < totalPages - 1) {
+        pages.push('ellipsis-end');
+      }
+      
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
   const handleMarkAsRead = async (id: string) => {
     try {
       if (id.includes('-') && !id.startsWith('local_')) {
         await notificationApi.read(id);
       } else if (id.startsWith('local_')) {
-        let localNotifs = JSON.parse(localStorage.getItem('local_notifications') || '[]');
-        localNotifs = localNotifs.map((n: any) => n.id === id ? { ...n, read_at: new Date().toISOString() } : n);
+        let localNotifs: NotificationItem[] = JSON.parse(localStorage.getItem('local_notifications') || '[]');
+        localNotifs = localNotifs.map((n) => n.id === id ? { ...n, read_at: new Date().toISOString() } : n);
         localStorage.setItem('local_notifications', JSON.stringify(localNotifs));
       }
       setNotificationsList(prev => prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n));
@@ -172,8 +256,8 @@ export default function Notifications() {
   const handleMarkAllAsRead = async () => {
     try {
       await notificationApi.readAll();
-      let localNotifs = JSON.parse(localStorage.getItem('local_notifications') || '[]');
-      localNotifs = localNotifs.map((n: any) => ({ ...n, read_at: new Date().toISOString() }));
+      let localNotifs: NotificationItem[] = JSON.parse(localStorage.getItem('local_notifications') || '[]');
+      localNotifs = localNotifs.map((n) => ({ ...n, read_at: new Date().toISOString() }));
       localStorage.setItem('local_notifications', JSON.stringify(localNotifs));
       setNotificationsList(prev => prev.map(n => ({ ...n, read_at: new Date().toISOString() })));
     } catch (e) {
@@ -187,8 +271,8 @@ export default function Notifications() {
         if (id.includes('-') && !id.startsWith('local_')) {
           await notificationApi.delete(id);
         } else if (id.startsWith('local_')) {
-          let localNotifs = JSON.parse(localStorage.getItem('local_notifications') || '[]');
-          localNotifs = localNotifs.filter((n: any) => n.id !== id);
+          let localNotifs: NotificationItem[] = JSON.parse(localStorage.getItem('local_notifications') || '[]');
+          localNotifs = localNotifs.filter((n) => n.id !== id);
           localStorage.setItem('local_notifications', JSON.stringify(localNotifs));
         }
         setNotificationsList(prev => prev.filter(n => n.id !== id));
@@ -198,7 +282,7 @@ export default function Notifications() {
     }
   };
 
-  const handleNotificationClick = (n: any, e: React.MouseEvent) => {
+  const handleNotificationClick = (n: NotificationItem, e: React.MouseEvent) => {
     // Prevent redirect if clicking on action buttons
     const target = e.target as HTMLElement;
     if (target.closest('button')) {
@@ -219,29 +303,39 @@ export default function Notifications() {
     }
 
     // Safely parse metadata and data in case they are stringified JSON
-    let metadataObj = n.metadata;
-    if (typeof metadataObj === 'string') {
-      try {
-        metadataObj = JSON.parse(metadataObj);
-      } catch (e) {}
+    let parsedMetadata: NotificationMetadata | null = null;
+    let parsedData: NotificationMetadata | null = null;
+    
+    if (n.metadata) {
+      if (typeof n.metadata === 'string') {
+        try {
+          parsedMetadata = JSON.parse(n.metadata);
+        } catch {}
+      } else {
+        parsedMetadata = n.metadata;
+      }
     }
-    let dataObj = n.data;
-    if (typeof dataObj === 'string') {
-      try {
-        dataObj = JSON.parse(dataObj);
-      } catch (e) {}
+    
+    if (n.data) {
+      if (typeof n.data === 'string') {
+        try {
+          parsedData = JSON.parse(n.data);
+        } catch {}
+      } else {
+        parsedData = n.data;
+      }
     }
 
     // Extract common identifiers generically
     const txId = n.transaction_id || 
-                 (metadataObj && (metadataObj.transaction_id || metadataObj.id || metadataObj.model_id || metadataObj.transfer_id)) || 
-                 (dataObj && (dataObj.transaction_id || dataObj.id || dataObj.model_id || dataObj.transfer_id)) || 
+                 (parsedMetadata && (parsedMetadata.transaction_id || parsedMetadata.id || parsedMetadata.model_id || parsedMetadata.transfer_id)) || 
+                 (parsedData && (parsedData.transaction_id || parsedData.id || parsedData.model_id || parsedData.transfer_id)) || 
                  n.related_id;
     
-    const catId = n.category_id || (metadataObj && metadataObj.category_id) || (dataObj && dataObj.category_id);
-    const typeStr = n.type || (metadataObj && metadataObj.type) || (dataObj && dataObj.type) || '';
+    const catId = n.category_id || (parsedMetadata && parsedMetadata.category_id) || (parsedData && parsedData.category_id);
+    const typeStr = n.type || (parsedMetadata && parsedMetadata.type) || (parsedData && parsedData.type) || '';
 
-    // -- Tối ưu hóa điều hướng (Navigation Optimization) --
+    // -- Tốiưu hóa điều hướng (Navigation Optimization) --
     
     // 1. Weekly Summary Notification
     if (typeStr.includes('WeeklySummaryNotification') || typeStr === 'weekly_summary') {
@@ -273,9 +367,9 @@ export default function Notifications() {
         router.push(`/transactions?txId=${txId}`);
       } else {
         // Fallback: search for P2P transaction by matching sender name and amount
-        const sender = (metadataObj && (metadataObj.sender_name || metadataObj.senderName)) ||
-                       (dataObj && (dataObj.sender_name || dataObj.senderName));
-        const amount = (metadataObj && metadataObj.amount) || (dataObj && dataObj.amount);
+        const sender = (parsedMetadata && (parsedMetadata.sender_name || parsedMetadata.senderName)) ||
+                       (parsedData && (parsedData.sender_name || parsedData.senderName));
+        const amount = (parsedMetadata && parsedMetadata.amount) || (parsedData && parsedData.amount);
         
         if (sender) {
           let url = `/transactions?autoOpenTitle=${encodeURIComponent(`Nhận tiền từ ${sender}`)}`;
@@ -311,7 +405,7 @@ export default function Notifications() {
 
     // 6. Recurring Transaction Executed
     if (typeStr.includes('RecurringTransactionExecutedNotification')) {
-      const status = (metadataObj && metadataObj.status) || (dataObj && dataObj.status);
+      const status = (parsedMetadata && parsedMetadata.status) || (parsedData && parsedData.status);
       if (status === 'success' && txId) {
         router.push(`/transactions?txId=${txId}`);
       } else {
@@ -447,7 +541,7 @@ export default function Notifications() {
             <div style={{display:'flex', justifyContent:'center', padding:'80px', color:'var(--text-main)', fontSize:'16px'}}>{t('loading')}...</div>
           ) : notificationsList.length > 0 ? (
             <>
-              {notificationsList.slice(0, visibleCount).map((n) => {
+              {notificationsList.map((n) => {
               let type: 'danger' | 'warning' | 'info' | 'reminder' | 'success' = 'info';
               
               if (n.type?.includes('BudgetWarningNotification') || n.title?.toLowerCase().includes('ngân sách') || n.title?.toLowerCase().includes('budget')) {
@@ -511,25 +605,51 @@ export default function Notifications() {
               );
             })}
             
-            {visibleCount < notificationsList.length && (
-              <div style={{ display: 'flex', justifyContent: 'center', marginTop: '20px', paddingBottom: '20px' }}>
-                <button
-                  onClick={() => setVisibleCount(prev => prev + 20)}
-                  style={{
-                    padding: '10px 24px',
-                    borderRadius: '24px',
-                    background: 'rgba(24, 20, 243, 0.05)',
-                    color: '#1814F3',
-                    border: '1px solid rgba(24, 20, 243, 0.2)',
-                    fontWeight: '700',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease'
-                  }}
-                  onMouseOver={(e) => e.currentTarget.style.background = 'rgba(24, 20, 243, 0.1)'}
-                  onMouseOut={(e) => e.currentTarget.style.background = 'rgba(24, 20, 243, 0.05)'}
-                >
-                  Xem thêm
-                </button>
+            {totalPages > 1 && (
+              <div className="notif-pagination-wrapper">
+                <div style={{ fontSize: '14.5px', color: 'var(--text-light)', fontWeight: '600' }}>
+                  Hiển thị {(currentPage - 1) * 15 + 1} - {Math.min(currentPage * 15, totalItems)} trong số {totalItems} thông báo
+                </div>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  {/* Nút Trước */}
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="pagination-btn-arrow"
+                  >
+                    {t('previous')}
+                  </button>
+
+                  {/* Các số trang */}
+                  {getPageNumbers().map((pageNum, idx) => {
+                    if (pageNum === 'ellipsis-start' || pageNum === 'ellipsis-end') {
+                      return (
+                        <span key={`ellipsis-${idx}`} style={{ padding: '0 8px', color: 'var(--text-light)', fontWeight: '600' }}>
+                          ...
+                        </span>
+                      );
+                    }
+                    const isPageActive = pageNum === currentPage;
+                    return (
+                      <button
+                        key={`page-${pageNum}`}
+                        onClick={() => setCurrentPage(Number(pageNum))}
+                        className={`pagination-btn-number ${isPageActive ? 'active' : ''}`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+
+                  {/* Nút Sau */}
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="pagination-btn-arrow"
+                  >
+                    {t('next')}
+                  </button>
+                </div>
               </div>
             )}
             </>

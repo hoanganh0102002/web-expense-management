@@ -37,6 +37,11 @@ export default function CreateSavingsGoalPage() {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
+  const [minDate] = useState(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    return tomorrow.toISOString().split('T')[0];
+  });
 
   // Number to Vietnamese words helper
   const numberToViWords = (numStr: string): string => {
@@ -99,7 +104,7 @@ export default function CreateSavingsGoalPage() {
     if (isLoggedIn) {
       fetchWallets();
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, fetchWallets]);
 
   // Set default wallet
   useEffect(() => {
@@ -107,6 +112,7 @@ export default function CreateSavingsGoalPage() {
     if (nonCashWallets.length > 0) {
       const defaultW = nonCashWallets.find(w => w.is_default_receiving) || nonCashWallets[0];
       if (defaultW) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSourceWalletId(defaultW.id);
       }
     }
@@ -132,7 +138,11 @@ export default function CreateSavingsGoalPage() {
       return;
     }
 
-    if (sourceWalletId) {
+    if (autoSaveEnabled) {
+      if (!sourceWalletId) {
+        setErrorMsg('Vui lòng chọn ví nguồn tích lũy chính!');
+        return;
+      }
       const selectedW = wallets.find(w => w.id === sourceWalletId);
       if (selectedW && selectedW.type === 'cash') {
         setErrorMsg('Ví tiết kiệm không hỗ trợ thực hiện bằng tiền mặt!');
@@ -141,11 +151,12 @@ export default function CreateSavingsGoalPage() {
     }
 
     // Prepare payload
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const payload: any = {
       name: name.trim(),
       target_amount: targetNum,
       target_date: targetDate ? targetDate : undefined,
-      source_wallet_id: sourceWalletId ? sourceWalletId : undefined
+      source_wallet_id: autoSaveEnabled && sourceWalletId ? sourceWalletId : undefined
     };
 
     if (autoSaveEnabled) {
@@ -168,6 +179,7 @@ export default function CreateSavingsGoalPage() {
       } else {
         setErrorMsg(res.message || 'Lỗi khi tạo mục tiêu tiết kiệm.');
       }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       console.error(err);
       setErrorMsg(err.message || 'Có lỗi xảy ra trong quá trình xử lý.');
@@ -241,31 +253,11 @@ export default function CreateSavingsGoalPage() {
                     value={targetDate}
                     onChange={(e) => setTargetDate(e.target.value)}
                     disabled={isSubmitting}
-                    min={new Date(Date.now() + 86400000).toISOString().split('T')[0]} // Target date must be after today
+                    min={minDate} // Target date must be after today
                   />
                   <div className="form-helper" style={{ fontStyle: 'normal' }}>
                     Chọn ngày hạn định (tùy chọn)
                   </div>
-                </div>
-
-                {/* Source Wallet field */}
-                <div className="form-field">
-                  <label className="form-label">Ví nguồn tích lũy chính</label>
-                  <select
-                    className="form-select"
-                    value={sourceWalletId}
-                    onChange={(e) => setSourceWalletId(e.target.value)}
-                    disabled={isSubmitting}
-                  >
-                    <option value="">Chọn ví nguồn để tích lũy</option>
-                    {wallets
-                      .filter(w => !w.is_hidden && w.type !== 'cash')
-                      .map(w => (
-                        <option key={w.id} value={w.id}>
-                          {w.name} ({new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(Math.round(Number(w.available_balance || 0)))}đ)
-                        </option>
-                      ))}
-                  </select>
                 </div>
 
                 {/* Auto Save Toggle */}
@@ -279,7 +271,21 @@ export default function CreateSavingsGoalPage() {
                       <input
                         type="checkbox"
                         checked={autoSaveEnabled}
-                        onChange={(e) => setAutoSaveEnabled(e.target.checked)}
+                        onChange={(e) => {
+                          setAutoSaveEnabled(e.target.checked);
+                          if (!e.target.checked) {
+                            setSourceWalletId('');
+                          } else {
+                            // Restore default wallet on enable
+                            const nonCashWallets = wallets.filter(w => !w.is_hidden && w.type !== 'cash');
+                            if (nonCashWallets.length > 0) {
+                              const defaultW = nonCashWallets.find(w => w.is_default_receiving) || nonCashWallets[0];
+                              if (defaultW) {
+                                setSourceWalletId(defaultW.id);
+                              }
+                            }
+                          }
+                        }}
                         disabled={isSubmitting}
                       />
                       <span className="switch-slider"></span>
@@ -287,34 +293,55 @@ export default function CreateSavingsGoalPage() {
                   </div>
 
                   {autoSaveEnabled && (
-                    <div className="auto-save-details-form">
-                      <div className="form-field">
-                        <label className="form-label" style={{ fontSize: '12px' }}>Tần suất trích</label>
+                    <>
+                      <div className="form-field" style={{ marginTop: '16px' }}>
+                        <label className="form-label">Ví nguồn tích lũy chính</label>
                         <select
                           className="form-select"
-                          value={autoSaveFrequency}
-                          onChange={(e) => setAutoSaveFrequency(e.target.value)}
+                          value={sourceWalletId}
+                          onChange={(e) => setSourceWalletId(e.target.value)}
                           disabled={isSubmitting}
                         >
-                          <option value="daily">Hàng ngày</option>
-                          <option value="weekly">Hàng tuần</option>
-                          <option value="monthly">Hàng tháng</option>
+                          <option value="">Chọn ví nguồn để tích lũy</option>
+                          {wallets
+                            .filter(w => !w.is_hidden && w.type !== 'cash')
+                            .map(w => (
+                              <option key={w.id} value={w.id}>
+                                {w.name} ({new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(Math.round(Number(w.available_balance || 0)))}đ)
+                              </option>
+                            ))}
                         </select>
                       </div>
 
-                      <div className="form-field">
-                        <label className="form-label" style={{ fontSize: '12px' }}>Số tiền mỗi kỳ</label>
-                        <input
-                          type="number"
-                          className="form-input-text"
-                          placeholder="0"
-                          value={autoSaveAmount}
-                          onChange={(e) => setAutoSaveAmount(e.target.value)}
-                          disabled={isSubmitting}
-                          required={autoSaveEnabled}
-                        />
+                      <div className="auto-save-details-form">
+                        <div className="form-field">
+                          <label className="form-label" style={{ fontSize: '12px' }}>Tần suất trích</label>
+                          <select
+                            className="form-select"
+                            value={autoSaveFrequency}
+                            onChange={(e) => setAutoSaveFrequency(e.target.value)}
+                            disabled={isSubmitting}
+                          >
+                            <option value="daily">Hàng ngày</option>
+                            <option value="weekly">Hàng tuần</option>
+                            <option value="monthly">Hàng tháng</option>
+                          </select>
+                        </div>
+
+                        <div className="form-field">
+                          <label className="form-label" style={{ fontSize: '12px' }}>Số tiền mỗi kỳ</label>
+                          <input
+                            type="number"
+                            className="form-input-text"
+                            placeholder="0"
+                            value={autoSaveAmount}
+                            onChange={(e) => setAutoSaveAmount(e.target.value)}
+                            disabled={isSubmitting}
+                            required={autoSaveEnabled}
+                          />
+                        </div>
                       </div>
-                    </div>
+                    </>
                   )}
                 </div>
               </div>
