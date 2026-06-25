@@ -360,60 +360,7 @@ export default function Transactions() {
   const [isClassifyingRecurring, setIsClassifyingRecurring] = useState(false);
   const hasAttemptedOpen = useRef(false);
 
-  // Handle auto-open from notifications
-  useEffect(() => {
-    if (typeof window === 'undefined' || hasAttemptedOpen.current || !transactions || transactions.length === 0) return;
 
-    const params = new URLSearchParams(window.location.search);
-    const txIdParam = params.get('txId');
-    const autoOpenTitleParam = params.get('autoOpenTitle');
-    const autoOpenAmountParam = params.get('autoOpenAmount');
-
-    if (!txIdParam && !autoOpenTitleParam) return;
-
-    // Immediately mark as attempted to prevent infinite loops
-    hasAttemptedOpen.current = true;
-
-    // Clean up URL so it doesn't trigger again on reload
-    const newUrl = window.location.pathname;
-    window.history.replaceState({}, document.title, newUrl);
-
-    if (txIdParam) {
-      const targetTx = transactions.find((tx: any) => String(tx.id) === String(txIdParam));
-      if (targetTx) {
-        setViewingTx(targetTx);
-        setIsDetailModalOpen(true);
-      } else {
-        // Fetch from API for older transactions
-        apiFetch(`/transactions/${txIdParam}`)
-          .then(res => {
-            if (res && (res.data || res.id)) {
-              setViewingTx(res.data || res);
-              setIsDetailModalOpen(true);
-            }
-          })
-          .catch(err => console.error("Không tìm thấy giao dịch:", err));
-      }
-    } else if (autoOpenTitleParam) {
-      const targetTx = transactions.find((tx: any) => {
-        const matchTitle = (tx.title?.toLowerCase().includes(autoOpenTitleParam.toLowerCase()) || 
-                            tx.description?.toLowerCase().includes(autoOpenTitleParam.toLowerCase()) ||
-                            tx.category?.name?.toLowerCase().includes(autoOpenTitleParam.toLowerCase()));
-        if (!autoOpenAmountParam) return matchTitle;
-        const searchAmt = parseFloat(autoOpenAmountParam);
-        const txAmt = Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0));
-        return matchTitle && txAmt === searchAmt;
-      });
-
-      if (targetTx) {
-        setViewingTx(targetTx);
-        setIsDetailModalOpen(true);
-      } else {
-        setSearchTerm(autoOpenTitleParam);
-        setDebouncedSearch(autoOpenTitleParam);
-      }
-    }
-  }, [transactions]);
 
   // Auto-classify category for newTx
   useEffect(() => {
@@ -716,9 +663,11 @@ export default function Transactions() {
   const [activeTab, setActiveTab] = useState('all');
 
   const [internalTransfers, setInternalTransfers] = useState<any[]>([]);
+  const [hasLoadedTransfers, setHasLoadedTransfers] = useState(false);
   const [isLoadingTransfers, setIsLoadingTransfers] = useState(false);
 
   const [recurringTransactions, setRecurringTransactions] = useState<any[]>([]);
+  const [hasLoadedRecurring, setHasLoadedRecurring] = useState(false);
   const [recurringHistoryList, setRecurringHistoryList] = useState<any[]>([]);
   const [hasLoadedHistory, setHasLoadedHistory] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
@@ -771,15 +720,16 @@ export default function Transactions() {
     return parseSmartQuery(searchTerm, flatCategories, wallets);
   }, [searchTerm, flatCategories, wallets]);
 
-  // Handle URL parameters for auto-opening transaction details
+  // Handle URL parameters for auto-opening transaction details (Optimized)
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && isLoggedIn && transactions && transactions.length > 0) {
       const urlParams = new URLSearchParams(window.location.search);
       const txId = urlParams.get('txId');
       const autoOpenTitle = urlParams.get('autoOpenTitle');
       const autoOpenAmount = urlParams.get('autoOpenAmount');
+      const autoOpenDate = urlParams.get('autoOpenDate');
 
-      if (!txId && !autoOpenTitle && !autoOpenAmount) return;
+      if (!txId && !autoOpenTitle && !autoOpenAmount && !autoOpenDate) return;
       if (hasAttemptedOpen.current) return;
       hasAttemptedOpen.current = true;
 
@@ -814,9 +764,10 @@ export default function Transactions() {
           } catch (e) { console.error(e); }
           window.history.replaceState({}, '', '/transactions');
 
-        } else if (autoOpenTitle || autoOpenAmount) {
+        } else if (autoOpenTitle || autoOpenAmount || autoOpenDate) {
           const titleDecoded = autoOpenTitle ? decodeURIComponent(autoOpenTitle).toLowerCase() : null;
           const targetAmount = autoOpenAmount ? parseFloat(autoOpenAmount) : null;
+          const targetDateStr = autoOpenDate ? decodeURIComponent(autoOpenDate).substring(0, 10) : null;
 
           const matchTx = (t: any) => {
             let isMatch = true;
@@ -827,6 +778,10 @@ export default function Transactions() {
             if (targetAmount) {
               const tAmt = Math.abs(parseFloat(t.amount_in_user_currency || t.amount || '0'));
               isMatch = isMatch && (tAmt === targetAmount);
+            }
+            if (targetDateStr) {
+              const txDate = (t.transaction_date || t.date || t.created_at || '').substring(0, 10);
+              isMatch = isMatch && (txDate === targetDateStr);
             }
             return isMatch;
           };
@@ -840,9 +795,10 @@ export default function Transactions() {
             setViewingRuleTx(rule); setIsRuleDetailModalOpen(true); window.history.replaceState({}, '', '/transactions'); return;
           }
 
-          // If not found locally, fetch it from API
+          // If not found locally, fetch it from API with FAST search
           try {
-            const params: any = { per_page: 50 };
+            // TỐI ƯU HÓA: Dùng per_page: 5 thay vì 50 để backend xử lý cực nhanh!
+            const params: any = { per_page: 5 };
             if (titleDecoded) params.search = titleDecoded;
             const res = await transactionApi.getAll(params);
             const allData = res.data?.data || res.data || [];
@@ -855,6 +811,10 @@ export default function Transactions() {
               } else {
                 setViewingTx(fetchedTx); setIsDetailModalOpen(true);
               }
+            } else if (autoOpenTitle) {
+               // Fallback input search field
+               setSearchTerm(autoOpenTitle);
+               setDebouncedSearch(autoOpenTitle);
             }
           } catch (e) { console.error(e); }
           window.history.replaceState({}, '', '/transactions');
@@ -863,7 +823,7 @@ export default function Transactions() {
 
       attemptOpen();
     }
-  }, [transactions, internalTransfers, recurringTransactions]);
+  }, [transactions, internalTransfers, recurringTransactions, isLoggedIn]);
 
   // Helper to change filter states and automatically reset pagination cursor
   const handleFilterChange = (updater: () => void) => {
@@ -965,62 +925,7 @@ export default function Transactions() {
     currentCursor
   ]);
 
-  // Auto-open transaction detail from notification link
-  useEffect(() => {
-    if (typeof window !== 'undefined' && isLoggedIn && transactions.length > 0) {
-      const urlParams = new URLSearchParams(window.location.search);
-      const txId = urlParams.get('txId');
-      const autoOpenTitle = urlParams.get('autoOpenTitle');
 
-      if (!txId && !autoOpenTitle) return;
-
-      const openModalForTx = (tx: any) => {
-        if (tx.from_wallet_id && tx.to_wallet_id) {
-          setViewingTransferTx(tx);
-          setIsTransferDetailModalOpen(true);
-        } else {
-          setViewingTx(tx);
-          setIsDetailModalOpen(true);
-        }
-        window.history.replaceState(null, '', window.location.pathname);
-      };
-
-      if (autoOpenTitle) {
-        // Tối ưu: Tìm ngay trong bộ nhớ (cực nhanh)
-        const tx = transactions.find((t: any) => (t.title || '').toLowerCase().includes(autoOpenTitle.toLowerCase()));
-        if (tx) {
-          openModalForTx(tx);
-        } else {
-          // Dự phòng: gọi API nếu giao dịch nằm ở trang sau
-          transactionApi.getAll({ per_page: 50 }).then(res => {
-            const data = res.data?.data || res.data || [];
-            const apiTx = data.find((t: any) => (t.title || '').toLowerCase().includes(autoOpenTitle.toLowerCase()));
-            if (apiTx) openModalForTx(apiTx);
-            else window.history.replaceState(null, '', window.location.pathname);
-          }).catch(console.error);
-        }
-      } else if (txId) {
-        // Tối ưu: Tìm ngay trong bộ nhớ
-        const tx = transactions.find((t: any) => String(t.id) === txId);
-        if (tx) {
-          openModalForTx(tx);
-        } else {
-          apiFetch(`/transactions/${txId}`).then(res => {
-            const apiTx = res.data || res;
-            if (apiTx && apiTx.id) openModalForTx(apiTx);
-            else window.history.replaceState(null, '', window.location.pathname);
-          }).catch(err => {
-            transactionApi.getAll({ per_page: 50 }).then(res => {
-              const data = res.data?.data || res.data || [];
-              const fallbackTx = data.find((t: any) => String(t.id) === txId);
-              if (fallbackTx) openModalForTx(fallbackTx);
-              else window.history.replaceState(null, '', window.location.pathname);
-            }).catch(console.error);
-          });
-        }
-      }
-    }
-  }, [isLoggedIn, transactions]);
 
 
 
@@ -1028,18 +933,22 @@ export default function Transactions() {
   useEffect(() => {
     if (isLoggedIn) {
       // Prefetch transfers
-      if (internalTransfers.length === 0) {
+      if (!hasLoadedTransfers) {
         apiFetch('/wallets/transfers')
-          .then(res => setInternalTransfers(res.data || []))
+          .then(res => {
+            setInternalTransfers(res.data || []);
+            setHasLoadedTransfers(true);
+          })
           .catch(err => console.error('Error prefetching transfers', err));
       }
 
       // Prefetch recurring
-      if (recurringTransactions.length === 0) {
+      if (!hasLoadedRecurring) {
         apiFetch('/recurring-rules')
           .then(res => {
             const data = res.data ? res.data : (Array.isArray(res) ? res : []);
             setRecurringTransactions(data);
+            setHasLoadedRecurring(true);
           })
           .catch(err => console.error('Error prefetching recurring rules', err));
       }
@@ -1080,28 +989,32 @@ export default function Transactions() {
 
   // Fetch transfers when transfer tab is active (fallback if prefetch hasn't finished)
   useEffect(() => {
-    if (activeTab === 'transfer') {
+    if (activeTab === 'transfer' && !hasLoadedTransfers) {
       if (internalTransfers.length === 0) setIsLoadingTransfers(true);
       apiFetch('/wallets/transfers')
-        .then(res => setInternalTransfers(res.data || []))
+        .then(res => {
+          setInternalTransfers(res.data || []);
+          setHasLoadedTransfers(true);
+        })
         .catch(err => console.error('Error fetching transfers', err))
         .finally(() => setIsLoadingTransfers(false));
     }
-  }, [activeTab]);
+  }, [activeTab, hasLoadedTransfers]);
 
   // Fetch recurring when recurring tab is active
   useEffect(() => {
-    if (activeTab === 'recurring') {
+    if (activeTab === 'recurring' && !hasLoadedRecurring) {
       if (recurringTransactions.length === 0) setIsLoadingRecurring(true);
       apiFetch('/recurring-rules')
         .then(res => {
           const data = res.data ? res.data : (Array.isArray(res) ? res : []);
           setRecurringTransactions(data);
+          setHasLoadedRecurring(true);
         })
         .catch(err => console.error('Error fetching recurring transactions', err))
         .finally(() => setIsLoadingRecurring(false));
     }
-  }, [activeTab]);
+  }, [activeTab, hasLoadedRecurring]);
 
   // Fetch recurring history once
   useEffect(() => {
@@ -1421,14 +1334,89 @@ export default function Transactions() {
       setIsSubmitting(false);
     }
   };
+  const handleQuickCategoryChange = async (tx: any, newCategoryId: string) => {
+    if (!newCategoryId || newCategoryId === String(tx.category_id)) return;
+    
+    if (newCategoryId === 'CREATE_NEW') {
+      window.location.href = '/categories';
+      return;
+    }
+    
+    const newCategory = flatCategories.find(c => String(c.id) === newCategoryId);
+    if (!newCategory) return;
+    
+    // Optimistic UI update
+    const updateFn = (prevList: any[]) => prevList.map(t => {
+      if (t.id === tx.id) {
+        return {
+          ...t,
+          category_id: newCategoryId,
+          category: {
+            ...(t.category || {}),
+            id: newCategoryId,
+            name: newCategory.name || '',
+            icon: newCategory.icon || '',
+            color: newCategory.color || ''
+          }
+        };
+      }
+      return t;
+    });
+
+    setTabCaches(prevCaches => {
+      const newCaches = { ...prevCaches };
+      Object.keys(newCaches).forEach(key => {
+        if (Array.isArray(newCaches[key])) {
+          newCaches[key] = updateFn(newCaches[key]);
+        }
+      });
+      return newCaches;
+    });
+
+    try {
+      const formData = new FormData();
+      const rawTitle = parseNotesAndTitle(tx.title || tx.name || tx.description || '', tx.notes, tx.payee).displayTitle;
+      const rawNotes = parseNotesAndTitle(tx.title || tx.name || tx.description || '', tx.notes, tx.payee).displayNotes;
+
+      formData.append('title', rawTitle);
+      formData.append('amount', Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0)).toString());
+      formData.append('type', tx.type);
+      formData.append('wallet_id', tx.wallet_id || '');
+      if (tx.type === 'income') {
+        formData.append('source_type', 'adjustment');
+      }
+      formData.append('category_id', newCategoryId);
+      const tDate = tx.transaction_date || tx.created_at || tx.date;
+      if (tDate) {
+         formData.append('transaction_date', new Date(tDate).toISOString().slice(0, 19).replace('T', ' '));
+      }
+      
+      formData.append('notes', formatNotesWithTitle(rawTitle, rawNotes));
+      
+      if (tx.payee_id) {
+        formData.append('payee_id', tx.payee_id);
+      }
+
+      await transactionApi.update(tx.id, formData);
+      loadFilteredTransactions(currentCursor);
+      fetchTransactions();
+    } catch (e: any) {
+      console.error('Failed to quick change category', e);
+      alert('Đổi danh mục thất bại: ' + (e.message || 'Lỗi không xác định'));
+      loadFilteredTransactions(currentCursor);
+      fetchTransactions();
+    }
+  };
 
   const handleDelete = async (id: string) => {
     if (window.confirm(t('confirm_delete_tx') || 'Bạn có chắc chắn muốn xóa giao dịch này?')) {
       try {
         await deleteTransaction(id);
         setHasLoadedHistory(false);
+        setHasLoadedTransfers(false);
         loadFilteredTransactions(currentCursor);
         fetchUnreadNotificationsCount();
+        setInternalTransfers(prev => prev.filter(t => t.id !== id));
       } catch (error: any) {
         alert(error.message || 'Lỗi khi xóa giao dịch');
       }
@@ -2088,28 +2076,55 @@ export default function Transactions() {
                             {formatCurrency(tx.amount || 0, tx.currency_code || tx.wallet?.currency_code || 'VND')}
                           </td>
                           <td>
-                            <button
-                              onClick={() => {
-                                setViewingTransferTx(tx);
-                                setIsTransferDetailModalOpen(true);
-                              }}
-                              style={{
-                                padding: '6px 12px',
-                                borderRadius: '10px',
-                                background: '#F0F5FF',
-                                color: '#1814F3',
-                                border: 'none',
-                                cursor: 'pointer',
-                                fontSize: '12px',
-                                fontWeight: '700',
-                                transition: 'all 0.2s ease',
-                                outline: 'none'
-                              }}
-                              onMouseOver={(e) => e.currentTarget.style.boxShadow = '0 2px 8px rgba(24, 20, 243, 0.1)'}
-                              onMouseOut={(e) => e.currentTarget.style.boxShadow = 'none'}
-                            >
-                              Chi tiết
-                            </button>
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                              <button
+                                onClick={() => {
+                                  setViewingTransferTx(tx);
+                                  setIsTransferDetailModalOpen(true);
+                                }}
+                                style={{
+                                  padding: '6px 12px',
+                                  borderRadius: '10px',
+                                  background: '#F0F5FF',
+                                  color: '#1814F3',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  fontSize: '12px',
+                                  fontWeight: '700',
+                                  transition: 'all 0.2s ease',
+                                  outline: 'none'
+                                }}
+                                onMouseOver={(e) => e.currentTarget.style.boxShadow = '0 2px 8px rgba(24, 20, 243, 0.1)'}
+                                onMouseOut={(e) => e.currentTarget.style.boxShadow = 'none'}
+                              >
+                                Chi tiết
+                              </button>
+                              <button
+                                onClick={() => handleDelete(tx.id)}
+                                style={{
+                                  padding: '6px 12px',
+                                  borderRadius: '10px',
+                                  background: 'transparent',
+                                  color: '#FE5C73',
+                                  border: '1px solid #FFE2E5',
+                                  cursor: 'pointer',
+                                  fontSize: '12px',
+                                  fontWeight: '700',
+                                  transition: 'all 0.2s ease',
+                                  outline: 'none'
+                                }}
+                                onMouseOver={(e) => {
+                                  e.currentTarget.style.background = '#FFE2E5';
+                                  e.currentTarget.style.borderColor = '#FE5C73';
+                                }}
+                                onMouseOut={(e) => {
+                                  e.currentTarget.style.background = 'transparent';
+                                  e.currentTarget.style.borderColor = '#FFE2E5';
+                                }}
+                              >
+                                Xóa
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -2459,23 +2474,72 @@ export default function Transactions() {
                             </td>
                           )}
                           <td>
-                            {tx.category?.name ? (
-                              <span style={{
-                                padding: '6px 12px',
-                                borderRadius: '12px',
-                                background: `${categoryColor}15`,
-                                color: categoryColor,
-                                fontWeight: '700',
-                                fontSize: '13px',
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '6px'
-                              }}>
-                                <span>{categoryIcon}</span>
-                                {tx.category.name}
-                              </span>
-                            ) : (
+                            {tx.is_internal_transfer ? (
                               <span style={{ color: 'var(--text-light)', fontSize: '13px', fontWeight: '500' }}>-</span>
+                            ) : (
+                              <div style={{ position: 'relative', display: 'inline-block' }}>
+                                {tx.category?.name ? (
+                                  <span style={{
+                                    padding: '6px 12px',
+                                    borderRadius: '12px',
+                                    background: `${categoryColor}15`,
+                                    color: categoryColor,
+                                    fontWeight: '700',
+                                    fontSize: '13px',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    cursor: 'pointer'
+                                  }}>
+                                    <span>{categoryIcon}</span>
+                                    {tx.category.name}
+                                    <span style={{ fontSize: '10px', marginLeft: '2px', opacity: 0.7 }}>▼</span>
+                                  </span>
+                                ) : (
+                                  <span style={{ 
+                                    padding: '6px 12px',
+                                    borderRadius: '12px',
+                                    background: 'rgba(0,0,0,0.05)',
+                                    color: 'var(--text-light)', 
+                                    fontSize: '13px', 
+                                    fontWeight: '600',
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: '6px',
+                                    cursor: 'pointer'
+                                  }}>
+                                    <span>➕</span> Thêm
+                                  </span>
+                                )}
+                                <select
+                                  value={tx.category_id || ''}
+                                  onChange={(e) => handleQuickCategoryChange(tx, e.target.value)}
+                                  style={{
+                                    position: 'absolute',
+                                    top: 0,
+                                    left: 0,
+                                    width: '100%',
+                                    height: '100%',
+                                    opacity: 0,
+                                    cursor: 'pointer',
+                                    appearance: 'none'
+                                  }}
+                                  title="Đổi danh mục nhanh"
+                                >
+                                  <option value="" disabled>Chọn danh mục</option>
+                                  {flatCategories
+                                    .filter((c: any) => c.type === tx.type)
+                                    .map((c: any) => (
+                                      <option key={c.id} value={c.id}>
+                                        {c.displayName}
+                                      </option>
+                                    ))
+                                  }
+                                  <option value="CREATE_NEW" style={{ fontWeight: 'bold', color: '#1814F3' }}>
+                                    ➕ Tạo danh mục mới
+                                  </option>
+                                </select>
+                              </div>
                             )}
                           </td>
                           <td>
@@ -3169,7 +3233,14 @@ export default function Transactions() {
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                 <span style={{ color: '#718EBF', fontWeight: '500' }}>Ngày thực hiện</span>
-                <span style={{ fontWeight: '600' }}>{parseSafeDate(viewingTransferTx.date || viewingTransferTx.created_at).toLocaleString('vi-VN')}</span>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '14px' }}>
+                    {parseSafeDate(viewingTransferTx.date || viewingTransferTx.created_at).toLocaleDateString('vi-VN')}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#718EBF', marginTop: '2px', fontWeight: '500' }}>
+                    {parseSafeDate(viewingTransferTx.date || viewingTransferTx.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
               </div>
               {(viewingTransferTx.notes || viewingTransferTx.description) && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
@@ -3302,7 +3373,14 @@ export default function Transactions() {
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                 <span style={{ color: '#718EBF', fontWeight: '500' }}>Ngày giao dịch</span>
-                <span style={{ fontWeight: '600' }}>{parseSafeDate(viewingTx.transaction_date).toLocaleString('vi-VN')}</span>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '14px' }}>
+                    {parseSafeDate(viewingTx.transaction_date).toLocaleDateString('vi-VN')}
+                  </div>
+                  <div style={{ fontSize: '12px', color: '#718EBF', marginTop: '2px', fontWeight: '500' }}>
+                    {parseSafeDate(viewingTx.transaction_date).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
+                </div>
               </div>
               {parseNotesAndTitle(viewingTx.title, viewingTx.notes, viewingTx.payee).displayNotes && (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>

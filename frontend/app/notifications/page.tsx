@@ -282,6 +282,9 @@ export default function Notifications() {
           if (amount) {
             url += `&autoOpenAmount=${amount}`;
           }
+          if (n.created_at || n.date) {
+            url += `&autoOpenDate=${encodeURIComponent(n.created_at || n.date)}`;
+          }
           router.push(url);
         } else {
           // If we can't extract sender, use regular text parsing fallback
@@ -296,6 +299,9 @@ export default function Notifications() {
           if (amountMatch && amountMatch[1]) {
             const amt = amountMatch[1].replace(/,/g, '');
             url += (url.includes('?') ? '&' : '?') + `autoOpenAmount=${amt}`;
+          }
+          if (n.created_at || n.date) {
+            url += (url.includes('?') ? '&' : '?') + `autoOpenDate=${encodeURIComponent(n.created_at || n.date)}`;
           }
           router.push(url);
         }

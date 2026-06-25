@@ -4,7 +4,7 @@ import Link from 'next/link';
 import Sidebar from '../components/Sidebar';
 import { useAppContext } from '../context/AppContext';
 import { useLanguage } from '../lib/translations';
-import { apiFetch, savingsApi } from '../lib/api';
+import { apiFetch, savingsApi, transactionApi } from '../lib/api';
 import './wallets.css';
 import '../savings/savings.css';
 
@@ -342,9 +342,14 @@ export default function Wallets() {
   };
 
   // State cho Modals
-  const [showModal, setShowModal] = useState<'create' | 'edit' | 'transfer' | 'history' | null>(null);
+  const [showModal, setShowModal] = useState<'create' | 'edit' | 'transfer' | 'history' | 'deposit' | null>(null);
   const [selectedWallet, setSelectedWallet] = useState<any>(null);
   const [showWalletBalance, setShowWalletBalance] = useState(true);
+
+  // Deposit states
+  const [depositWalletId, setDepositWalletId] = useState('');
+  const [depositAmount, setDepositAmount] = useState('');
+  const [isDepositing, setIsDepositing] = useState(false);
 
   // Form states
   const [name, setName] = useState('');
@@ -457,6 +462,36 @@ export default function Wallets() {
       alert(e.message || "Đã xảy ra lỗi");
     } finally {
       setIsTransferring(false);
+    }
+  };
+
+  const handleDeposit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!depositWalletId || !depositAmount) {
+      alert("Vui lòng nhập đầy đủ thông tin nạp tiền!");
+      return;
+    }
+    setIsDepositing(true);
+    try {
+      const formData = new FormData();
+      formData.append('title', 'Nạp tiền vào ví');
+      formData.append('amount', depositAmount);
+      formData.append('type', 'income');
+      formData.append('source_type', 'adjustment');
+      formData.append('wallet_id', depositWalletId);
+      formData.append('transaction_date', new Date().toISOString().slice(0, 19).replace('T', ' '));
+
+      await transactionApi.create(formData);
+
+      alert("Nạp tiền thành công!");
+      setShowModal(null);
+      setDepositWalletId('');
+      setDepositAmount('');
+      fetchWallets();
+    } catch (e: any) {
+      alert("Nạp tiền thất bại: " + (e.message || "Lỗi không xác định"));
+    } finally {
+      setIsDepositing(false);
     }
   };
 
@@ -695,6 +730,22 @@ export default function Wallets() {
             </button>
           </div>
           <div className="nav-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button 
+              onClick={() => {
+                if (!isLoggedIn) {
+                  alert(t('login_required_to_create_wallet'));
+                  return;
+                }
+                setShowModal('deposit');
+              }}
+              className="secondary-action-btn btn-deposit"
+              style={{ background: '#E8F5E9', color: '#2E7D32', borderColor: '#C8E6C9' }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+              </svg>
+              Nạp tiền
+            </button>
             <button 
               onClick={() => {
                 if (!isLoggedIn) {
@@ -1576,6 +1627,68 @@ export default function Wallets() {
                 ))}
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Deposit Modal */}
+      {showModal === 'deposit' && (
+        <div className="modal-overlay" onClick={() => setShowModal(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+            <h2 className="modal-title" style={{ textAlign: 'center' }}>Giả lập Nạp tiền</h2>
+            <p style={{ textAlign: 'center', color: 'var(--text-light)', fontSize: '13px', marginBottom: '20px' }}>
+              Tính năng này tạo giao dịch nạp tiền để tăng số dư ví.
+            </p>
+            <form onSubmit={handleDeposit}>
+              <div className="form-group">
+                <label className="wallet-label">Chọn ví cần nạp</label>
+                <div style={{ position: 'relative' }}>
+                  <select
+                    className="wallet-input"
+                    value={depositWalletId}
+                    onChange={(e) => setDepositWalletId(e.target.value)}
+                    required
+                    style={{ paddingLeft: '40px' }}
+                  >
+                    <option value="" disabled>-- Chọn ví --</option>
+                    {wallets.map((w) => (
+                      <option key={w.id} value={w.id}>
+                        {w.name} ({formatWalletBalance(w.available_balance || 0)}đ)
+                      </option>
+                    ))}
+                  </select>
+                  <span style={{ position: 'absolute', left: '15px', top: '50%', transform: 'translateY(-50%)' }}>
+                    👛
+                  </span>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label className="wallet-label">Số tiền (VNĐ)</label>
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type="number"
+                    className="wallet-input"
+                    value={depositAmount}
+                    onChange={(e) => setDepositAmount(e.target.value)}
+                    placeholder="VD: 500000"
+                    required
+                    min="1"
+                    style={{ paddingLeft: '40px', fontSize: '18px', fontWeight: 'bold', color: '#2E7D32' }}
+                  />
+                  <span style={{ position: 'absolute', left: '15px', top: '50%', transform: 'translateY(-50%)', color: '#2E7D32', fontWeight: 'bold' }}>
+                    ₫
+                  </span>
+                </div>
+              </div>
+
+              <div className="modal-actions" style={{ marginTop: '30px' }}>
+                <button type="button" className="wallet-btn-cancel" onClick={() => setShowModal(null)}>Hủy bỏ</button>
+                <button type="submit" className="wallet-premium-btn" disabled={isDepositing} style={{ background: 'linear-gradient(135deg, #43A047, #2E7D32)', border: 'none' }}>
+                  {isDepositing ? 'Đang xử lý...' : 'Nạp tiền ngay'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
