@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Sidebar from '../components/Sidebar';
 import { useAppContext } from '../context/AppContext';
 import { useLanguage } from '../lib/translations';
@@ -308,6 +309,7 @@ const parseSmartQuery = (query: string, flatCategories: any[], wallets: any[]): 
 };
 
 export default function Transactions() {
+  const router = useRouter();
   const {
     isLoggedIn,
     transactions,
@@ -346,6 +348,20 @@ export default function Transactions() {
 
   // States for viewing and editing standard transactions
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+  const [activeDropdownTxId, setActiveDropdownTxId] = useState<string | number | null>(null);
+
+  useEffect(() => {
+    const handleWindowClick = () => {
+      setActiveDropdownTxId(null);
+    };
+    if (activeDropdownTxId !== null) {
+      window.addEventListener('click', handleWindowClick);
+    }
+    return () => {
+      window.removeEventListener('click', handleWindowClick);
+    };
+  }, [activeDropdownTxId]);
+
   const [viewingTx, setViewingTx] = useState<any>(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingTx, setEditingTx] = useState<any>(null);
@@ -768,15 +784,15 @@ export default function Transactions() {
         if (txId) {
           const tx = transactions?.find((t: any) => String(t.id) === txId);
           if (tx) {
-            setViewingTx(tx); setIsDetailModalOpen(true); window.history.replaceState({}, '', '/transactions'); return;
+            setViewingTx(tx); setIsDetailModalOpen(true); router.replace('/transactions', { scroll: false }); return;
           }
           const transfer = internalTransfers?.find((t: any) => String(t.id) === txId);
           if (transfer) {
-            setViewingTransferTx(transfer); setIsTransferDetailModalOpen(true); window.history.replaceState({}, '', '/transactions'); return;
+            setViewingTransferTx(transfer); setIsTransferDetailModalOpen(true); router.replace('/transactions', { scroll: false }); return;
           }
           const rule = recurringTransactions?.find((t: any) => String(t.id) === txId);
           if (rule) {
-            setViewingRuleTx(rule); setIsRuleDetailModalOpen(true); window.history.replaceState({}, '', '/transactions'); return;
+            setViewingRuleTx(rule); setIsRuleDetailModalOpen(true); router.replace('/transactions', { scroll: false }); return;
           }
 
           // If not found locally, fetch it from API
@@ -793,7 +809,7 @@ export default function Transactions() {
               }
             }
           } catch (e) { console.error(e); }
-          window.history.replaceState({}, '', '/transactions');
+          router.replace('/transactions', { scroll: false });
 
         } else if (autoOpenTitle || autoOpenAmount || autoOpenDate) {
           const titleDecoded = autoOpenTitle ? decodeURIComponent(autoOpenTitle).toLowerCase() : null;
@@ -819,16 +835,15 @@ export default function Transactions() {
 
           const tx = transactions?.find(matchTx);
           if (tx) {
-            setViewingTx(tx); setIsDetailModalOpen(true); window.history.replaceState({}, '', '/transactions'); return;
+            setViewingTx(tx); setIsDetailModalOpen(true); router.replace('/transactions', { scroll: false }); return;
           }
           const rule = recurringTransactions?.find(matchTx);
           if (rule) {
-            setViewingRuleTx(rule); setIsRuleDetailModalOpen(true); window.history.replaceState({}, '', '/transactions'); return;
+            setViewingRuleTx(rule); setIsRuleDetailModalOpen(true); router.replace('/transactions', { scroll: false }); return;
           }
 
           // If not found locally, fetch it from API with FAST search
           try {
-            // TỐI ƯU HÓA: Dùng per_page: 5 thay vì 50 để backend xử lý cực nhanh!
             const params: any = { per_page: 5 };
             if (titleDecoded) params.search = titleDecoded;
             const res = await transactionApi.getAll(params);
@@ -843,18 +858,17 @@ export default function Transactions() {
                 setViewingTx(fetchedTx); setIsDetailModalOpen(true);
               }
             } else if (autoOpenTitle) {
-               // Fallback input search field
                setSearchTerm(autoOpenTitle);
                setDebouncedSearch(autoOpenTitle);
             }
           } catch (e) { console.error(e); }
-          window.history.replaceState({}, '', '/transactions');
+          router.replace('/transactions', { scroll: false });
         }
       };
 
       attemptOpen();
     }
-  }, [transactions, internalTransfers, recurringTransactions, isLoggedIn]);
+  }, [transactions, internalTransfers, recurringTransactions, isLoggedIn, router]);
 
   // Helper to change filter states and automatically reset pagination cursor
   const handleFilterChange = (updater: () => void) => {
@@ -1668,7 +1682,10 @@ export default function Transactions() {
       formData.append('amount', Math.abs(parseFloat(tx.amount_in_user_currency || tx.amount || 0)).toString());
       formData.append('type', tx.type);
       formData.append('wallet_id', tx.wallet_id || '');
-      if (tx.type === 'income') {
+      // Preserve original source_type to avoid backend treating it as a new manual transaction
+      if (tx.source_type) {
+        formData.append('source_type', tx.source_type);
+      } else if (tx.type === 'income') {
         formData.append('source_type', 'adjustment');
       }
       formData.append('category_id', newCategoryId);
@@ -1679,8 +1696,11 @@ export default function Transactions() {
       
       formData.append('notes', formatNotesWithTitle(rawTitle, rawNotes));
       
-      if (tx.payee_id) {
-        formData.append('payee_id', tx.payee_id);
+      const payeeId = tx.payee_id || tx.payee?.id || tx.payee?.payee_id;
+      if (payeeId) {
+        formData.append('payee_id', String(payeeId));
+      } else if (tx.payee?.payee_name || tx.payee?.name) {
+        formData.append('payee_name', tx.payee?.payee_name || tx.payee?.name || '');
       }
 
       await transactionApi.update(tx.id, formData);
@@ -1975,11 +1995,11 @@ export default function Transactions() {
         <nav className="navbar" style={{ background: 'var(--card-bg)', borderBottom: '1px solid var(--border-color)' }}>
           <h1 className="page-title" style={{ color: 'var(--text-main)' }}>{t('transactions')}</h1>
           <div className="nav-actions">
-            <div className="search-bar" style={{ background: 'var(--bg-color)' }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="#718EBF"><path d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z" /></svg>
+            <div className="search-bar">
+              <span style={{ fontSize: '16px', display: 'flex', alignItems: 'center', userSelect: 'none' }}>🔍</span>
               <input
                 type="text"
-                placeholder={t('search_tx_placeholder')}
+                placeholder="Tìm kiếm..."
                 value={searchTerm}
                 onChange={e => handleFilterChange(() => setSearchTerm(e.target.value))}
               />
@@ -3566,8 +3586,37 @@ export default function Transactions() {
               )}
             </div>
 
-            <div style={{ marginTop: '30px', display: 'flex', justifyContent: 'center' }}>
-              <button style={{ padding: '12px 30px', background: '#1814F3', color: '#fff', borderRadius: '12px', border: 'none', cursor: 'pointer', fontWeight: '600', fontSize: '15px', transition: 'background 0.2s' }} onClick={() => setIsTransferDetailModalOpen(false)}>Đóng</button>
+            <div style={{ marginTop: '30px', display: 'flex', gap: '12px', justifyContent: 'center' }}>
+              <button
+                style={{
+                  padding: '12px 24px',
+                  background: 'transparent',
+                  color: '#FE5C73',
+                  borderRadius: '12px',
+                  border: '1px solid #FFE2E5',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  fontSize: '15px',
+                  transition: 'all 0.2s'
+                }}
+                onClick={async () => {
+                  if (viewingTransferTx && viewingTransferTx.id) {
+                    setIsTransferDetailModalOpen(false);
+                    await handleDelete(viewingTransferTx.id);
+                  }
+                }}
+                onMouseOver={(e) => {
+                  e.currentTarget.style.background = '#FFE2E5';
+                  e.currentTarget.style.borderColor = '#FE5C73';
+                }}
+                onMouseOut={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.borderColor = '#FFE2E5';
+                }}
+              >
+                Xóa giao dịch
+              </button>
+              <button style={{ padding: '12px 24px', background: '#1814F3', color: '#fff', borderRadius: '12px', border: 'none', cursor: 'pointer', fontWeight: '600', fontSize: '15px', transition: 'background 0.2s' }} onClick={() => setIsTransferDetailModalOpen(false)}>Đóng</button>
             </div>
           </div>
         </div>

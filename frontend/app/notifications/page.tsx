@@ -377,7 +377,7 @@ export default function Notifications() {
             url += `&autoOpenAmount=${amount}`;
           }
           if (n.created_at || n.date) {
-            url += `&autoOpenDate=${encodeURIComponent(n.created_at || n.date)}`;
+            url += `&autoOpenDate=${encodeURIComponent(n.created_at || n.date || '')}`;
           }
           router.push(url);
         } else {
@@ -395,7 +395,7 @@ export default function Notifications() {
             url += (url.includes('?') ? '&' : '?') + `autoOpenAmount=${amt}`;
           }
           if (n.created_at || n.date) {
-            url += (url.includes('?') ? '&' : '?') + `autoOpenDate=${encodeURIComponent(n.created_at || n.date)}`;
+            url += (url.includes('?') ? '&' : '?') + `autoOpenDate=${encodeURIComponent(n.created_at || n.date || '')}`;
           }
           router.push(url);
         }
@@ -543,9 +543,19 @@ export default function Notifications() {
             <>
               {notificationsList.map((n) => {
               let type: 'danger' | 'warning' | 'info' | 'reminder' | 'success' = 'info';
-              
+              let threshold: number | undefined = undefined;
+              if (n.metadata) {
+                if (typeof n.metadata === 'string') {
+                  try {
+                    const parsed = JSON.parse(n.metadata);
+                    threshold = parsed?.threshold_percent;
+                  } catch {}
+                } else {
+                  threshold = n.metadata.threshold_percent;
+                }
+              }
+
               if (n.type?.includes('BudgetWarningNotification') || n.title?.toLowerCase().includes('ngân sách') || n.title?.toLowerCase().includes('budget')) {
-                const threshold = n.metadata?.threshold_percent;
                 if (threshold === 100) {
                   type = 'danger';
                 } else {

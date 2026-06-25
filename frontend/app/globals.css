@@ -286,18 +286,38 @@ input:focus, select:focus {
 .search-bar {
   display: flex;
   align-items: center;
-  background-color: var(--bg-color);
+  background-color: #F5F7FA !important;
   border-radius: 40px;
   padding: 10px 20px;
   width: 250px;
+  border: 1px solid transparent;
+  transition: all 0.25s ease;
+}
+
+body.dark-theme .search-bar {
+  background-color: rgba(30, 41, 59, 0.6) !important;
+}
+
+.search-bar:focus-within {
+  border-color: var(--active-blue) !important;
+  background-color: var(--card-bg) !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 .search-bar input {
   background: transparent;
-  margin-left: 10px;
+  border: none !important;
+  box-shadow: none !important;
+  margin-left: 8px;
   font-size: 14px;
-  color: var(--text-light);
+  color: var(--text-main) !important;
   width: 100%;
+  padding: 0 !important;
+}
+
+.search-bar input::placeholder {
+  color: #718EBF !important;
+  opacity: 0.8;
 }
 
 .icon-btn {
