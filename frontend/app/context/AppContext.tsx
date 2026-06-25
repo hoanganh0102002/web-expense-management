@@ -42,6 +42,7 @@ type AppContextType = {
   createSystemNotification: (title: string, content: string, type?: string) => void;
 };
 
+const APP_CACHE_VERSION = '1.0.1';
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -141,6 +142,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const currentVersion = localStorage.getItem('app_cache_version');
+      if (currentVersion !== APP_CACHE_VERSION) {
+        localStorage.removeItem('cached_wallets');
+        localStorage.removeItem('cached_categories');
+        localStorage.removeItem('cached_transactions');
+        localStorage.removeItem('local_notifications');
+        localStorage.setItem('app_cache_version', APP_CACHE_VERSION);
+      }
+    }
+
     const savedLogin = localStorage.getItem('isLoggedIn');
     if (savedLogin === 'true') {
       setIsLoggedIn(true);
