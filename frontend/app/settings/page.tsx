@@ -7,6 +7,15 @@ import { useAppContext } from '../context/AppContext';
 import { useLanguage } from '../lib/translations';
 import { useTheme } from '../context/ThemeContext';
 
+interface SessionItem {
+  id: string;
+  device_type?: string;
+  device_name?: string;
+  is_current?: boolean;
+  ip_address?: string;
+  created_at: string;
+}
+
 export default function Settings() {
   const { isLoggedIn, userData, logout, logoutAll, updateUserPreference, updateUserProfile, hasUnreadNotifications, unreadNotificationsCount } = useAppContext();
   const { t, setLanguage: changeGlobalLanguage } = useLanguage();
@@ -23,14 +32,8 @@ export default function Settings() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // State for Sessions
-  const [activeSessions, setActiveSessions] = useState<any[]>([]);
+  const [activeSessions, setActiveSessions] = useState<SessionItem[]>([]);
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
-
-  React.useEffect(() => {
-    if (activeTab === 'security' && isLoggedIn) {
-      fetchSessions();
-    }
-  }, [activeTab, isLoggedIn]);
 
   const fetchSessions = async () => {
     setIsLoadingSessions(true);
@@ -46,14 +49,23 @@ export default function Settings() {
     }
   };
 
+  React.useEffect(() => {
+    if (activeTab === 'security' && isLoggedIn) {
+      setTimeout(() => {
+        fetchSessions();
+      }, 0);
+    }
+  }, [activeTab, isLoggedIn]);
+
   const handleRevokeSession = async (sessionId: string) => {
     if (!window.confirm("Bạn có chắc chắn muốn đăng xuất thiết bị này?")) return;
     try {
       await authApi.revokeSession(sessionId);
       setActiveSessions(prev => prev.filter(s => s.id !== sessionId));
       alert("Đã đăng xuất thiết bị thành công!");
-    } catch (error: any) {
-      alert("Lỗi: " + error.message);
+    } catch (error) {
+      const errObj = error as Error;
+      alert("Lỗi: " + errObj.message);
     }
   };
 
@@ -76,8 +88,9 @@ export default function Settings() {
       });
       alert(t('password_change_success'));
       logout();
-    } catch (err: any) {
-      alert(t('error_prefix') + err.message);
+    } catch (err) {
+      const error = err as Error;
+      alert(t('error_prefix') + error.message);
     } finally {
       setIsChangingPwd(false);
     }
@@ -94,8 +107,9 @@ export default function Settings() {
       await authApi.deleteAccount();
       alert(t('account_deleted'));
       logout();
-    } catch (err: any) {
-      alert(t('delete_error') + err.message);
+    } catch (err) {
+      const error = err as Error;
+      alert(t('delete_error') + error.message);
     }
   };
 
@@ -115,11 +129,13 @@ export default function Settings() {
   // Sync state with userData when it changes
   React.useEffect(() => {
     if (userData) {
-      setFullName(userData.profile?.full_name || userData.full_name || '');
-      setCurrency(userData.preference?.currency || 'VND');
-      setTimezone(userData.preference?.timezone || '(GMT+07:00) Bangkok, Hanoi, Jakarta');
-      setLanguage(userData.preference?.language === 'en' ? 'English' : 'Tiếng Việt');
-      setFinancialStartDay(userData.preference?.financial_start_day || 1);
+      setTimeout(() => {
+        setFullName(userData.profile?.full_name || userData.full_name || '');
+        setCurrency(userData.preference?.currency || 'VND');
+        setTimezone(userData.preference?.timezone || '(GMT+07:00) Bangkok, Hanoi, Jakarta');
+        setLanguage(userData.preference?.language === 'en' ? 'English' : 'Tiếng Việt');
+        setFinancialStartDay(userData.preference?.financial_start_day || 1);
+      }, 0);
       
       notificationApi.getPreferences().then(res => {
         if (res.data) {
@@ -153,8 +169,9 @@ export default function Settings() {
         updateUserPreference(payload);
       }
       alert(t('update_success'));
-    } catch (err: any) {
-      alert(t('error_prefix') + err.message);
+    } catch (err) {
+      const error = err as Error;
+      alert(t('error_prefix') + error.message);
     } finally {
       setIsUpdating(false);
     }
@@ -178,8 +195,9 @@ export default function Settings() {
       }
       alert(t('avatar_update_success'));
       window.location.reload();
-    } catch (err: any) {
-      alert(t('error_prefix') + err.message);
+    } catch (err) {
+      const error = err as Error;
+      alert(t('error_prefix') + error.message);
     } finally {
       setIsUpdating(false);
     }
@@ -284,6 +302,9 @@ export default function Settings() {
                   ) },
                   { k: 'preferences', l: t('display_options'), icon: (
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                  ) },
+                  { k: 'notifications', l: t('notifications'), icon: (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
                   ) },
                   { k: 'security', l: t('security'), icon: (
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
@@ -539,135 +560,6 @@ export default function Settings() {
                     </div>
                   </div>
 
-                  <div style={{ marginTop: '25px', borderTop: '1px solid var(--border-color)', paddingTop: '25px' }}>
-                    <h3 style={{ color: 'var(--text-main)', marginBottom: '20px', fontSize: '18px', fontWeight: '800' }}>Cài đặt thông báo</h3>
-                    
-                    {/* Email nhắc nhở */}
-                    <div className="settings-group-card-premium">
-                      <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-                        <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'rgba(16, 185, 129, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10B981' }}>
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '4px', fontSize: '16px' }}>Email nhắc nhở chi tiêu</div>
-                          <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '420px' }}>Nhận email nhắc nhở vào cuối ngày nếu bạn chưa nhập chi tiêu.</div>
-                        </div>
-                      </div>
-                      <div 
-                        onClick={async () => {
-                          const val = !emailReminder;
-                          setEmailReminder(val);
-                          try {
-                            await notificationApi.updatePreferences({ daily_reminder_enabled: val });
-                          } catch (err) {
-                            setEmailReminder(!val);
-                            alert("Không thể lưu cài đặt. Vui lòng thử lại!");
-                          }
-                        }}
-                        className={`switch-toggle-premium ${emailReminder ? 'active' : ''}`}
-                      >
-                        <div className="switch-knob"></div>
-                      </div>
-                    </div>
-
-                    {/* Cảnh báo vượt ngân sách */}
-                    <div className="settings-group-card-premium">
-                      <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-                        <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'rgba(239, 68, 68, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#EF4444' }}>
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '4px', fontSize: '16px' }}>Cảnh báo vượt ngân sách</div>
-                          <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '420px' }}>Nhận cảnh báo qua email và ứng dụng khi đạt 80% hoặc vượt 100% ngân sách.</div>
-                        </div>
-                      </div>
-                      <div 
-                        onClick={async () => {
-                          const val = !budgetAlert;
-                          setBudgetAlert(val);
-                          try {
-                            await notificationApi.updatePreferences({ budget_alert_enabled: val });
-                            const userId = userData?.user_id || userData?.id || 'default';
-                            localStorage.setItem(`budget_alert_enabled_${userId}`, String(val));
-                          } catch (err) {
-                            setBudgetAlert(!val);
-                            alert("Không thể lưu cài đặt. Vui lòng thử lại!");
-                          }
-                        }}
-                        className={`switch-toggle-premium ${budgetAlert ? 'active' : ''}`}
-                      >
-                        <div className="switch-knob"></div>
-                      </div>
-                    </div>
-
-                    {/* Giao dịch định kỳ */}
-                    <div className="settings-group-card-premium">
-                      <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-                        <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'rgba(59, 130, 246, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3B82F6' }}>
-                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '4px', fontSize: '16px' }}>Thông báo giao dịch định kỳ</div>
-                          <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '420px' }}>Nhận thông báo trong ứng dụng khi hệ thống tự động tạo giao dịch định kỳ.</div>
-                        </div>
-                      </div>
-                      <div 
-                        onClick={async () => {
-                          const val = !recurringAlert;
-                          setRecurringAlert(val);
-                          try {
-                            await notificationApi.updatePreferences({ recurring_alert_enabled: val });
-                            const userId = userData?.user_id || userData?.id || 'default';
-                            localStorage.setItem(`recurring_alert_enabled_${userId}`, String(val));
-                          } catch (err) {
-                            setRecurringAlert(!val);
-                            alert("Không thể lưu cài đặt. Vui lòng thử lại!");
-                          }
-                        }}
-                        className={`switch-toggle-premium ${recurringAlert ? 'active' : ''}`}
-                      >
-                        <div className="switch-knob"></div>
-                      </div>
-                    </div>
-
-                    {/* Tần suất nhận báo cáo */}
-                    <div className="settings-group-card-premium" style={{ display: 'block' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px' }}>
-                        <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
-                          <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: 'rgba(139, 92, 246, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8B5CF6' }}>
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-                          </div>
-                          <div>
-                            <div style={{ fontWeight: '700', color: 'var(--text-main)', marginBottom: '4px', fontSize: '16px' }}>Tần suất nhận báo cáo tổng hợp</div>
-                            <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '420px' }}>Chọn mức độ thường xuyên bạn muốn nhận email tóm tắt chi tiêu.</div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="input-wrapper-premium select-wrapper" style={{ maxWidth: '300px', marginLeft: '68px' }}>
-                        <div className="input-icon-left">
-                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                        </div>
-                        <select 
-                          value={notificationFrequency}
-                          onChange={async (e) => {
-                            const val = e.target.value;
-                            setNotificationFrequency(val);
-                            try {
-                              await notificationApi.updatePreferences({ notification_frequency: val });
-                            } catch (err) {
-                              alert("Không thể lưu cài đặt. Vui lòng thử lại!");
-                            }
-                          }}
-                          className="settings-input-premium"
-                        >
-                          <option value="daily">Hàng ngày</option>
-                          <option value="weekly">Hàng tuần</option>
-                          <option value="monthly">Hàng tháng</option>
-                          <option value="never">Không bao giờ</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
                 </div>
 
                 <div style={{ display: 'flex', gap: '15px', marginTop: '30px' }}>
@@ -688,6 +580,220 @@ export default function Settings() {
                       </>
                     )}
                   </button>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'notifications' && (
+              <div style={{ maxWidth: '750px' }}>
+                <h3 style={{ color: 'var(--text-main)', marginBottom: '25px', fontSize: '20px', fontWeight: '800' }}>{t('notifications')}</h3>
+                
+                {/* Switch Settings Section */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '20px' }}>
+                  
+                  {/* Email nhắc nhở */}
+                  <div className="settings-group-card-premium" style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '24px',
+                    borderRadius: '20px',
+                    background: 'var(--card-bg)',
+                    border: '1px solid var(--border-color)',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.02)',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                  }}>
+                    <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                      <div style={{ 
+                        width: '52px', 
+                        height: '52px', 
+                        borderRadius: '16px', 
+                        background: 'rgba(16, 185, 129, 0.08)', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        color: '#10B981',
+                        boxShadow: 'inset 0 2px 4px rgba(16, 185, 129, 0.04)'
+                      }}>
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: '750', color: 'var(--text-main)', marginBottom: '6px', fontSize: '16px' }}>Email nhắc nhở chi tiêu</div>
+                        <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '480px', lineHeight: '1.4' }}>Nhận email nhắc nhở vào cuối ngày nếu bạn chưa nhập chi tiêu.</div>
+                      </div>
+                    </div>
+                    <div 
+                      onClick={async () => {
+                        const val = !emailReminder;
+                        setEmailReminder(val);
+                        try {
+                          await notificationApi.updatePreferences({ daily_reminder_enabled: val });
+                        } catch (err) {
+                          console.error("Lỗi cập nhật daily_reminder_enabled:", err);
+                          setEmailReminder(!val);
+                          alert("Không thể lưu cài đặt. Vui lòng thử lại!");
+                        }
+                      }}
+                      className={`switch-toggle-premium ${emailReminder ? 'active' : ''}`}
+                    >
+                      <div className="switch-knob"></div>
+                    </div>
+                  </div>
+
+                  {/* Cảnh báo vượt ngân sách */}
+                  <div className="settings-group-card-premium" style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '24px',
+                    borderRadius: '20px',
+                    background: 'var(--card-bg)',
+                    border: '1px solid var(--border-color)',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.02)',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                  }}>
+                    <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                      <div style={{ 
+                        width: '52px', 
+                        height: '52px', 
+                        borderRadius: '16px', 
+                        background: 'rgba(239, 68, 68, 0.08)', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        color: '#EF4444',
+                        boxShadow: 'inset 0 2px 4px rgba(239, 68, 68, 0.04)'
+                      }}>
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: '750', color: 'var(--text-main)', marginBottom: '6px', fontSize: '16px' }}>Cảnh báo vượt ngân sách</div>
+                        <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '480px', lineHeight: '1.4' }}>Nhận cảnh báo qua email và ứng dụng khi đạt 80% hoặc vượt 100% ngân sách.</div>
+                      </div>
+                    </div>
+                    <div 
+                      onClick={async () => {
+                        const val = !budgetAlert;
+                        setBudgetAlert(val);
+                        try {
+                          await notificationApi.updatePreferences({ budget_alert_enabled: val });
+                          const userId = userData?.user_id || userData?.id || 'default';
+                          localStorage.setItem(`budget_alert_enabled_${userId}`, String(val));
+                        } catch (err) {
+                          console.error("Lỗi cập nhật budget_alert_enabled:", err);
+                          setBudgetAlert(!val);
+                          alert("Không thể lưu cài đặt. Vui lòng thử lại!");
+                        }
+                      }}
+                      className={`switch-toggle-premium ${budgetAlert ? 'active' : ''}`}
+                    >
+                      <div className="switch-knob"></div>
+                    </div>
+                  </div>
+
+                  {/* Giao dịch định kỳ */}
+                  <div className="settings-group-card-premium" style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '24px',
+                    borderRadius: '20px',
+                    background: 'var(--card-bg)',
+                    border: '1px solid var(--border-color)',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.02)',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                  }}>
+                    <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                      <div style={{ 
+                        width: '52px', 
+                        height: '52px', 
+                        borderRadius: '16px', 
+                        background: 'rgba(59, 130, 246, 0.08)', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        color: '#3B82F6',
+                        boxShadow: 'inset 0 2px 4px rgba(59, 130, 246, 0.04)'
+                      }}>
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: '750', color: 'var(--text-main)', marginBottom: '6px', fontSize: '16px' }}>Thông báo giao dịch định kỳ</div>
+                        <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '480px', lineHeight: '1.4' }}>Nhận thông báo trong ứng dụng khi hệ thống tự động tạo giao dịch định kỳ.</div>
+                      </div>
+                    </div>
+                    <div 
+                      onClick={async () => {
+                        const val = !recurringAlert;
+                        setRecurringAlert(val);
+                        try {
+                          await notificationApi.updatePreferences({ recurring_alert_enabled: val });
+                          const userId = userData?.user_id || userData?.id || 'default';
+                          localStorage.setItem(`recurring_alert_enabled_${userId}`, String(val));
+                        } catch (err) {
+                          console.error("Lỗi cập nhật recurring_alert_enabled:", err);
+                          setRecurringAlert(!val);
+                          alert("Không thể lưu cài đặt. Vui lòng thử lại!");
+                        }
+                      }}
+                      className={`switch-toggle-premium ${recurringAlert ? 'active' : ''}`}
+                    >
+                      <div className="switch-knob"></div>
+                    </div>
+                  </div>
+
+                  {/* Tần suất nhận báo cáo */}
+                  <div className="settings-group-card-premium" style={{
+                    padding: '24px',
+                    borderRadius: '20px',
+                    background: 'var(--card-bg)',
+                    border: '1px solid var(--border-color)',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.02)'
+                  }}>
+                    <div style={{ display: 'flex', gap: '20px', alignItems: 'center', marginBottom: '20px' }}>
+                      <div style={{ 
+                        width: '52px', 
+                        height: '52px', 
+                        borderRadius: '16px', 
+                        background: 'rgba(139, 92, 246, 0.08)', 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        justifyContent: 'center', 
+                        color: '#8B5CF6',
+                        boxShadow: 'inset 0 2px 4px rgba(139, 92, 246, 0.04)'
+                      }}>
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                      </div>
+                      <div>
+                        <div style={{ fontWeight: '750', color: 'var(--text-main)', marginBottom: '6px', fontSize: '16px' }}>Tần suất nhận báo cáo tổng hợp</div>
+                        <div style={{ fontSize: '13px', color: 'var(--text-muted)', maxWidth: '480px', lineHeight: '1.4' }}>Chọn mức độ thường xuyên bạn muốn nhận email tóm tắt chi tiêu.</div>
+                      </div>
+                    </div>
+                    <div className="input-wrapper-premium select-wrapper" style={{ maxWidth: '320px', marginLeft: '72px' }}>
+                      <div className="input-icon-left">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      </div>
+                      <select 
+                        value={notificationFrequency}
+                        onChange={async (e) => {
+                          const val = e.target.value;
+                          setNotificationFrequency(val);
+                          try {
+                            await notificationApi.updatePreferences({ notification_frequency: val });
+                          } catch (err) {
+                            console.error("Lỗi cập nhật notification_frequency:", err);
+                            alert("Không thể lưu cài đặt. Vui lòng thử lại!");
+                          }
+                        }}
+                        className="settings-input-premium"
+                      >
+                        <option value="daily">Hàng ngày</option>
+                        <option value="weekly">Hàng tuần</option>
+                        <option value="monthly">Hàng tháng</option>
+                        <option value="never">Không bao giờ</option>
+                      </select>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
