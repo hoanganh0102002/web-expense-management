@@ -349,6 +349,8 @@ export default function Wallets() {
   // Deposit states
   const [depositWalletId, setDepositWalletId] = useState('');
   const [depositAmount, setDepositAmount] = useState('');
+  const [depositSender, setDepositSender] = useState('NGUYEN VAN B');
+  const [depositNotes, setDepositNotes] = useState('Chuyển tiền ăn trưa');
   const [isDepositing, setIsDepositing] = useState(false);
 
   // Form states
@@ -474,22 +476,27 @@ export default function Wallets() {
     setIsDepositing(true);
     try {
       const formData = new FormData();
-      formData.append('title', 'Nạp tiền vào ví');
+      formData.append('title', depositNotes || 'Nạp tiền Sandbox');
       formData.append('amount', depositAmount);
       formData.append('type', 'income');
       formData.append('source_type', 'adjustment');
       formData.append('wallet_id', depositWalletId);
       formData.append('transaction_date', new Date().toISOString().slice(0, 19).replace('T', ' '));
+      if (depositSender) {
+        formData.append('notes', `Người gửi: ${depositSender}`);
+      }
 
       await transactionApi.create(formData);
 
-      alert("Nạp tiền thành công!");
+      alert("Nhận tiền thành công!");
       setShowModal(null);
       setDepositWalletId('');
       setDepositAmount('');
+      setDepositSender('NGUYEN VAN B');
+      setDepositNotes('Chuyển tiền ăn trưa');
       fetchWallets();
     } catch (e: any) {
-      alert("Nạp tiền thất bại: " + (e.message || "Lỗi không xác định"));
+      alert("Nhận tiền thất bại: " + (e.message || "Lỗi không xác định"));
     } finally {
       setIsDepositing(false);
     }
@@ -1634,38 +1641,55 @@ export default function Wallets() {
       {/* Deposit Modal */}
       {showModal === 'deposit' && (
         <div className="modal-overlay" onClick={() => setShowModal(null)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px' }}>
-            <h2 className="modal-title" style={{ textAlign: 'center' }}>Giả lập Nạp tiền</h2>
-            <p style={{ textAlign: 'center', color: 'var(--text-light)', fontSize: '13px', marginBottom: '20px' }}>
-              Tính năng này tạo giao dịch nạp tiền để tăng số dư ví.
-            </p>
-            <form onSubmit={handleDeposit}>
-              <div className="form-group">
-                <label className="wallet-label">Chọn ví cần nạp</label>
-                <div style={{ position: 'relative' }}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px', borderRadius: '24px', padding: '0', overflow: 'hidden' }}>
+            {/* Header */}
+            <div style={{ display: 'flex', alignItems: 'center', padding: '20px', borderBottom: '1px solid #F1F5F9' }}>
+              <button 
+                type="button" 
+                onClick={() => setShowModal(null)}
+                style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#1C2755', fontWeight: 'bold' }}
+              >
+                &lt;
+              </button>
+              <h2 style={{ flex: 1, textAlign: 'center', fontSize: '20px', margin: 0, fontWeight: '800', color: '#1C2755' }}>
+                Sandbox Simulate
+              </h2>
+              <div style={{ width: '20px' }}></div>
+            </div>
+
+            <div style={{ padding: '24px' }}>
+              <div style={{ background: '#F4F7FF', borderRadius: '16px', padding: '16px', display: 'flex', gap: '12px', marginBottom: '24px', border: '1px solid #E5E9F2' }}>
+                <div style={{ color: '#4F46E5', fontSize: '20px' }}>ⓘ</div>
+                <div style={{ fontSize: '13px', color: '#475569', lineHeight: '1.5' }}>
+                  Tính năng này dùng để giả lập việc nhận tiền từ tài khoản VietinBank Sandbox của hệ thống.
+                </div>
+              </div>
+
+              <form onSubmit={handleDeposit}>
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', marginBottom: '8px' }}>
+                    VÍ THỤ HƯỞNG
+                  </label>
                   <select
                     className="wallet-input"
                     value={depositWalletId}
                     onChange={(e) => setDepositWalletId(e.target.value)}
                     required
-                    style={{ paddingLeft: '40px' }}
+                    style={{ width: '100%', padding: '16px', borderRadius: '16px', background: '#F8FAFC', border: '1px solid #E2E8F0', fontSize: '16px', fontWeight: '700', color: '#1C2755', outline: 'none' }}
                   >
                     <option value="" disabled>-- Chọn ví --</option>
                     {wallets.map((w) => (
                       <option key={w.id} value={w.id}>
-                        {w.name} ({formatWalletBalance(w.available_balance || 0)}đ)
+                        🔴 {w.name} ({formatWalletBalance(w.available_balance || 0)} đ)
                       </option>
                     ))}
                   </select>
-                  <span style={{ position: 'absolute', left: '15px', top: '50%', transform: 'translateY(-50%)' }}>
-                    👛
-                  </span>
                 </div>
-              </div>
 
-              <div className="form-group">
-                <label className="wallet-label">Số tiền (VNĐ)</label>
-                <div style={{ position: 'relative' }}>
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', marginBottom: '8px' }}>
+                    SỐ TIỀN NHẬN (VND)
+                  </label>
                   <input
                     type="number"
                     className="wallet-input"
@@ -1674,21 +1698,80 @@ export default function Wallets() {
                     placeholder="VD: 500000"
                     required
                     min="1"
-                    style={{ paddingLeft: '40px', fontSize: '18px', fontWeight: 'bold', color: '#2E7D32' }}
+                    style={{ width: '100%', padding: '16px', borderRadius: '16px', background: '#F8FAFC', border: '1px solid #E2E8F0', fontSize: '18px', fontWeight: '800', color: '#1C2755', outline: 'none' }}
                   />
-                  <span style={{ position: 'absolute', left: '15px', top: '50%', transform: 'translateY(-50%)', color: '#2E7D32', fontWeight: 'bold' }}>
-                    ₫
-                  </span>
+                  {depositAmount && !isNaN(Number(depositAmount)) && (
+                    <div style={{ fontSize: '13px', color: '#64748B', fontStyle: 'italic', marginTop: '8px' }}>
+                      ({Number(depositAmount).toLocaleString('vi-VN')} đồng)
+                    </div>
+                  )}
                 </div>
-              </div>
 
-              <div className="modal-actions" style={{ marginTop: '30px' }}>
-                <button type="button" className="wallet-btn-cancel" onClick={() => setShowModal(null)}>Hủy bỏ</button>
-                <button type="submit" className="wallet-premium-btn" disabled={isDepositing} style={{ background: 'linear-gradient(135deg, #43A047, #2E7D32)', border: 'none' }}>
-                  {isDepositing ? 'Đang xử lý...' : 'Nạp tiền ngay'}
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', marginBottom: '8px' }}>
+                    TÊN NGƯỜI GỬI (SANDBOX)
+                  </label>
+                  <input
+                    type="text"
+                    className="wallet-input"
+                    value={depositSender}
+                    onChange={(e) => setDepositSender(e.target.value)}
+                    required
+                    style={{ width: '100%', padding: '16px', borderRadius: '16px', background: '#F8FAFC', border: '1px solid #E2E8F0', fontSize: '15px', fontWeight: '700', color: '#1C2755', outline: 'none' }}
+                  />
+                </div>
+
+                <div style={{ marginBottom: '32px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', marginBottom: '8px' }}>
+                    NỘI DUNG CHUYỂN KHOẢN
+                  </label>
+                  <input
+                    type="text"
+                    className="wallet-input"
+                    value={depositNotes}
+                    onChange={(e) => setDepositNotes(e.target.value)}
+                    style={{ width: '100%', padding: '16px', borderRadius: '16px', background: '#F8FAFC', border: '1px solid #E2E8F0', fontSize: '15px', fontWeight: '500', color: '#1C2755', outline: 'none' }}
+                  />
+                </div>
+
+                <button 
+                  type="submit" 
+                  disabled={isDepositing}
+                  style={{ 
+                    width: '100%', 
+                    background: 'linear-gradient(135deg, #E6E6FA, #D8BFD8)', 
+                    border: '1px solid #DDA0DD', 
+                    borderRadius: '50px', 
+                    padding: '6px', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    cursor: isDepositing ? 'not-allowed' : 'pointer',
+                    opacity: isDepositing ? 0.7 : 1,
+                    position: 'relative'
+                  }}
+                >
+                  <div style={{ 
+                    width: '46px', 
+                    height: '46px', 
+                    borderRadius: '50%', 
+                    background: '#5A4FCF', 
+                    color: 'white', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center',
+                    fontSize: '18px',
+                    fontWeight: 'bold',
+                    boxShadow: '0 4px 12px rgba(90, 79, 207, 0.3)',
+                    zIndex: 2
+                  }}>
+                    &gt;
+                  </div>
+                  <div style={{ flex: 1, textAlign: 'center', color: '#5A4FCF', fontWeight: '700', fontSize: '15px', paddingRight: '46px' }}>
+                    {isDepositing ? 'Đang xử lý...' : 'Vuốt để giả lập nhận tiền'}
+                  </div>
                 </button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}
