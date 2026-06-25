@@ -1,6 +1,7 @@
 "use client";
 import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import Sidebar from '../components/Sidebar';
 import { authApi, notificationApi } from '../lib/api';
 import { useAppContext } from '../context/AppContext';
@@ -21,6 +22,8 @@ export default function Settings() {
   const { t, setLanguage: changeGlobalLanguage } = useLanguage();
   const { theme, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState('profile');
+  const [searchQuery, setSearchQuery] = useState('');
+  const router = useRouter();
 
   // State for Change Password
   const [currentPassword, setCurrentPassword] = useState('');
@@ -232,6 +235,20 @@ export default function Settings() {
         <nav className="navbar" style={{ background: 'transparent', borderBottom: '1px solid var(--border-color)', backdropFilter: 'blur(10px)', position: 'sticky', top: 0, zIndex: 10 }}>
           <h1 className="page-title" style={{ color: 'var(--text-main)', fontWeight: '800' }}>{t('settings_customize')}</h1>
           <div className="nav-actions" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (searchQuery.trim()) {
+                router.push(`/transactions?search=${encodeURIComponent(searchQuery.trim())}`);
+              }
+            }} className="search-bar">
+              <span style={{ fontSize: '16px', display: 'flex', alignItems: 'center', userSelect: 'none' }}>🔍</span>
+              <input 
+                type="text" 
+                placeholder="Tìm kiếm..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </form>
             {/* Notification Icon */}
             <Link href="/notifications" style={{background: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : '#F5F7FA', width: '45px', height: '45px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffb300', cursor: 'pointer', fontSize: '20px', textDecoration: 'none', position: 'relative'}}>
               🔔
