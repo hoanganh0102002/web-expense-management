@@ -1,7 +1,7 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { walletApi, authApi, categoryApi, transactionApi, notificationApi } from '../lib/api';
-import { requestAndRegisterNotificationPermission } from '../lib/firebaseNotification';
+import { requestAndRegisterNotificationPermission, setupFCMForegroundListener } from '../lib/firebaseNotification';
 
 type AppContextType = {
   isLoggedIn: boolean;
@@ -16,7 +16,7 @@ type AppContextType = {
   fetchTransactions: (params?: any) => Promise<any>;
   createTransaction: (formData: FormData) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
-  
+
   // Quản lý Ví
   wallets: any[];
   isLoadingWallets: boolean;
@@ -46,6 +46,7 @@ const APP_CACHE_VERSION = '1.0.2';
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  const fcmCleanupRef = React.useRef<(() => void) | undefined>(undefined);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userData, setUserData] = useState<any | null>(null);
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -63,60 +64,85 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       let combined = [];
       const localCached = localStorage.getItem('local_notifications');
       if (localCached) {
-        try { 
+        try {
           const parsed = JSON.parse(localCached);
-          if (Array.isArray(parsed)) combined.push(...parsed); 
-        } catch (e) {}
+          if (Array.isArray(parsed)) combined.push(...parsed);
+        } catch (e) { }
       }
       const cachedNotifs = localStorage.getItem('cached_notifications');
       if (cachedNotifs) {
-        try { 
+        try {
           const parsed = JSON.parse(cachedNotifs);
-          if (Array.isArray(parsed)) combined.push(...parsed); 
-        } catch (e) {}
+          if (Array.isArray(parsed)) combined.push(...parsed);
+        } catch (e) { }
       }
       const isErrorNotif = (n: any) => {
         const titleLower = (n.title || '').toLowerCase();
         const contentLower = (n.content || '').toLowerCase();
         return titleLower.includes('lỗi') || titleLower.includes('thất bại') || titleLower.includes('không thành công') ||
-               contentLower.includes('lỗi') || contentLower.includes('thất bại') || contentLower.includes('không thành công') || (n.type && n.type.toLowerCase().includes('error'));
+          contentLower.includes('lỗi') || contentLower.includes('thất bại') || contentLower.includes('không thành công') || (n.type && n.type.toLowerCase().includes('error'));
       };
       combined = combined.filter((n: any) => !isErrorNotif(n));
-      
+
       const unreadList = combined.filter((n: any) => n.read_at === null);
       setUnreadNotificationsCount(unreadList.length);
       setHasUnreadNotifications(unreadList.length > 0);
     }
   }, []);
 
+  const isErrorNotif = (n: any) => {
+    const titleLower = (n.title || '').toLowerCase();
+    const contentLower = (n.content || '').toLowerCase();
+    return titleLower.includes('lỗi') || titleLower.includes('thất bại') || titleLower.includes('không thành công') ||
+      contentLower.includes('lỗi') || contentLower.includes('thất bại') || contentLower.includes('không thành công') || (n.type && n.type.toLowerCase().includes('error'));
+  };
+
   const fetchUnreadNotificationsCount = async () => {
     if (!localStorage.getItem('access_token')) return;
     try {
-      const res = await notificationApi.getAll();
-      const list = Array.isArray(res.data) ? res.data : (res.data?.data || []);
-      
+      let totalUnread = 0;
+      let currentPage = 1;
+      let lastPage = 1;
+      let firstPageList: any[] = [];
+
+      // Duyệt qua các trang để đếm chính xác tổng unread
+      // Dừng sớm nếu gặp trang mà tất cả items đã đọc (vì sorted by created_at desc)
+      while (currentPage <= lastPage) {
+        const res = await notificationApi.getAll(currentPage);
+        const list = Array.isArray(res.data) ? res.data : (res.data?.data || []);
+
+        if (currentPage === 1) {
+          firstPageList = list;
+          lastPage = res.pagination?.last_page || 1;
+        }
+
+        // Đếm unread trên trang hiện tại (bỏ qua thông báo lỗi)
+        const validItems = list.filter((n: any) => !isErrorNotif(n));
+        const unreadOnPage = validItems.filter((n: any) => n.read_at === null).length;
+        totalUnread += unreadOnPage;
+
+        // Dừng sớm: nếu trang này không có item nào unread → các trang sau cũng vậy
+        if (unreadOnPage === 0 && currentPage > 1) break;
+
+        // Tự động xóa thông báo lỗi khỏi DB
+        const errorNotifs = list.filter((n: any) => isErrorNotif(n));
+        errorNotifs.forEach((n: any) => {
+          notificationApi.delete(n.id).catch(() => { });
+        });
+
+        currentPage++;
+      }
+
+      // Cộng thêm local notifications chưa đọc
       let localNotifs: any[] = [];
-      try { localNotifs = JSON.parse(localStorage.getItem('local_notifications') || '[]'); } catch (e) {}
-      const isErrorNotif = (n: any) => {
-        const titleLower = (n.title || '').toLowerCase();
-        const contentLower = (n.content || '').toLowerCase();
-        return titleLower.includes('lỗi') || titleLower.includes('thất bại') || titleLower.includes('không thành công') ||
-               contentLower.includes('lỗi') || contentLower.includes('thất bại') || contentLower.includes('không thành công') || (n.type && n.type.toLowerCase().includes('error'));
-      };
+      try { localNotifs = JSON.parse(localStorage.getItem('local_notifications') || '[]'); } catch (e) { }
+      const localUnread = localNotifs.filter((n: any) => !isErrorNotif(n) && n.read_at === null).length;
+      totalUnread += localUnread;
 
-      const allNotifs = [...localNotifs, ...list].filter((n: any) => !isErrorNotif(n));
-      const unreadList = allNotifs.filter((n: any) => n.read_at === null);
-      
-      setUnreadNotificationsCount(unreadList.length);
-      setHasUnreadNotifications(unreadList.length > 0);
-      localStorage.setItem('cached_notifications', JSON.stringify(list.filter((n: any) => !isErrorNotif(n))));
-
-      // Tự động xóa thông báo lỗi khỏi DB qua API để tránh lưu rác
-      const errorNotifs = list.filter((n: any) => isErrorNotif(n));
-      errorNotifs.forEach((n: any) => {
-        notificationApi.delete(n.id).catch(() => {});
-      });
-    } catch (e) {}
+      setUnreadNotificationsCount(totalUnread);
+      setHasUnreadNotifications(totalUnread > 0);
+      localStorage.setItem('cached_notifications', JSON.stringify(firstPageList.filter((n: any) => !isErrorNotif(n))));
+    } catch (e) { }
   };
 
   const createSystemNotification = (title: string, content: string, type: string = 'info') => {
@@ -129,14 +155,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       created_at: new Date().toISOString(),
       metadata: {}
     };
-    
+
     let localNotifs: any[] = [];
     if (typeof window !== 'undefined') {
-      try { localNotifs = JSON.parse(localStorage.getItem('local_notifications') || '[]'); } catch (e) {}
+      try { localNotifs = JSON.parse(localStorage.getItem('local_notifications') || '[]'); } catch (e) { }
       localNotifs.unshift(newNotif);
       localStorage.setItem('local_notifications', JSON.stringify(localNotifs));
     }
-    
+
     setUnreadNotificationsCount(prev => prev + 1);
     setHasUnreadNotifications(true);
   };
@@ -156,29 +182,29 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     const savedLogin = localStorage.getItem('isLoggedIn');
     if (savedLogin === 'true') {
       setIsLoggedIn(true);
-      
+
       // Warm up cache from localStorage to prevent wait time/blank pages
       const cachedWallets = localStorage.getItem('cached_wallets');
       const cachedCategories = localStorage.getItem('cached_categories');
       const cachedTransactions = localStorage.getItem('cached_transactions');
-      
+
       if (cachedWallets) {
-        try { 
+        try {
           const parsed = JSON.parse(cachedWallets);
           if (Array.isArray(parsed)) setWallets(parsed);
-        } catch (e) {}
+        } catch (e) { }
       }
       if (cachedCategories) {
-        try { 
+        try {
           const parsed = JSON.parse(cachedCategories);
           if (Array.isArray(parsed)) setCategories(parsed);
-        } catch (e) {}
+        } catch (e) { }
       }
       if (cachedTransactions) {
-        try { 
+        try {
           const parsed = JSON.parse(cachedTransactions);
           if (Array.isArray(parsed)) setTransactions(parsed);
-        } catch (e) {}
+        } catch (e) { }
       }
 
       fetchWallets();
@@ -186,6 +212,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchTransactions();
       fetchUnreadNotificationsCount();
       requestAndRegisterNotificationPermission();
+
+      // Đăng ký FCM Foreground Listener để cập nhật realtime khi nhận push notification
+      fcmCleanupRef.current = setupFCMForegroundListener((payload) => {
+        console.log('[AppContext] FCM foreground message → refreshing notification count & data');
+        // Cập nhật notification count realtime
+        fetchUnreadNotificationsCount();
+        // Cập nhật ví & giao dịch nếu có biến động số dư hoặc giao dịch định kỳ
+        fetchWallets();
+        fetchTransactions();
+      });
     }
     const savedUser = localStorage.getItem('user_data');
     if (savedUser) {
@@ -203,9 +239,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       window.location.href = '/login';
     };
     window.addEventListener('auth-unauthorized', handleUnauthorized);
-    
+
     return () => {
       window.removeEventListener('auth-unauthorized', handleUnauthorized);
+      // Cleanup FCM foreground listener khi unmount
+      if (fcmCleanupRef.current) {
+        fcmCleanupRef.current();
+        fcmCleanupRef.current = undefined;
+      }
     };
   }, []);
 
@@ -241,7 +282,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const fetchTransactions = async (params: any = {}) => {
     if (!localStorage.getItem('access_token')) return;
-    
+
     // Only set loading if no filters are present and we have no cached transactions
     const isFiltered = Object.keys(params).length > 0;
     const hasCache = transactions.length > 0 || localStorage.getItem('cached_transactions');
@@ -254,7 +295,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const fetchParams = Object.keys(params).length === 0 ? { per_page: 500 } : params;
       const response = await transactionApi.getAll(fetchParams);
       const data = response.data?.data || response.data || [];
-      
+
       // Update state and cache for default transactions list
       if (!isFiltered) {
         setTransactions(data);
@@ -292,7 +333,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const fetchWallets = async () => {
     if (!localStorage.getItem('access_token')) return;
-    
+
     // Skip visible loading if cached wallets already exist
     const hasCache = wallets.length > 0 || localStorage.getItem('cached_wallets');
     if (!hasCache) {
@@ -330,7 +371,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const fetchCategories = async () => {
     if (!localStorage.getItem('access_token')) return;
-    
+
     // Skip visible loading if cached categories already exist
     const hasCache = categories.length > 0 || localStorage.getItem('cached_categories');
     if (!hasCache) {
@@ -373,7 +414,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && !keysToKeep.includes(key)) {
+        if (key && !keysToKeep.includes(key) && !key.startsWith('challenge_days_')) {
           keysToRemove.push(key);
         }
       }
@@ -388,7 +429,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     setIsLoggedIn(true);
     localStorage.setItem('isLoggedIn', 'true');
-    
+
     if (data?.access_token) {
       localStorage.setItem('access_token', data.access_token);
       if (data.refresh_token) {
@@ -401,6 +442,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     fetchCategories();
     fetchUnreadNotificationsCount();
     requestAndRegisterNotificationPermission();
+
+    // Đăng ký FCM foreground listener cho user mới login
+    fcmCleanupRef.current = setupFCMForegroundListener((payload) => {
+      fetchUnreadNotificationsCount();
+      fetchWallets();
+      fetchTransactions();
+    });
   };
 
   const logout = async () => {
@@ -429,7 +477,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const keysToRemove: string[] = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && !keysToKeep.includes(key)) {
+        if (key && !keysToKeep.includes(key) && !key.startsWith('challenge_days_')) {
           keysToRemove.push(key);
         }
       }
@@ -462,7 +510,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AppContext.Provider value={{ 
+    <AppContext.Provider value={{
       isLoggedIn, userData, login, logout, logoutAll, updateUserPreference, updateUserProfile,
       transactions, isLoadingTransactions, fetchTransactions, createTransaction, deleteTransaction,
       wallets, isLoadingWallets, fetchWallets, createWallet, updateWallet, deleteWallet,
