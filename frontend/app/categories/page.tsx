@@ -39,7 +39,7 @@ const parseIcon = (iconName: string) => {
 };
 
 export default function Categories() {
-  const { isLoggedIn, categories, isLoadingCategories, createCategory, updateCategory, deleteCategory, userData, hasUnreadNotifications, unreadNotificationsCount } = useAppContext();
+  const { isLoggedIn, categories, isLoadingCategories, createCategory, updateCategory, deleteCategory, userData } = useAppContext();
   const { t, language } = useLanguage();
   
   const [activeTab, setActiveTab] = useState<'expense' | 'income'>('expense');
@@ -172,31 +172,7 @@ export default function Categories() {
               />
             </div>
 
-            {/* Notification Icon */}
-            <Link href="/notifications" style={{background: '#F5F7FA', width: '45px', height: '45px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffb300', cursor: 'pointer', fontSize: '20px', textDecoration: 'none', position: 'relative'}}>
-              🔔
-              {isLoggedIn && hasUnreadNotifications && unreadNotificationsCount > 0 && (
-                <span style={{
-                  position: 'absolute',
-                  top: '-2px',
-                  right: '-2px',
-                  minWidth: '16px',
-                  height: '16px',
-                  background: '#FE5C73',
-                  color: '#fff',
-                  borderRadius: '10px',
-                  border: '2px solid #fff',
-                  fontSize: '9px',
-                  fontWeight: '800',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '0 4px'
-                }}>
-                  {unreadNotificationsCount}
-                </span>
-              )}
-            </Link>
+
 
             {/* User Profile */}
             <div className="nav-actions">

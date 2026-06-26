@@ -18,7 +18,7 @@ interface SessionItem {
 }
 
 export default function Settings() {
-  const { isLoggedIn, userData, logout, logoutAll, updateUserPreference, updateUserProfile, hasUnreadNotifications, unreadNotificationsCount } = useAppContext();
+  const { isLoggedIn, userData, logout, logoutAll, updateUserPreference, updateUserProfile } = useAppContext();
   const { t, setLanguage: changeGlobalLanguage } = useLanguage();
   const { theme, toggleTheme } = useTheme();
   const [activeTab, setActiveTab] = useState('profile');
@@ -249,31 +249,7 @@ export default function Settings() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </form>
-            {/* Notification Icon */}
-            <Link href="/notifications" style={{background: theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : '#F5F7FA', width: '45px', height: '45px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffb300', cursor: 'pointer', fontSize: '20px', textDecoration: 'none', position: 'relative'}}>
-              🔔
-              {isLoggedIn && hasUnreadNotifications && unreadNotificationsCount > 0 && (
-                <span style={{
-                  position: 'absolute',
-                  top: '-2px',
-                  right: '-2px',
-                  minWidth: '16px',
-                  height: '16px',
-                  background: '#FE5C73',
-                  color: '#fff',
-                  borderRadius: '10px',
-                  border: theme === 'dark' ? '2px solid #0f172a' : '2px solid #fff',
-                  fontSize: '9px',
-                  fontWeight: '800',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '0 4px'
-                }}>
-                  {unreadNotificationsCount}
-                </span>
-              )}
-            </Link>
+
             {isLoggedIn ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                 <span style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '15px' }}>{displayName}</span>

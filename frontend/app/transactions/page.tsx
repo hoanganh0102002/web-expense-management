@@ -2191,30 +2191,7 @@ export default function Transactions() {
             <button style={{ background: '#1814F3', color: '#fff', padding: '10px 20px', borderRadius: '24px', fontWeight: '600', border: 'none', cursor: 'pointer', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px' }} onClick={handleAdd}>
               {t('add_transaction')}
             </button>
-            <Link href="/notifications" style={{ background: '#F5F7FA', width: '45px', height: '45px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffb300', cursor: 'pointer', fontSize: '20px', textDecoration: 'none', position: 'relative' }}>
-              🔔
-              {isLoggedIn && hasUnreadNotifications && unreadNotificationsCount > 0 && (
-                <span style={{
-                  position: 'absolute',
-                  top: '-2px',
-                  right: '-2px',
-                  minWidth: '16px',
-                  height: '16px',
-                  background: '#FE5C73',
-                  color: '#fff',
-                  borderRadius: '10px',
-                  border: '2px solid #fff',
-                  fontSize: '9px',
-                  fontWeight: '800',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '0 4px'
-                }}>
-                  {unreadNotificationsCount}
-                </span>
-              )}
-            </Link>
+
             {isLoggedIn ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                 <span style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '15px' }}>

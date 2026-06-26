@@ -350,21 +350,53 @@ export default function SavingsGoalDetailPage() {
   const circumference = 2 * Math.PI * radius; // ~502.65
   const strokeDashoffset = circumference - (percent / 100) * circumference;
 
-  // Load saving goals for challenge persistence
+  // Load challenge days: Ưu tiên tái tạo từ lịch sử giao dịch backend (source of truth)
+  // LocalStorage chỉ dùng làm fallback nhanh khi transactions chưa load
   useEffect(() => {
     if (goal) {
+      // Tái tạo checkedDays từ goal.transactions (source of truth từ backend)
+      // Mỗi giao dịch challenge có notes format: "Nhiệm vụ Thử thách tích lũy: Ngày X"
+      if (goal.transactions && goal.transactions.length > 0) {
+        const daysFromTransactions: number[] = [];
+        const challengePattern = /Nhiệm vụ Thử thách tích lũy[:\s]*Ngày\s*(\d+)/i;
+        
+        goal.transactions.forEach((tx: any) => {
+          if (tx.type === 'deposit' && tx.notes) {
+            const match = tx.notes.match(challengePattern);
+            if (match && match[1]) {
+              const dayNum = parseInt(match[1], 10);
+              if (dayNum >= 1 && dayNum <= 30 && !daysFromTransactions.includes(dayNum)) {
+                daysFromTransactions.push(dayNum);
+              }
+            }
+          }
+        });
+
+        if (daysFromTransactions.length > 0) {
+          setCheckedDays(daysFromTransactions);
+          // Đồng bộ lại localStorage cho nhất quán
+          localStorage.setItem(`challenge_days_${goal.id}`, JSON.stringify(daysFromTransactions));
+          return;
+        }
+      }
+
+      // Fallback: đọc từ localStorage nếu transactions chưa có dữ liệu challenge
       const stored = localStorage.getItem(`challenge_days_${goal.id}`);
       if (stored) {
         try {
-          setCheckedDays(JSON.parse(stored));
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            setCheckedDays(parsed);
+            return;
+          }
         } catch (e) {
           console.error(e);
         }
-      } else {
-        setCheckedDays([]);
       }
+      
+      setCheckedDays([]);
     }
-  }, [goal?.id]);
+  }, [goal?.id, goal?.transactions]);
 
   const getSmartTip = (goalName: string) => {
     const nameLower = goalName.toLowerCase();

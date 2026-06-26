@@ -101,7 +101,7 @@ const renderNotificationIcon = (type: 'danger' | 'warning' | 'info' | 'reminder'
 
 export default function Notifications() {
   const router = useRouter();
-  const { isLoggedIn, userData, setHasUnreadNotifications, setUnreadNotificationsCount } = useAppContext();
+  const { isLoggedIn, userData, unreadNotificationsCount, fetchUnreadNotificationsCount } = useAppContext();
   const { t } = useLanguage();
   const [notificationsList, setNotificationsList] = useState<NotificationItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -195,11 +195,29 @@ export default function Notifications() {
     }
   }, [isLoggedIn, currentPage, fetchNotifications]);
 
+  // Lắng nghe FCM foreground message để tự động refresh danh sách thông báo realtime
   useEffect(() => {
-    const unreadList = notificationsList.filter(n => n.read_at === null);
-    setUnreadNotificationsCount(unreadList.length);
-    setHasUnreadNotifications(unreadList.length > 0);
-  }, [notificationsList, setHasUnreadNotifications, setUnreadNotificationsCount]);
+    const handleFCMForeground = () => {
+      console.log('[Notifications Page] FCM foreground message received → auto-refreshing list');
+      // Delay nhẹ 1s để backend kịp lưu notification vào DB
+      setTimeout(() => {
+        fetchNotifications(1);
+        setCurrentPage(1);
+      }, 1000);
+    };
+
+    window.addEventListener('fcm-foreground-message', handleFCMForeground);
+    return () => {
+      window.removeEventListener('fcm-foreground-message', handleFCMForeground);
+    };
+  }, [fetchNotifications]);
+
+  // Sau khi fetch xong danh sách trang hiện tại, cập nhật global unread count chính xác (duyệt tất cả trang)
+  useEffect(() => {
+    if (isLoggedIn && notificationsList.length > 0) {
+      fetchUnreadNotificationsCount();
+    }
+  }, [notificationsList, isLoggedIn]);
 
   const getPageNumbers = () => {
     const pages = [];
@@ -248,6 +266,8 @@ export default function Notifications() {
         localStorage.setItem('local_notifications', JSON.stringify(localNotifs));
       }
       setNotificationsList(prev => prev.map(n => n.id === id ? { ...n, read_at: new Date().toISOString() } : n));
+      // Cập nhật global count chính xác
+      fetchUnreadNotificationsCount();
     } catch (e) {
       console.error("Lỗi khi đánh dấu đã đọc:", e);
     }
@@ -260,6 +280,8 @@ export default function Notifications() {
       localNotifs = localNotifs.map((n) => ({ ...n, read_at: new Date().toISOString() }));
       localStorage.setItem('local_notifications', JSON.stringify(localNotifs));
       setNotificationsList(prev => prev.map(n => ({ ...n, read_at: new Date().toISOString() })));
+      // Cập nhật global count chính xác (= 0 sau khi đọc tất cả)
+      fetchUnreadNotificationsCount();
     } catch (e) {
       console.error("Lỗi khi đánh dấu đọc tất cả:", e);
     }
@@ -276,6 +298,8 @@ export default function Notifications() {
           localStorage.setItem('local_notifications', JSON.stringify(localNotifs));
         }
         setNotificationsList(prev => prev.filter(n => n.id !== id));
+        // Cập nhật global count chính xác
+        fetchUnreadNotificationsCount();
       } catch (e) {
         console.error("Lỗi khi xóa thông báo:", e);
       }
@@ -520,7 +544,7 @@ export default function Notifications() {
         <div className="content-area">
           <div className="notif-stats-grid">
             <div className="notif-stat-card unread">
-              <div className="notif-stat-number">{isLoggedIn ? notificationsList.filter(n => n.read_at === null).length : 0}</div>
+              <div className="notif-stat-number">{isLoggedIn ? unreadNotificationsCount : 0}</div>
               <div className="notif-stat-title">{t('unread')}</div>
             </div>
             <div className="notif-stat-card warning">
