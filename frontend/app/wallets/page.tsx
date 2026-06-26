@@ -1734,42 +1734,42 @@ export default function Wallets() {
                   />
                 </div>
 
-                <button 
-                  type="submit" 
-                  disabled={isDepositing}
-                  style={{ 
-                    width: '100%', 
-                    background: 'linear-gradient(135deg, #E6E6FA, #D8BFD8)', 
-                    border: '1px solid #DDA0DD', 
-                    borderRadius: '50px', 
-                    padding: '6px', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    cursor: isDepositing ? 'not-allowed' : 'pointer',
-                    opacity: isDepositing ? 0.7 : 1,
-                    position: 'relative'
-                  }}
-                >
-                  <div style={{ 
-                    width: '46px', 
-                    height: '46px', 
-                    borderRadius: '50%', 
-                    background: '#5A4FCF', 
-                    color: 'white', 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    fontSize: '18px',
-                    fontWeight: 'bold',
-                    boxShadow: '0 4px 12px rgba(90, 79, 207, 0.3)',
-                    zIndex: 2
-                  }}>
-                    &gt;
-                  </div>
-                  <div style={{ flex: 1, textAlign: 'center', color: '#5A4FCF', fontWeight: '700', fontSize: '15px', paddingRight: '46px' }}>
-                    {isDepositing ? 'Đang xử lý...' : 'Vuốt để giả lập nhận tiền'}
-                  </div>
-                </button>
+                <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+                  <button 
+                    type="button" 
+                    onClick={() => setShowModal(null)}
+                    style={{ 
+                      flex: 1, 
+                      padding: '14px', 
+                      borderRadius: '12px', 
+                      border: '1px solid #E2E8F0', 
+                      background: 'white', 
+                      color: '#64748B', 
+                      fontWeight: '700', 
+                      cursor: 'pointer' 
+                    }}
+                  >
+                    Hủy
+                  </button>
+                  <button 
+                    type="submit" 
+                    disabled={isDepositing}
+                    style={{ 
+                      flex: 2, 
+                      padding: '14px', 
+                      borderRadius: '12px', 
+                      border: 'none', 
+                      background: 'linear-gradient(135deg, #1814F3 0%, #396AFF 100%)', 
+                      color: 'white', 
+                      fontWeight: '700', 
+                      cursor: isDepositing ? 'not-allowed' : 'pointer',
+                      opacity: isDepositing ? 0.7 : 1,
+                      boxShadow: '0 4px 10px rgba(24, 20, 243, 0.2)'
+                    }}
+                  >
+                    {isDepositing ? 'Đang xử lý...' : 'Xác nhận'}
+                  </button>
+                </div>
               </form>
             </div>
           </div>

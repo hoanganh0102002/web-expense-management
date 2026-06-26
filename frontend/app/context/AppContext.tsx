@@ -42,7 +42,7 @@ type AppContextType = {
   createSystemNotification: (title: string, content: string, type?: string) => void;
 };
 
-const APP_CACHE_VERSION = '1.0.1';
+const APP_CACHE_VERSION = '1.0.2';
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
@@ -250,7 +250,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      const response = await transactionApi.getAll(params);
+      // Fix: Tăng per_page lên 500 để cache sẵn nhiều giao dịch cũ, giúp ấn thông báo mở chi tiết siêu nhanh
+      const fetchParams = Object.keys(params).length === 0 ? { per_page: 500 } : params;
+      const response = await transactionApi.getAll(fetchParams);
       const data = response.data?.data || response.data || [];
       
       // Update state and cache for default transactions list

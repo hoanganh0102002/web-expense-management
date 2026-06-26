@@ -537,132 +537,134 @@ export default function Notifications() {
             </div>
           </div>
 
-          {isLoading ? (
+          {isLoading && notificationsList.length === 0 ? (
             <div style={{display:'flex', justifyContent:'center', padding:'80px', color:'var(--text-main)', fontSize:'16px'}}>{t('loading')}...</div>
           ) : notificationsList.length > 0 ? (
-            <>
-              {notificationsList.map((n) => {
-              let type: 'danger' | 'warning' | 'info' | 'reminder' | 'success' = 'info';
-              let threshold: number | undefined = undefined;
-              if (n.metadata) {
-                if (typeof n.metadata === 'string') {
-                  try {
-                    const parsed = JSON.parse(n.metadata);
-                    threshold = parsed?.threshold_percent;
-                  } catch {}
-                } else {
-                  threshold = n.metadata.threshold_percent;
+            <div style={{ position: 'relative' }}>
+              <div>
+                {notificationsList.map((n) => {
+                let type: 'danger' | 'warning' | 'info' | 'reminder' | 'success' = 'info';
+                let threshold: number | undefined = undefined;
+                if (n.metadata) {
+                  if (typeof n.metadata === 'string') {
+                    try {
+                      const parsed = JSON.parse(n.metadata);
+                      threshold = parsed?.threshold_percent;
+                    } catch {}
+                  } else {
+                    threshold = n.metadata.threshold_percent;
+                  }
                 }
-              }
 
-              if (n.type?.includes('BudgetWarningNotification') || n.title?.toLowerCase().includes('ngân sách') || n.title?.toLowerCase().includes('budget')) {
-                if (threshold === 100) {
-                  type = 'danger';
-                } else {
-                  type = 'warning';
+                if (n.type?.includes('BudgetWarningNotification') || n.title?.toLowerCase().includes('ngân sách') || n.title?.toLowerCase().includes('budget')) {
+                  if (threshold === 100) {
+                    type = 'danger';
+                  } else {
+                    type = 'warning';
+                  }
+                } else if (n.type?.includes('RecurringTransaction') || n.title?.toLowerCase().includes('định kỳ')) {
+                  type = 'info';
+                } else if (n.type?.includes('SystemNotification')) {
+                  type = 'reminder';
                 }
-              } else if (n.type?.includes('RecurringTransaction') || n.title?.toLowerCase().includes('định kỳ')) {
-                type = 'info';
-              } else if (n.type?.includes('SystemNotification')) {
-                type = 'reminder';
-              }
 
-              const isRead = n.read_at !== null;
-              const styles = typeStyles[type];
-              
-              const customStyle = {
-                '--notif-color': styles.color,
-                '--notif-bg-color': styles.bg,
-                '--notif-glow-shadow': styles.glow,
-                '--notif-color-border': styles.border,
-                cursor: 'pointer'
-              } as React.CSSProperties;
+                const isRead = n.read_at !== null;
+                const styles = typeStyles[type];
+                
+                const customStyle = {
+                  '--notif-color': styles.color,
+                  '--notif-bg-color': styles.bg,
+                  '--notif-glow-shadow': styles.glow,
+                  '--notif-color-border': styles.border,
+                  cursor: 'pointer'
+                } as React.CSSProperties;
 
-              return (
-                <div 
-                  key={n.id} 
-                  className={`notification-item ${isRead ? 'read' : 'unread'} notifications-fade-in`}
-                  style={customStyle}
-                  onClick={(e) => handleNotificationClick(n, e)}
-                >
-                  <div className="notif-icon-circle">
-                    {renderNotificationIcon(type)}
-                  </div>
-                  <div style={{flex:1}}>
-                    <div style={{fontWeight:'700',color:'var(--text-main)', fontSize: '15px', marginBottom: '4px'}}>{n.title}</div>
-                    <div style={{fontSize:'14px',color:'#718EBF', lineHeight: '1.4'}}>{n.content}</div>
-                  </div>
-                  <div style={{display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'8px', minWidth: '130px'}}>
-                    <span style={{color:'#B1B5C3',fontSize:'13px', fontWeight: '500'}}>{formatRelativeTime(n.created_at)}</span>
-                    <div style={{display:'flex', gap:'8px'}}>
-                      {!isRead && (
+                return (
+                  <div 
+                    key={n.id} 
+                    className={`notification-item ${isRead ? 'read' : 'unread'} notifications-fade-in`}
+                    style={customStyle}
+                    onClick={(e) => handleNotificationClick(n, e)}
+                  >
+                    <div className="notif-icon-circle">
+                      {renderNotificationIcon(type)}
+                    </div>
+                    <div style={{flex:1}}>
+                      <div style={{fontWeight:'700',color:'var(--text-main)', fontSize: '15px', marginBottom: '4px'}}>{n.title}</div>
+                      <div style={{fontSize:'14px',color:'#718EBF', lineHeight: '1.4'}}>{n.content}</div>
+                    </div>
+                    <div style={{display:'flex', flexDirection:'column', alignItems:'flex-end', gap:'8px', minWidth: '130px'}}>
+                      <span style={{color:'#B1B5C3',fontSize:'13px', fontWeight: '500'}}>{formatRelativeTime(n.created_at)}</span>
+                      <div style={{display:'flex', gap:'8px'}}>
+                        {!isRead && (
+                          <button 
+                            onClick={() => handleMarkAsRead(n.id)}
+                            className="notif-btn-read"
+                          >
+                            Đánh dấu đã đọc
+                          </button>
+                        )}
                         <button 
-                          onClick={() => handleMarkAsRead(n.id)}
-                          className="notif-btn-read"
+                          onClick={() => handleDeleteNotification(n.id)}
+                          className="notif-btn-delete"
                         >
-                          Đánh dấu đã đọc
+                          Xóa
                         </button>
-                      )}
-                      <button 
-                        onClick={() => handleDeleteNotification(n.id)}
-                        className="notif-btn-delete"
-                      >
-                        Xóa
-                      </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
-            
-            {totalPages > 1 && (
-              <div className="notif-pagination-wrapper">
-                <div style={{ fontSize: '14.5px', color: 'var(--text-light)', fontWeight: '600' }}>
-                  Hiển thị {(currentPage - 1) * 15 + 1} - {Math.min(currentPage * 15, totalItems)} trong số {totalItems} thông báo
-                </div>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  {/* Nút Trước */}
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1}
-                    className="pagination-btn-arrow"
-                  >
-                    {t('previous')}
-                  </button>
+                );
+              })}
+              
+              {totalPages > 1 && (
+                <div className="notif-pagination-wrapper">
+                  <div style={{ fontSize: '14.5px', color: 'var(--text-light)', fontWeight: '600' }}>
+                    Hiển thị {(currentPage - 1) * 15 + 1} - {Math.min(currentPage * 15, totalItems)} trong số {totalItems} thông báo
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    {/* Nút Trước */}
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="pagination-btn-arrow"
+                    >
+                      {t('previous')}
+                    </button>
 
-                  {/* Các số trang */}
-                  {getPageNumbers().map((pageNum, idx) => {
-                    if (pageNum === 'ellipsis-start' || pageNum === 'ellipsis-end') {
+                    {/* Các số trang */}
+                    {getPageNumbers().map((pageNum, idx) => {
+                      if (pageNum === 'ellipsis-start' || pageNum === 'ellipsis-end') {
+                        return (
+                          <span key={`ellipsis-${idx}`} style={{ padding: '0 8px', color: 'var(--text-light)', fontWeight: '600' }}>
+                            ...
+                          </span>
+                        );
+                      }
+                      const isPageActive = pageNum === currentPage;
                       return (
-                        <span key={`ellipsis-${idx}`} style={{ padding: '0 8px', color: 'var(--text-light)', fontWeight: '600' }}>
-                          ...
-                        </span>
+                        <button
+                          key={`page-${pageNum}`}
+                          onClick={() => setCurrentPage(Number(pageNum))}
+                          className={`pagination-btn-number ${isPageActive ? 'active' : ''}`}
+                        >
+                          {pageNum}
+                        </button>
                       );
-                    }
-                    const isPageActive = pageNum === currentPage;
-                    return (
-                      <button
-                        key={`page-${pageNum}`}
-                        onClick={() => setCurrentPage(Number(pageNum))}
-                        className={`pagination-btn-number ${isPageActive ? 'active' : ''}`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
+                    })}
 
-                  {/* Nút Sau */}
-                  <button
-                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage === totalPages}
-                    className="pagination-btn-arrow"
-                  >
-                    {t('next')}
-                  </button>
+                    {/* Nút Sau */}
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className="pagination-btn-arrow"
+                    >
+                      {t('next')}
+                    </button>
+                  </div>
                 </div>
+              )}
               </div>
-            )}
-            </>
+            </div>
           ) : (
             <div className="notif-empty-state notifications-fade-in">
               <div className="notif-empty-icon">
