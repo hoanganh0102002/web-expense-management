@@ -732,6 +732,11 @@ export default function Transactions() {
   const [recurringHistoryList, setRecurringHistoryList] = useState<any[]>([]);
   const [hasLoadedHistory, setHasLoadedHistory] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  
+  const [savingsTransactionsList, setSavingsTransactionsList] = useState<any[]>([]);
+  const [hasLoadedSavings, setHasLoadedSavings] = useState(false);
+  const [isLoadingSavings, setIsLoadingSavings] = useState(false);
+  const [savingsSubTab, setSavingsSubTab] = useState<'all' | 'deposit' | 'withdraw'>('all');
   const [tabCaches, setTabCaches] = useState<Record<string, any[]>>({});
   const [isLoadingRecurring, setIsLoadingRecurring] = useState(false);
   const [isEditRecurringModalOpen, setIsEditRecurringModalOpen] = useState(false);
@@ -1412,6 +1417,26 @@ export default function Transactions() {
     }
   }, [activeTab, hasLoadedHistory]);
 
+  // Fetch savings transactions once
+  useEffect(() => {
+    if (activeTab === 'savings' && !hasLoadedSavings) {
+      setIsLoadingSavings(true);
+      transactionApi.getAll({ per_page: 500 })
+        .then(res => {
+          const data = res.data?.data || res.data || [];
+          setSavingsTransactionsList(data.filter((tx: any) => 
+            tx.title?.startsWith('Tích lũy heo đất:') || 
+            tx.title?.startsWith('Nhận từ heo đất:') ||
+            tx.notes?.includes('Tích lũy heo đất') ||
+            tx.notes?.includes('Rút tiền heo đất')
+          ));
+          setHasLoadedSavings(true);
+        })
+        .catch(err => console.error('Error fetching savings transactions', err))
+        .finally(() => setIsLoadingSavings(false));
+    }
+  }, [activeTab, hasLoadedSavings]);
+
   // Client-side filtering and sorting for internal transfers
   const filteredTransfers = useMemo(() => {
     let result = [...internalTransfers];
@@ -2040,6 +2065,39 @@ export default function Transactions() {
     if (debouncedSearch) {
       filtered = filtered.filter((tx: any) => tx.title.toLowerCase().includes(debouncedSearch.toLowerCase()));
     }
+  } else if (activeTab === 'savings') {
+    filtered = savingsTransactionsList;
+    if (savingsSubTab === 'deposit') {
+      filtered = filtered.filter((tx: any) => tx.type === 'expense' || tx.title?.startsWith('Tích lũy heo đất:'));
+    } else if (savingsSubTab === 'withdraw') {
+      filtered = filtered.filter((tx: any) => tx.type === 'income' || tx.title?.startsWith('Nhận từ heo đất:'));
+    }
+    if (debouncedSearch) {
+      filtered = filtered.filter((tx: any) => 
+        tx.title.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+        (tx.notes && tx.notes.toLowerCase().includes(debouncedSearch.toLowerCase()))
+      );
+    }
+    if (startDate) {
+      const sDate = new Date(startDate).getTime();
+      filtered = filtered.filter((tx: any) => new Date(tx.transaction_date).getTime() >= sDate);
+    }
+    if (endDate) {
+      const eDate = new Date(endDate).getTime() + 86400000; // end of day
+      filtered = filtered.filter((tx: any) => new Date(tx.transaction_date).getTime() <= eDate);
+    }
+    if (selectedWallet) {
+      filtered = filtered.filter((tx: any) => tx.wallet_id === selectedWallet);
+    }
+    if (selectedCategory) {
+      filtered = filtered.filter((tx: any) => tx.category_id === selectedCategory);
+    }
+    if (minAmount) {
+      filtered = filtered.filter((tx: any) => Math.abs(parseFloat(tx.amount)) >= parseFloat(minAmount));
+    }
+    if (maxAmount) {
+      filtered = filtered.filter((tx: any) => Math.abs(parseFloat(tx.amount)) <= parseFloat(maxAmount));
+    }
   } else if (hasNoExtraFilters && !currentCursor && ['all', 'income', 'expense'].includes(activeTab)) {
     if (tabCaches[activeTab] && tabCaches[activeTab].length > 0) {
       filtered = tabCaches[activeTab];
@@ -2390,6 +2448,7 @@ export default function Transactions() {
             { k: 'income', l: t('income') },
             { k: 'expense', l: t('spending') },
             { k: 'transfer', l: 'Chuyển tiền nội bộ' },
+            { k: 'savings', l: 'Tích lũy heo đất' },
             { k: 'recurring', l: 'Quy tắc định kỳ' },
             { k: 'recurring_history', l: 'Lịch sử định kỳ' }
             ].map(tab => {
@@ -2403,6 +2462,7 @@ export default function Transactions() {
                     setRegularPage(1);
                     setTransferPage(1);
                     setRecurringPage(1);
+                    setSavingsSubTab('all');
                   }}
                   style={{
                     padding: '10px 20px',
@@ -2440,7 +2500,46 @@ export default function Transactions() {
           </div>
 
           <div key={activeTab} className="animate-fade-in" style={{ background: 'var(--card-bg)', borderRadius: '24px', padding: '24px', border: '1px solid var(--border-color)', minHeight: '400px', boxShadow: '0 4px 20px rgba(0,0,0,0.03)' }}>
-            {(activeTab === 'transfer' && isLoadingTransfers) || (activeTab === 'recurring' && isLoadingRecurring) || (activeTab !== 'transfer' && activeTab !== 'recurring' && isLoadingTransactions) ? (
+            {/* Savings Sub-tabs Filter */}
+            {activeTab === 'savings' && (
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '1px solid var(--border-color)', paddingBottom: '12px' }}>
+                {[
+                  { k: 'all', l: 'Tất cả' },
+                  { k: 'deposit', l: 'Nạp tiền (Chi)' },
+                  { k: 'withdraw', l: 'Rút tiền (Nhận)' }
+                ].map(sub => {
+                  const isSubActive = savingsSubTab === sub.k;
+                  return (
+                    <button
+                      key={sub.k}
+                      onClick={() => setSavingsSubTab(sub.k as any)}
+                      onMouseEnter={e => {
+                        if (!isSubActive) e.currentTarget.style.background = 'rgba(24, 20, 243, 0.05)';
+                      }}
+                      onMouseLeave={e => {
+                        if (!isSubActive) e.currentTarget.style.background = 'transparent';
+                      }}
+                      style={{
+                        padding: '6px 16px',
+                        borderRadius: '20px',
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        background: isSubActive ? 'rgba(24, 20, 243, 0.1)' : 'transparent',
+                        color: isSubActive ? '#1814F3' : '#718EBF',
+                        border: isSubActive ? '1px solid #1814F3' : '1px solid transparent',
+                        transition: 'all 0.2s ease',
+                        outline: 'none'
+                      }}
+                    >
+                      {sub.l}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {(activeTab === 'transfer' && isLoadingTransfers) || (activeTab === 'recurring' && isLoadingRecurring) || (activeTab === 'savings' && isLoadingSavings) || (activeTab !== 'transfer' && activeTab !== 'recurring' && activeTab !== 'savings' && isLoadingTransactions) ? (
               <div style={{ display: 'flex', justifyContent: 'center', padding: '60px', color: 'var(--text-main)', fontWeight: '600' }}>{t('loading')}...</div>
             ) : activeTab === 'transfer' ? (
               <div style={{ overflowX: 'auto' }}>
@@ -3094,7 +3193,7 @@ export default function Transactions() {
             )}
 
             {/* PHÂN TRANG CHO GIAO DỊCH THƯỜNG */}
-            {activeTab !== 'transfer' && activeTab !== 'recurring' && (nextCursor || prevCursor) && (
+            {activeTab !== 'transfer' && activeTab !== 'recurring' && activeTab !== 'recurring_history' && activeTab !== 'savings' && (nextCursor || prevCursor) && (
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '24px' }}>
                 <button
                   disabled={!prevCursor}

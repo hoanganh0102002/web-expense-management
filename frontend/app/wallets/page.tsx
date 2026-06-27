@@ -1046,7 +1046,18 @@ export default function Wallets() {
                       const percent = calcPercent(goal.current_amount, goal.target_amount);
                       const isReached = percent >= 100;
                       const remainingDays = getRemainingDays(goal.target_date);
-                      const hasAutoSave = !!goal.auto_save_frequency;
+                      let hasAutoSave = !!goal.auto_save_frequency;
+                      if (!hasAutoSave && typeof window !== 'undefined') {
+                        try {
+                          const localConfig = localStorage.getItem(`local_autosave_${goal.id}`);
+                          if (localConfig) {
+                            const parsed = JSON.parse(localConfig);
+                            if (parsed && parsed.enabled) {
+                              hasAutoSave = true;
+                            }
+                          }
+                        } catch {}
+                      }
   
                       return (
                         <Link 

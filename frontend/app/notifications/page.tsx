@@ -165,7 +165,26 @@ export default function Notifications() {
 
       // Show local notifications prepended on page 1 only
       if (page === 1) {
-        setNotificationsList([...filteredLocalNotifs, ...filteredList]);
+        const fullList = [...filteredLocalNotifs, ...filteredList];
+        setNotificationsList(fullList);
+
+        // AUTOMATICALLY MARK ALL AS READ ON LOAD
+        const hasUnread = fullList.some(n => n.read_at === null);
+        if (hasUnread) {
+          // Call API to read all in background
+          notificationApi.readAll().catch(e => console.error("Error auto-reading all:", e));
+          
+          // Mark local storage notifications as read
+          let localNotifsCopy = [...filteredLocalNotifs];
+          localNotifsCopy = localNotifsCopy.map((n) => ({ ...n, read_at: new Date().toISOString() }));
+          localStorage.setItem('local_notifications', JSON.stringify(localNotifsCopy));
+          
+          // Delay slightly to let the user see the transition, then clear unread states & dot
+          setTimeout(() => {
+            setNotificationsList(prev => prev.map(n => ({ ...n, read_at: n.read_at || new Date().toISOString() })));
+            fetchUnreadNotificationsCount();
+          }, 800);
+        }
       } else {
         setNotificationsList(filteredList);
       }
@@ -184,7 +203,7 @@ export default function Notifications() {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoggedIn]);
+  }, [isLoggedIn, fetchUnreadNotificationsCount]);
 
   useEffect(() => {
     if (isLoggedIn) {
@@ -501,31 +520,6 @@ export default function Notifications() {
         <nav className="navbar" style={{background:'var(--card-bg)',borderBottom:'1px solid var(--border-color)',backdropFilter:'blur(10px)',position:'sticky',top:0,zIndex:10}}>
           <h1 className="page-title" style={{color:'var(--text-main)'}}>{t('notifications')}</h1>
           <div className="nav-actions" style={{display:'flex', alignItems:'center'}}>
-            {isLoggedIn && notificationsList.some(n => n.read_at === null) && (
-              <button 
-                onClick={handleMarkAllAsRead}
-                style={{
-                  background: 'transparent',
-                  color: '#1814F3',
-                  padding: '10px 20px',
-                  borderRadius: '24px',
-                  fontWeight: '600',
-                  border: '1.5px solid #1814F3',
-                  cursor: 'pointer',
-                  marginRight: '10px',
-                  fontSize: '14px',
-                  transition: 'all 0.25s ease'
-                }}
-                onMouseOver={(e) => {
-                  e.currentTarget.style.background = 'rgba(24, 20, 243, 0.05)';
-                }}
-                onMouseOut={(e) => {
-                  e.currentTarget.style.background = 'transparent';
-                }}
-              >
-                Đánh dấu đọc tất cả
-              </button>
-            )}
             {isLoggedIn ? (
               <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginLeft: '15px' }}>
                 <span style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '15px' }}>
