@@ -140,6 +140,10 @@ export default function SavingsGoalDetailPage() {
   const [checkedDays, setCheckedDays] = useState<number[]>([]);
   const [showChallenge, setShowChallenge] = useState(false);
 
+  // Frontend-only auto daily deposit states
+  const [localAutoSaveEnabled, setLocalAutoSaveEnabled] = useState(false);
+  const [localAutoSaveAmount, setLocalAutoSaveAmount] = useState(10000);
+
   // Fetch goal details
   const fetchGoalDetails = async () => {
     const cacheKey = `cached_savings_goal_${id}`;
@@ -397,6 +401,116 @@ export default function SavingsGoalDetailPage() {
       setCheckedDays([]);
     }
   }, [goal?.id, goal?.transactions]);
+
+  // Load local auto save configuration on goal load
+  useEffect(() => {
+    if (goal) {
+      if (goal.auto_save_frequency === 'daily') {
+        setLocalAutoSaveEnabled(true);
+        setLocalAutoSaveAmount(parseFloat(goal.auto_save_amount || '10000'));
+      } else {
+        const stored = localStorage.getItem(`local_autosave_${goal.id}`);
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            setLocalAutoSaveEnabled(!!parsed.enabled);
+            setLocalAutoSaveAmount(parseFloat(parsed.amount || '10000'));
+          } catch (e) {
+            console.error(e);
+          }
+        } else {
+          setLocalAutoSaveEnabled(false);
+        }
+      }
+    }
+  }, [goal]);
+
+  // Helper to trigger deposit automatically in background
+  const triggerAutoSaveCheck = async (goalId: string, config: any) => {
+    if (!config || !config.enabled) return;
+    
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (config.last_run === todayStr) {
+      return;
+    }
+    
+    try {
+      console.log(`[AutoSave] Running daily auto-save for goal ${goalId}: ${config.amount} VND`);
+      const res = await savingsApi.deposit(goalId, {
+        amount: config.amount,
+        source_wallet_id: config.source_wallet_id,
+        notes: 'Trích nạp hàng ngày tự động (Auto-Save)'
+      });
+      
+      if (res.status === 'success') {
+        config.last_run = todayStr;
+        localStorage.setItem(`local_autosave_${goalId}`, JSON.stringify(config));
+        setGoal(res.data);
+        localStorage.setItem(`cached_savings_goal_${goalId}`, JSON.stringify(res.data));
+        fetchWallets();
+        console.log(`[AutoSave] Daily auto-save executed successfully!`);
+      }
+    } catch (e) {
+      console.error("[AutoSave] Execution failed:", e);
+    }
+  };
+
+  // Run auto-save check when goal details or auth state loads
+  useEffect(() => {
+    if (goal && isLoggedIn) {
+      const stored = localStorage.getItem(`local_autosave_${goal.id}`);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (parsed && parsed.enabled) {
+            triggerAutoSaveCheck(goal.id, parsed);
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+    }
+  }, [goal?.id, isLoggedIn]);
+
+  // Handler for toggle switch
+  const handleToggleLocalAutoSave = () => {
+    if (!goal) return;
+    
+    if (localAutoSaveEnabled) {
+      setLocalAutoSaveEnabled(false);
+      localStorage.removeItem(`local_autosave_${goal.id}`);
+      alert("Đã tắt tính năng tự động tích lũy hàng ngày.");
+    } else {
+      const sourceWId = goal.source_wallet_id;
+      if (!sourceWId) {
+        alert("Mục tiêu tiết kiệm này chưa được liên kết với ví nguồn nào. Vui lòng chỉnh sửa và thiết lập ví nguồn trước!");
+        return;
+      }
+      
+      const amtStr = prompt("Nhập số tiền muốn tự động nạp mỗi ngày (VND):", String(localAutoSaveAmount));
+      if (amtStr === null) return;
+      
+      const amt = parseFloat(amtStr);
+      if (isNaN(amt) || amt < 1000) {
+        alert("Số tiền tối thiểu tự động nạp hàng ngày là 1.000 đ!");
+        return;
+      }
+      
+      setLocalAutoSaveEnabled(true);
+      setLocalAutoSaveAmount(amt);
+      
+      const config = {
+        enabled: true,
+        amount: amt,
+        last_run: '',
+        source_wallet_id: sourceWId
+      };
+      localStorage.setItem(`local_autosave_${goal.id}`, JSON.stringify(config));
+      alert(`Đã bật tự động tích lũy hàng ngày với số tiền ${formatVND(amt)}!`);
+      
+      triggerAutoSaveCheck(goal.id, config);
+    }
+  };
 
   const getSmartTip = (goalName: string) => {
     const nameLower = goalName.toLowerCase();
@@ -706,6 +820,56 @@ export default function SavingsGoalDetailPage() {
                   <span className="savings-info-label">Ví liên kết</span>
                   <span className="savings-info-value">{goal.source_wallet?.name || 'Chưa liên kết'}</span>
                 </div>
+              </div>
+
+              {/* Auto Save Toggle Section */}
+              <div style={{
+                background: 'var(--card-bg)',
+                borderRadius: '20px',
+                padding: '16px 20px',
+                border: '1px solid var(--border-color)',
+                marginBottom: '28px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.005)'
+              }}>
+                <div style={{ flex: 1, paddingRight: '12px' }}>
+                  <div style={{ fontWeight: '700', color: 'var(--text-main)', fontSize: '14.5px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span>🔄</span> Tự động nạp hàng ngày
+                  </div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-light)', marginTop: '4px', lineHeight: '1.4' }}>
+                    {localAutoSaveEnabled 
+                      ? `Tự động trích ${formatVND(localAutoSaveAmount)} từ "${goal.source_wallet?.name || 'Ví liên kết'}" hàng ngày`
+                      : 'Tự động trích nạp số tiền nhỏ mỗi ngày từ ví liên kết để nhanh đạt mục tiêu'}
+                  </div>
+                </div>
+                <label style={{ position: 'relative', display: 'inline-block', width: '46px', height: '24px', cursor: 'pointer', flexShrink: 0 }}>
+                  <input 
+                    type="checkbox" 
+                    checked={localAutoSaveEnabled} 
+                    onChange={handleToggleLocalAutoSave}
+                    style={{ opacity: 0, width: 0, height: 0 }}
+                  />
+                  <span style={{
+                    position: 'absolute',
+                    top: 0, left: 0, right: 0, bottom: 0,
+                    backgroundColor: localAutoSaveEnabled ? '#10B981' : '#ccc',
+                    transition: '.3s',
+                    borderRadius: '24px'
+                  }}>
+                    <span style={{
+                      position: 'absolute',
+                      height: '18px', width: '18px',
+                      left: localAutoSaveEnabled ? '24px' : '4px',
+                      bottom: '3px',
+                      backgroundColor: 'white',
+                      transition: '.3s',
+                      borderRadius: '50%',
+                      boxShadow: '0 1px 3px rgba(0,0,0,0.3)'
+                    }} />
+                  </span>
+                </label>
               </div>
 
               {/* Financial Plan Suggestion & Forecast */}
