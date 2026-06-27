@@ -821,9 +821,7 @@ export default function Transactions() {
               } catch(e) {}
             }
             if (tx) {
-              if (tx.source_type === 'recurring') {
-                setViewingRuleTx(tx); setIsRuleDetailModalOpen(true);
-              } else if (tx.is_internal_transfer) {
+              if (tx.is_internal_transfer) {
                 setViewingTransferTx(tx); setIsTransferDetailModalOpen(true);
               } else {
                 setViewingTx(tx); setIsDetailModalOpen(true);
@@ -850,9 +848,7 @@ export default function Transactions() {
               const res = await transactionApi.getById(txId);
               const fetchedTx = res.data?.data || res.data;
               if (fetchedTx) {
-                if (fetchedTx.source_type === 'recurring') {
-                  setViewingRuleTx(fetchedTx); setIsRuleDetailModalOpen(true);
-                } else if (fetchedTx.is_internal_transfer) {
+                if (fetchedTx.is_internal_transfer) {
                   setViewingTransferTx(fetchedTx); setIsTransferDetailModalOpen(true);
                 } else {
                   setViewingTx(fetchedTx); setIsDetailModalOpen(true);
@@ -896,9 +892,7 @@ export default function Transactions() {
             }
             
             if (tx) {
-              if (tx.source_type === 'recurring') {
-                setViewingRuleTx(tx); setIsRuleDetailModalOpen(true);
-              } else if (tx.is_internal_transfer) {
+              if (tx.is_internal_transfer) {
                 setViewingTransferTx(tx); setIsTransferDetailModalOpen(true);
               } else {
                 setViewingTx(tx); setIsDetailModalOpen(true);
@@ -927,9 +921,7 @@ export default function Transactions() {
               const allData = res.data?.data || res.data || [];
               const fetchedTx = allData.find(matchTx);
               if (fetchedTx) {
-                if (fetchedTx.source_type === 'recurring') {
-                  setViewingRuleTx(fetchedTx); setIsRuleDetailModalOpen(true);
-                } else if (fetchedTx.is_internal_transfer) {
+                if (fetchedTx.is_internal_transfer) {
                   setViewingTransferTx(fetchedTx); setIsTransferDetailModalOpen(true);
                 } else {
                   setViewingTx(fetchedTx); setIsDetailModalOpen(true);
@@ -1409,7 +1401,10 @@ export default function Transactions() {
       transactionApi.getAll({ per_page: 500 })
         .then(res => {
           const data = res.data?.data || res.data || [];
-          setRecurringHistoryList(data.filter((tx: any) => tx.source_type === 'recurring'));
+          setRecurringHistoryList(data.filter((tx: any) => 
+            tx.source_type === 'recurring' || 
+            (tx.source_type === 'transfer' && (tx.notes?.includes('Recurring transaction automatically created from rule') || tx.notes?.includes('Giao dịch định kỳ tự động tạo từ quy tắc')))
+          ));
           setHasLoadedHistory(true);
         })
         .catch(err => console.error('Error fetching recurring history', err))
@@ -2128,7 +2123,7 @@ export default function Transactions() {
       <Sidebar activeItem="transactions" />
       <main className="main-content" style={{ background: 'var(--bg-color)' }}>
         <nav className="navbar" style={{ background: 'var(--card-bg)', borderBottom: '1px solid var(--border-color)' }}>
-          <h1 className="page-title" style={{ color: 'var(--text-main)' }}>{t('transactions')} (Debug: History={recurringHistoryList.length}, All={transactions.length})</h1>
+          <h1 className="page-title" style={{ color: 'var(--text-main)' }}>{t('transactions')}</h1>
           <div className="nav-actions">
             <div className="search-bar">
               <span style={{ fontSize: '16px', display: 'flex', alignItems: 'center', userSelect: 'none' }}>🔍</span>
