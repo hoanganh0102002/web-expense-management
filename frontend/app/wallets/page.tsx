@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Sidebar from '../components/Sidebar';
 import { useAppContext } from '../context/AppContext';
 import { useLanguage } from '../lib/translations';
+import { useToast } from '../context/ToastContext';
 import { apiFetch, savingsApi, transactionApi } from '../lib/api';
 import './wallets.css';
 import '../savings/savings.css';
@@ -220,6 +221,30 @@ export default function Wallets() {
     updateWallet, deleteWallet, isLoadingWallets, userData
   } = useAppContext();
   const { t } = useLanguage();
+  const toast = useToast();
+
+  const alert = (msg: string) => {
+    const lower = msg.toLowerCase();
+    if (lower.includes('thành công') || lower.includes('success') || lower.includes('ok') || lower.includes('hoàn thành')) {
+      toast.success(msg);
+    } else if (
+      lower.includes('lỗi') || lower.includes('error') || lower.includes('thất bại') || lower.includes('fail') || 
+      lower.includes('không hợp lệ') || lower.includes('không tồn tại') || lower.includes('không đủ') || 
+      lower.includes('không thể') || lower.includes('không khớp') || lower.includes('sai') || lower.includes('chưa đủ')
+    ) {
+      toast.error(msg);
+    } else if (
+      lower.includes('vui lòng') || lower.includes('yêu cầu') || lower.includes('không được') || 
+      lower.includes('phải') || lower.includes('chỉ hỗ trợ') || lower.includes('cảnh báo') || 
+      lower.includes('lưu ý') || lower.includes('chưa') || lower.includes('cần') || 
+      lower.includes('bắt buộc') || lower.includes('nhắc nhở')
+    ) {
+      toast.warning(msg);
+    } else {
+      toast.info(msg);
+    }
+  };
+
 
   // Savings tab state and helper functions
   const [activeTab, setActiveTab] = useState<'wallets' | 'savings'>('wallets');

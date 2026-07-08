@@ -4,6 +4,7 @@ import Link from 'next/link';
 import Sidebar from '../components/Sidebar';
 import { useAppContext } from '../context/AppContext';
 import { useLanguage } from '../lib/translations';
+import { useToast } from '../context/ToastContext';
 
 import { categoryApi } from '../lib/api';
 
@@ -40,7 +41,9 @@ const parseIcon = (iconName: string) => {
 
 export default function Categories() {
   const { isLoggedIn, categories, isLoadingCategories, createCategory, updateCategory, deleteCategory, userData } = useAppContext();
-  const { t, language } = useLanguage();
+  const { t, language, tCategory } = useLanguage();
+  const toast = useToast();
+  const customCount = categories.flatMap(c => c.children || []).filter((sub: any) => !sub.is_default && sub.user_id !== null).length;
   
   const [activeTab, setActiveTab] = useState<'expense' | 'income'>('expense');
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -99,12 +102,14 @@ export default function Categories() {
     try {
       if (editingCategory) {
         await updateCategory(editingCategory.id, formData);
+        toast.success("Cập nhật danh mục thành công!");
       } else {
         await createCategory(formData);
+        toast.success("Tạo danh mục thành công!");
       }
       setIsModalOpen(false);
     } catch (error: any) {
-      alert(error.message);
+      toast.error(error.message);
     }
   };
 
@@ -113,8 +118,9 @@ export default function Categories() {
     if (confirm(t('delete_confirm_msg'))) {
       try {
         await deleteCategory(id);
+        toast.success("Xóa danh mục thành công!");
       } catch (error: any) {
-        alert(error.message);
+        toast.error(error.message);
       }
     }
   };
@@ -237,7 +243,7 @@ export default function Categories() {
             <div className="plus-icon">+</div>
             <div style={{textAlign: 'left'}}>
               <div style={{fontWeight: '700', color: 'var(--text-main)', fontSize: '15px'}}>{t('add_new_category')}</div>
-              <div style={{fontSize: '12px', color: '#718EBF', marginTop: '2px'}}>{t('limit_reached')}</div>
+              <div style={{fontSize: '12px', color: '#718EBF', marginTop: '2px'}}>{t('limit_reached').replace('0', String(customCount))}</div>
             </div>
           </button>
 
@@ -255,10 +261,9 @@ export default function Categories() {
                       <div className="group-icon-wrap" style={{background: (group.color || '#6366f1') + '20', color: group.color || '#6366f1'}}>
                         {parseIcon(group.icon || '📁')}
                       </div>
-                      <h3 style={{fontSize: '17px', fontWeight: '700', color: 'var(--text-main)', margin: 0}}>{group.name}</h3>
+                      <h3 style={{fontSize: '17px', fontWeight: '700', color: 'var(--text-main)', margin: 0}}>{tCategory(group.name)}</h3>
                     </div>
                     <div className="group-actions">
-                      <button onClick={() => handleOpenModal(group)} className="action-btn edit">{t('edit')}</button>
                       <button onClick={() => setDeleteModeGroupId(deleteModeGroupId === group.id ? null : group.id)} className={`action-btn delete ${deleteModeGroupId === group.id ? 'active' : ''}`}>
                         {deleteModeGroupId === group.id ? t('done') : t('delete')}
                       </button>
@@ -274,22 +279,24 @@ export default function Categories() {
                       return (
                         <div 
                           key={sub.id} 
-                          className={`sub-item-card ${(isDeleting && canDelete) ? 'jiggling' : ''}`}
-                          style={{opacity: (isDeleting && !canDelete) ? 0.3 : 1, cursor: (isDeleting && !canDelete) ? 'not-allowed' : 'pointer'}}
+                          className={`sub-item-card ${(!canDelete && !isDeleting) ? 'read-only' : ''} ${(isDeleting && canDelete) ? 'jiggling' : ''}`}
+                          style={{opacity: (isDeleting && !canDelete) ? 0.3 : 1, cursor: (isDeleting && !canDelete) ? 'not-allowed' : (canDelete ? 'pointer' : 'default')}}
                           onClick={(e) => {
                             if (isDeleting) {
                               if (canDelete) {
                                 handleDelete(sub.id, e);
                               }
                             } else {
-                              handleOpenModal(sub);
+                              if (canDelete) {
+                                handleOpenModal(sub);
+                              }
                             }
                           }}
                         >
                           <div className="sub-icon-circle" style={{background: (sub.color || '#94a3b8') + '15', color: sub.color || '#94a3b8', border: `1px solid ${(sub.color || '#94a3b8')}30`}}>
                             {parseIcon(sub.icon)}
                           </div>
-                          <span className="sub-name">{sub.name}</span>
+                          <span className="sub-name">{tCategory(sub.name)}</span>
                           {(isDeleting && canDelete) && (
                             <div className="delete-badge">✕</div>
                           )}
@@ -346,23 +353,32 @@ export default function Categories() {
 
               <div className="form-group">
                 <label>{t('parent_category')} *</label>
-                <div 
-                  className="custom-select-trigger"
-                  onClick={() => setIsParentPickerOpen(true)}
-                >
-                  {formData.parent_id ? (
+                {editingCategory ? (
+                  <div className="custom-select-trigger disabled" style={{ background: '#f8fafc', border: '1px solid #e2e8f0', cursor: 'not-allowed' }}>
                     <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
                       <span style={{fontSize: '20px'}}>{parseIcon(categories.find(c => c.id === formData.parent_id)?.icon || '📁')}</span>
-                      <span style={{fontWeight: '600', color: 'var(--text-main)'}}>{categories.find(c => c.id === formData.parent_id)?.name}</span>
+                      <span style={{fontWeight: '600', color: '#64748b'}}>{tCategory(categories.find(c => c.id === formData.parent_id)?.name || '')}</span>
                     </div>
-                  ) : (
-                    <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
-                      <span style={{fontSize: '20px'}}>🌟</span>
-                      <span style={{fontWeight: '600', color: 'var(--text-main)'}}>{t('set_as_parent')}</span>
-                    </div>
-                  )}
-                  <span className="arrow-icon">∟</span>
-                </div>
+                  </div>
+                ) : (
+                  <div 
+                    className="custom-select-trigger"
+                    onClick={() => setIsParentPickerOpen(true)}
+                  >
+                    {formData.parent_id ? (
+                      <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
+                        <span style={{fontSize: '20px'}}>{parseIcon(categories.find(c => c.id === formData.parent_id)?.icon || '📁')}</span>
+                        <span style={{fontWeight: '600', color: 'var(--text-main)'}}>{tCategory(categories.find(c => c.id === formData.parent_id)?.name || '')}</span>
+                      </div>
+                    ) : (
+                      <div style={{display: 'flex', alignItems: 'center', gap: '12px'}}>
+                        <span style={{fontSize: '20px'}}>📁</span>
+                        <span style={{fontWeight: '600', color: 'var(--text-main)'}}>{t('choose_parent_cat')}</span>
+                      </div>
+                    )}
+                    <span className="arrow-icon">∟</span>
+                  </div>
+                )}
               </div>
 
               <button type="submit" className="submit-btn-gradient">
@@ -421,23 +437,6 @@ export default function Categories() {
               <button onClick={() => setIsParentPickerOpen(false)}>✕</button>
             </div>
             <div className="parent-list">
-              {/* Option for Root Category */}
-              <div 
-                className={`parent-option-card ${!formData.parent_id ? 'selected' : ''}`}
-                onClick={() => {
-                  setFormData({...formData, parent_id: ''});
-                  setIsParentPickerOpen(false);
-                }}
-              >
-                <div style={{display: 'flex', alignItems: 'center', gap: '15px'}}>
-                  <div className="parent-icon-circle" style={{background: '#f1f5f9', color: '#718EBF'}}>
-                    🌟
-                  </div>
-                  <span style={{fontWeight: '600', color: 'var(--text-main)'}}>{t('set_as_parent')}</span>
-                </div>
-                <div className={`radio-circle ${!formData.parent_id ? 'checked' : ''}`}></div>
-              </div>
-
               {/* Show Sample/Fetched Parent Categories */}
               {parentCategories.map(p => (
                 <div 
@@ -452,7 +451,7 @@ export default function Categories() {
                     <div className="parent-icon-circle" style={{background: (p.color || '#f1f5f9') + '20', color: p.color || '#718EBF'}}>
                       {parseIcon(p.icon || '📁')}
                     </div>
-                    <span style={{fontWeight: '600', color: 'var(--text-main)'}}>{p.name}</span>
+                    <span style={{fontWeight: '600', color: 'var(--text-main)'}}>{tCategory(p.name)}</span>
                   </div>
                   <div className={`radio-circle ${formData.parent_id === p.id ? 'checked' : ''}`}></div>
                 </div>
@@ -1131,6 +1130,18 @@ export default function Categories() {
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
+        }
+
+        .sub-item-card.read-only {
+          cursor: default;
+        }
+        .sub-item-card.read-only:hover {
+          background: transparent;
+          border-color: transparent;
+          transform: none;
+        }
+        .sub-item-card.read-only:hover .sub-icon-circle {
+          transform: none;
         }
       `}</style>
     </div>

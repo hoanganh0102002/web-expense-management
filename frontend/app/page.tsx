@@ -81,7 +81,7 @@ const getMonthsBetween = (startDateStr: string, endDateStr: string): any[] => {
 export default function Dashboard() {
   const router = useRouter();
   const { isLoggedIn, wallets, transactions, isLoadingWallets, userData, categories, hasUnreadNotifications, unreadNotificationsCount } = useAppContext();
-  const { t } = useLanguage();
+  const { t, tCategory } = useLanguage();
   const [showWalletBalance, setShowWalletBalance] = useState(true);
   const [selectedWalletId, setSelectedWalletId] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
@@ -474,7 +474,7 @@ export default function Dashboard() {
               const catId = tx.category_id || 'other';
               const fullCat = categoriesMap[catId];
               
-              const catName = fullCat?.name || tx.category?.name || tx.category_name || t('other');
+              const catName = tCategory(fullCat?.name || tx.category?.name || tx.category_name || 'Other');
               const catColor = fullCat?.color || tx.category?.color || '#718EBF';
               const catIcon = fullCat?.icon || tx.category?.icon || '📁';
               const parentId = fullCat?.parent_id || tx.category?.parent_id || null;
@@ -482,6 +482,9 @@ export default function Dashboard() {
               let parentName = fullCat?.parent_name || tx.category?.parent?.name || null;
               if (!parentName && parentId) {
                 parentName = categoriesMap[parentId]?.name || null;
+              }
+              if (parentName) {
+                parentName = tCategory(parentName);
               }
               
               if (!grouped[catId]) {
@@ -587,7 +590,12 @@ export default function Dashboard() {
       reportApi.getCategories({ start_date, end_date, type: 'expense' })
         .then(res => {
           if (res.status === 'success' && res.data) {
-            setCategoryData(res.data.categories || []);
+            const list = (res.data.categories || []).map((cat: any) => ({
+              ...cat,
+              category_name: tCategory(cat.category_name),
+              parent_name: cat.parent_name ? tCategory(cat.parent_name) : null
+            }));
+            setCategoryData(list);
           }
         })
         .catch(err => console.error("Error fetching categories:", err))
@@ -685,7 +693,7 @@ export default function Dashboard() {
       // It's a subcategory - group it into its parent
       const parentId = cat.parent_id;
       const parentCat = categoriesMap[parentId];
-      const parentName = parentCat?.name || cat.parent_name || t('other') || 'Khác';
+      const parentName = tCategory(parentCat?.name || cat.parent_name || 'Other');
       const parentColor = parentCat?.color || cat.category_color || '#718EBF';
       const parentIcon = parentCat?.icon || cat.category_icon || '📁';
       

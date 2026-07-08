@@ -2,8 +2,10 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import { authApi } from '../lib/api';
+import { useLanguage } from '../lib/translations';
 
 export default function ForgotPassword() {
+  const { t } = useLanguage();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
@@ -15,9 +17,9 @@ export default function ForgotPassword() {
 
     try {
       const response = await authApi.forgotPassword(email);
-      setMessage({ type: 'success', text: response.message || 'Đã gửi link đặt lại mật khẩu!' });
+      setMessage({ type: 'success', text: response.message || t('reset_email_sent') });
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message || 'Có lỗi xảy ra, vui lòng thử lại sau.' });
+      setMessage({ type: 'error', text: err.message || t('general_error') });
     } finally {
       setIsLoading(false);
     }
@@ -40,8 +42,8 @@ export default function ForgotPassword() {
               <span className="logo-text">EM</span>
             </div>
           </Link>
-          <h1>Quên mật khẩu?</h1>
-          <p>Đừng lo, hãy nhập email của bạn để chúng tôi gửi link đặt lại mật khẩu.</p>
+          <h1>{t('forgot_password_title')}</h1>
+          <p>{t('forgot_password_desc')}</p>
         </div>
 
         <form className="auth-form" onSubmit={handleSubmit}>
@@ -61,7 +63,7 @@ export default function ForgotPassword() {
           )}
 
           <div className="form-group">
-            <label>Địa chỉ Email</label>
+            <label>{t('email_address')}</label>
             <div className="input-with-icon">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
               <input 
@@ -76,12 +78,12 @@ export default function ForgotPassword() {
           </div>
 
           <button type="submit" className="auth-submit" disabled={isLoading}>
-            {isLoading ? 'Đang xử lý...' : 'Gửi yêu cầu reset'}
+            {isLoading ? (t('processing_wait') || 'Đang xử lý...') : t('send_reset_request')}
           </button>
         </form>
 
         <div className="auth-footer">
-           Quay lại <Link href="/login">Đăng nhập</Link>
+           {t('back_to') || 'Quay lại'} <Link href="/login">{t('login')}</Link>
         </div>
       </div>
 

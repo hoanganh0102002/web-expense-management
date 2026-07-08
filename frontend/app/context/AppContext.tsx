@@ -1,6 +1,7 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { walletApi, authApi, categoryApi, transactionApi, notificationApi } from '../lib/api';
+import { useToast } from './ToastContext';
 import { requestAndRegisterNotificationPermission, setupFCMForegroundListener } from '../lib/firebaseNotification';
 
 type AppContextType = {
@@ -46,6 +47,7 @@ const APP_CACHE_VERSION = '1.0.2';
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: React.ReactNode }) {
+  const toast = useToast();
   const fcmCleanupRef = React.useRef<(() => void) | undefined>(undefined);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userData, setUserData] = useState<any | null>(null);
@@ -496,10 +498,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     try {
       const uId = userData?.user_id || userData?.id;
       await authApi.logoutAll(uId);
-      alert('Đã đăng xuất và thu hồi phiên trên tất cả thiết bị!');
+      toast.success('Đã đăng xuất và thu hồi phiên trên tất cả thiết bị!');
       await logout();
     } catch (e: any) {
-      alert('Lỗi: ' + e.message);
+      toast.error('Lỗi: ' + e.message);
     }
   };
 
