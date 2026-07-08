@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Sidebar from '../components/Sidebar';
 import { useAppContext } from '../context/AppContext';
 import { useLanguage } from '../lib/translations';
+import { useToast } from '../context/ToastContext';
 import { apiFetch, budgetApi, transactionApi } from '../lib/api';
 import CategoryPicker from '../components/CategoryPicker';
 import Script from 'next/script';
@@ -327,6 +328,31 @@ export default function Transactions() {
     createSystemNotification
   } = useAppContext();
   const { t, tCategory } = useLanguage();
+  const toast = useToast();
+
+  const alert = (msg: string) => {
+    const lower = msg.toLowerCase();
+    if (lower.includes('thành công') || lower.includes('success') || lower.includes('ok') || lower.includes('hoàn thành')) {
+      toast.success(msg);
+    } else if (
+      lower.includes('lỗi') || lower.includes('error') || lower.includes('thất bại') || lower.includes('fail') || 
+      lower.includes('không hợp lệ') || lower.includes('không tồn tại') || lower.includes('không đủ') || 
+      lower.includes('không thể') || lower.includes('không khớp') || lower.includes('sai') || lower.includes('chưa đủ')
+    ) {
+      toast.error(msg);
+    } else if (
+      lower.includes('vui lòng') || lower.includes('yêu cầu') || lower.includes('không được') || 
+      lower.includes('phải') || lower.includes('chỉ hỗ trợ') || lower.includes('cảnh báo') || 
+      lower.includes('lưu ý') || lower.includes('chưa') || lower.includes('cần') || 
+      lower.includes('bắt buộc') || lower.includes('nhắc nhở')
+    ) {
+      toast.warning(msg);
+    } else {
+      toast.info(msg);
+    }
+  };
+
+
   const formatCurrency = (amount: number | string, currencyCode: string = 'VND') => {
     const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     if (isNaN(numericAmount)) return '0';

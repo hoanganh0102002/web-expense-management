@@ -4,6 +4,7 @@ import { AppProvider } from './context/AppContext'
 import { LanguageProvider } from './lib/translations'
 import { ThemeProvider } from './context/ThemeContext'
 import { AIChatProvider } from './context/AIChatContext'
+import { ToastProvider } from './context/ToastContext'
 import AIChatPanel from './components/AIChatPanel'
 
 export const metadata: Metadata = {
@@ -19,16 +20,18 @@ export default function RootLayout({
   return (
     <html lang="vi">
       <body>
-        <AppProvider>
-          <ThemeProvider>
-            <LanguageProvider>
-              <AIChatProvider>
-                {children}
-                <AIChatPanel />
-              </AIChatProvider>
-            </LanguageProvider>
-          </ThemeProvider>
-        </AppProvider>
+        <ToastProvider>
+          <AppProvider>
+            <ThemeProvider>
+              <LanguageProvider>
+                <AIChatProvider>
+                  {children}
+                  <AIChatPanel />
+                </AIChatProvider>
+              </LanguageProvider>
+            </ThemeProvider>
+          </AppProvider>
+        </ToastProvider>
       </body>
     </html>
   )

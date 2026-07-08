@@ -380,6 +380,14 @@ const translations: Record<string, Record<string, string>> = {
     show_balance: "Hiện số tiền",
     first_transaction_prompt: "Ghi chép giao dịch đầu tiên của bạn để theo dõi dòng tiền!",
     no_budget_set: "Chưa thiết lập ngân sách tháng này",
+
+    // Forgot Password
+    forgot_password_title: "Quên mật khẩu?",
+    forgot_password_desc: "Đừng lo, hãy nhập email của bạn để chúng tôi gửi link đặt lại mật khẩu.",
+    send_reset_request: "Gửi yêu cầu reset",
+    back_to: "Quay lại",
+    reset_email_sent: "Đã gửi link đặt lại mật khẩu!",
+    general_error: "Có lỗi xảy ra, vui lòng thử lại sau.",
   },
   en: {
     // Sidebar & Navigation
@@ -758,6 +766,13 @@ const translations: Record<string, Record<string, string>> = {
     first_transaction_prompt: "Record your first transaction to start tracking your cash flow!",
     no_budget_set: "No budget set for this month",
 
+    // Forgot Password
+    forgot_password_title: "Forgot Password?",
+    forgot_password_desc: "Don't worry, enter your email address to receive a password reset link.",
+    send_reset_request: "Send Reset Request",
+    back_to: "Back to",
+    reset_email_sent: "Password reset link sent!",
+    general_error: "An error occurred, please try again later.",
   }
 };
 
@@ -813,7 +828,7 @@ const LanguageContext = createContext<LanguageContextType | undefined>(undefined
 
 export function LanguageProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguage] = useState<Language>('vi');
-  const { userData, isLoggedIn, updateUserPreference } = useAppContext();
+  const { userData, isLoggedIn, updateUserPreference, fetchCategories, fetchWallets } = useAppContext();
 
   // 1. Initial language load from localStorage
   useEffect(() => {
@@ -833,6 +848,14 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
       }
     }
   }, [userData, isLoggedIn]);
+
+  // 3. Refetch categories and wallets when language changes
+  useEffect(() => {
+    if (isLoggedIn) {
+      if (typeof fetchCategories === 'function') fetchCategories();
+      if (typeof fetchWallets === 'function') fetchWallets();
+    }
+  }, [language, isLoggedIn]);
 
   const handleSetLanguage = async (lang: Language) => {
     setLanguage(lang);

@@ -5,6 +5,7 @@ import Script from 'next/script';
 import Sidebar from '../components/Sidebar';
 import { useAppContext } from '../context/AppContext';
 import { useLanguage } from '../lib/translations';
+import { useToast } from '../context/ToastContext';
 import { reportApi, transactionApi, budgetApi } from '../lib/api';
 import './reports.css';
 
@@ -360,7 +361,31 @@ const generateFinancialInsights = (
 export default function Reports() {
 
   const { isLoggedIn, userData, categories, wallets } = useAppContext();
-  const { t } = useLanguage();
+  const { t, tCategory } = useLanguage();
+  const toast = useToast();
+
+  const alert = (msg: string) => {
+    const lower = msg.toLowerCase();
+    if (lower.includes('thành công') || lower.includes('success') || lower.includes('ok') || lower.includes('hoàn thành')) {
+      toast.success(msg);
+    } else if (
+      lower.includes('lỗi') || lower.includes('error') || lower.includes('thất bại') || lower.includes('fail') || 
+      lower.includes('không hợp lệ') || lower.includes('không tồn tại') || lower.includes('không đủ') || 
+      lower.includes('không thể') || lower.includes('không khớp') || lower.includes('sai') || lower.includes('chưa đủ')
+    ) {
+      toast.error(msg);
+    } else if (
+      lower.includes('vui lòng') || lower.includes('yêu cầu') || lower.includes('không được') || 
+      lower.includes('phải') || lower.includes('chỉ hỗ trợ') || lower.includes('cảnh báo') || 
+      lower.includes('lưu ý') || lower.includes('chưa') || lower.includes('cần') || 
+      lower.includes('bắt buộc') || lower.includes('nhắc nhở')
+    ) {
+      toast.warning(msg);
+    } else {
+      toast.info(msg);
+    }
+  };
+
 
   const categoriesMap = React.useMemo(() => {
     const map: Record<string, any> = {};
@@ -985,16 +1010,16 @@ export default function Reports() {
       const catId = isChild ? String(catInfo.parent_id) : rawCatId;
 
       if (!categoryTotals[catId]) {
-        let catName = tx.category?.name || tx.category_name || t('other') || 'Khác';
+        let catName = tCategory(tx.category?.name || tx.category_name || 'Other');
         let catColor = tx.category?.color;
         let catIcon = tx.category?.icon || '📁';
 
         if (isChild) {
-           catName = catInfo.parent_name || catName;
+           catName = tCategory(catInfo.parent_name || catName);
            catColor = catInfo.parent_color || catColor;
            catIcon = catInfo.parent_icon || catIcon;
         } else if (catInfo) {
-           catName = catInfo.name || catName;
+           catName = tCategory(catInfo.name || catName);
            catColor = catInfo.color || catColor;
            catIcon = catInfo.icon || catIcon;
         }
@@ -1294,9 +1319,9 @@ export default function Reports() {
               const catId = String(t.category_id || 'other');
               const catInfo = categoriesMap[catId];
               if (catInfo && catInfo.parent_id) {
-                return catInfo.parent_name + ' - ' + (t.category?.name || t.category_name || catInfo.name);
+                return tCategory(catInfo.parent_name) + ' - ' + tCategory(t.category?.name || t.category_name || catInfo.name);
               }
-              return t.category?.name || t.category_name || '';
+              return tCategory(t.category?.name || t.category_name || '');
             })()}</td>
             <td>${t.wallet?.name || t.wallet_name || ''}</td>
             <td style="text-align:center;">${!(t.category?.name || t.category_name) ? 'x' : ''}</td>
@@ -1367,11 +1392,11 @@ export default function Reports() {
         
         const type = t.type === 'income' ? 'Thu nhập' : 'Chi tiêu';
         const amount = new Intl.NumberFormat('vi-VN').format(Number(t.amount) || 0);
-        let category = t.category?.name || t.category_name || '';
+        let category = tCategory(t.category?.name || t.category_name || '');
         const catId = String(t.category_id || 'other');
         const catInfo = categoriesMap[catId];
         if (catInfo && catInfo.parent_id) {
-          category = catInfo.parent_name + ' - ' + category;
+          category = tCategory(catInfo.parent_name) + ' - ' + category;
         }
         const wallet = t.wallet?.name || t.wallet_name || '';
         const isInternal = !(t.category?.name || t.category_name) ? 'x' : '';
@@ -1997,11 +2022,11 @@ export default function Reports() {
                     }
                     
                     const note = t.title || t.description || t.note || '';
-                    let categoryName = t.category?.name || t.category_name || 'Không phân mục';
+                    let categoryName = tCategory(t.category?.name || t.category_name || 'Uncategorized');
                     const catIdStr = String(t.category_id || 'other');
                     const catInfoObj = categoriesMap[catIdStr];
                     if (catInfoObj && catInfoObj.parent_id) {
-                      categoryName = catInfoObj.parent_name + ' - ' + categoryName;
+                      categoryName = tCategory(catInfoObj.parent_name) + ' - ' + categoryName;
                     }
                     const walletName = t.wallet?.name || t.wallet_name || 'Ví đã xóa';
                     const typeStr = t.type === 'income' ? 'Thu' : 'Chi';
@@ -4094,12 +4119,12 @@ export default function Reports() {
                         const percentage = totalActive > 0 ? (amount / totalActive) * 100 : 0;
                         
                         const catInfo = categoriesMap[catId];
-                        let name = 'Khác';
+                        let name = t('other') || 'Khác';
                         let icon = '📁';
                         let color = '#94A3B8';
                         
                         if (catId !== 'other' && catInfo) {
-                          name = catInfo.name || name;
+                          name = tCategory(catInfo.name || name);
                           icon = catInfo.icon || icon;
                           color = catInfo.color || color;
                         }

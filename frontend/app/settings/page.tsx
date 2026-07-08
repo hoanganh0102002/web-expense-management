@@ -7,6 +7,7 @@ import { authApi, notificationApi } from '../lib/api';
 import { useAppContext } from '../context/AppContext';
 import { useLanguage } from '../lib/translations';
 import { useTheme } from '../context/ThemeContext';
+import { useToast } from '../context/ToastContext';
 
 interface SessionItem {
   id: string;
@@ -21,6 +22,7 @@ export default function Settings() {
   const { isLoggedIn, userData, logout, logoutAll, updateUserPreference, updateUserProfile } = useAppContext();
   const { t, setLanguage: changeGlobalLanguage } = useLanguage();
   const { theme, toggleTheme } = useTheme();
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState('profile');
   const [searchQuery, setSearchQuery] = useState('');
   const router = useRouter();
@@ -65,20 +67,20 @@ export default function Settings() {
     try {
       await authApi.revokeSession(sessionId);
       setActiveSessions(prev => prev.filter(s => s.id !== sessionId));
-      alert("Đã đăng xuất thiết bị thành công!");
+      toast.success("Đã đăng xuất thiết bị thành công!");
     } catch (error) {
       const errObj = error as Error;
-      alert("Lỗi: " + errObj.message);
+      toast.error("Lỗi: " + errObj.message);
     }
   };
 
   const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
-      alert(t('fill_all_password'));
+      toast.warning(t('fill_all_password'));
       return;
     }
     if (newPassword !== confirmPassword) {
-      alert(t('password_mismatch'));
+      toast.error(t('password_mismatch'));
       return;
     }
 
@@ -89,11 +91,11 @@ export default function Settings() {
         password: newPassword,
         password_confirmation: confirmPassword
       });
-      alert(t('password_change_success'));
+      toast.success(t('password_change_success'));
       logout();
     } catch (err) {
       const error = err as Error;
-      alert(t('error_prefix') + error.message);
+      toast.error(t('error_prefix') + error.message);
     } finally {
       setIsChangingPwd(false);
     }
@@ -108,11 +110,11 @@ export default function Settings() {
 
     try {
       await authApi.deleteAccount();
-      alert(t('account_deleted'));
+      toast.success(t('account_deleted'));
       logout();
     } catch (err) {
       const error = err as Error;
-      alert(t('delete_error') + error.message);
+      toast.error(t('delete_error') + error.message);
     }
   };
 
@@ -171,10 +173,10 @@ export default function Settings() {
       } else {
         updateUserPreference(payload);
       }
-      alert(t('update_success'));
+      toast.success(t('update_success'));
     } catch (err) {
       const error = err as Error;
-      alert(t('error_prefix') + error.message);
+      toast.error(t('error_prefix') + error.message);
     } finally {
       setIsUpdating(false);
     }
@@ -196,11 +198,11 @@ export default function Settings() {
         if (data.data.avatar_url) updatedUser.avatar_url = data.data.avatar_url;
         localStorage.setItem('user_data', JSON.stringify(updatedUser));
       }
-      alert(t('avatar_update_success'));
+      toast.success(t('avatar_update_success'));
       window.location.reload();
     } catch (err) {
       const error = err as Error;
-      alert(t('error_prefix') + error.message);
+      toast.error(t('error_prefix') + error.message);
     } finally {
       setIsUpdating(false);
     }
@@ -624,7 +626,7 @@ export default function Settings() {
                         } catch (err) {
                           console.error("Lỗi cập nhật daily_reminder_enabled:", err);
                           setEmailReminder(!val);
-                          alert("Không thể lưu cài đặt. Vui lòng thử lại!");
+                          toast.error("Không thể lưu cài đặt. Vui lòng thử lại!");
                         }
                       }}
                       className={`switch-toggle-premium ${emailReminder ? 'active' : ''}`}
@@ -675,7 +677,7 @@ export default function Settings() {
                         } catch (err) {
                           console.error("Lỗi cập nhật budget_alert_enabled:", err);
                           setBudgetAlert(!val);
-                          alert("Không thể lưu cài đặt. Vui lòng thử lại!");
+                          toast.error("Không thể lưu cài đặt. Vui lòng thử lại!");
                         }
                       }}
                       className={`switch-toggle-premium ${budgetAlert ? 'active' : ''}`}
@@ -726,7 +728,7 @@ export default function Settings() {
                         } catch (err) {
                           console.error("Lỗi cập nhật recurring_alert_enabled:", err);
                           setRecurringAlert(!val);
-                          alert("Không thể lưu cài đặt. Vui lòng thử lại!");
+                          toast.error("Không thể lưu cài đặt. Vui lòng thử lại!");
                         }
                       }}
                       className={`switch-toggle-premium ${recurringAlert ? 'active' : ''}`}
@@ -775,7 +777,7 @@ export default function Settings() {
                             await notificationApi.updatePreferences({ notification_frequency: val });
                           } catch (err) {
                             console.error("Lỗi cập nhật notification_frequency:", err);
-                            alert("Không thể lưu cài đặt. Vui lòng thử lại!");
+                            toast.error("Không thể lưu cài đặt. Vui lòng thử lại!");
                           }
                         }}
                         className="settings-input-premium"
