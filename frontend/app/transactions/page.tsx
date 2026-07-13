@@ -107,11 +107,30 @@ const parseNotesAndTitle = (title: string, notes: string | null, payee: any): { 
     };
   }
 
+  const trimmedNotes = notes.trim();
+  if (trimmedNotes === 'Recurring transaction automatically created from rule.' || 
+      trimmedNotes === 'Recurring transaction automatically created from rule') {
+    return {
+      displayTitle: cleanedFallbackTitle,
+      displayNotes: ''
+    };
+  }
+
   // Match bracket format: starts with [something] optionally followed by notes
   const match = notes.match(/^\[(.*?)\]\s*([\s\S]*)$/);
   if (match) {
     const extractedTitle = match[1].trim();
     const remainingNotes = match[2].trim();
+    const trimmedRemaining = remainingNotes.trim();
+    
+    if (trimmedRemaining === 'Recurring transaction automatically created from rule.' || 
+        trimmedRemaining === 'Recurring transaction automatically created from rule') {
+      return {
+        displayTitle: extractedTitle || cleanedFallbackTitle,
+        displayNotes: ''
+      };
+    }
+    
     return {
       displayTitle: extractedTitle || cleanedFallbackTitle,
       displayNotes: remainingNotes
@@ -120,7 +139,7 @@ const parseNotesAndTitle = (title: string, notes: string | null, payee: any): { 
 
   return {
     displayTitle: cleanedFallbackTitle,
-    displayNotes: notes.trim()
+    displayNotes: trimmedNotes
   };
 };
 
@@ -440,6 +459,45 @@ export default function Transactions() {
   });
 
   const [payees, setPayees] = useState<any[]>([]);
+
+  const getViewingPayeeName = (tx: any) => {
+    if (!tx) return null;
+    if (tx.payee?.payee_name || tx.payee?.name) {
+      return `${tx.payee.payee_name || tx.payee.name} (${tx.payee.identifier || ''})`;
+    }
+    if (tx.payee_id && payees.length > 0) {
+      const p = payees.find((p: any) => String(p.id) === String(tx.payee_id));
+      if (p) return `${p.payee_name || p.name} (${p.identifier || ''})`;
+    }
+    if ((tx.source_type === 'recurring' || tx.source_type === 'transfer') && recurringTransactions.length > 0) {
+      const ruleId = tx.recurring_rule_id || tx.rule_id || tx.source_id;
+      if (ruleId) {
+        const rule = recurringTransactions.find((r: any) => String(r.id) === String(ruleId));
+        if (rule) {
+          if (rule.payee?.payee_name || rule.payee?.name) {
+            return `${rule.payee.payee_name || rule.payee.name} (${rule.payee.identifier || ''})`;
+          }
+          if (rule.payee_id && payees.length > 0) {
+            const p = payees.find((p: any) => String(p.id) === String(rule.payee_id));
+            if (p) return `${p.payee_name || p.name} (${p.identifier || ''})`;
+          }
+        }
+      }
+    }
+    return null;
+  };
+
+  const getViewingRulePayeeName = (ruleTx: any) => {
+    if (!ruleTx) return null;
+    if (ruleTx.payee?.payee_name || ruleTx.payee?.name) {
+      return `${ruleTx.payee.payee_name || ruleTx.payee.name} (${ruleTx.payee.identifier || ''})`;
+    }
+    if (ruleTx.payee_id && payees.length > 0) {
+      const p = payees.find((p: any) => String(p.id) === String(ruleTx.payee_id));
+      if (p) return `${p.payee_name || p.name} (${p.identifier || ''})`;
+    }
+    return null;
+  };
 
   const [isClassifyingNew, setIsClassifyingNew] = useState(false);
   const [isClassifyingEdit, setIsClassifyingEdit] = useState(false);
@@ -2739,7 +2797,7 @@ export default function Transactions() {
                   <thead style={{ color: '#718EBF', borderBottom: '1px solid var(--border-color)' }}>
                     <tr>
                       <th style={{ fontWeight: '600' }}>Tên giao dịch</th>
-                      <th style={{ fontWeight: '600' }}>{t('description') || 'Mô tả'}</th>
+                      <th style={{ fontWeight: '600' }}>Người hưởng thụ</th>
                       <th style={{ fontWeight: '600' }}>{t('amount_label') || 'Số tiền'}</th>
                       <th style={{ fontWeight: '600' }}>Loại</th>
                       <th style={{ fontWeight: '600' }}>Tần suất</th>
@@ -2770,24 +2828,36 @@ export default function Transactions() {
                               <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{parseNotesAndTitle(tx.title || tx.description || tx.name, tx.notes, tx.payee).displayTitle}</span>
                             </div>
                           </td>
-                          <td style={{ minWidth: '150px' }}>
+                           <td style={{ minWidth: '150px' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                              {tx.payee && (
-                                <div style={{ fontSize: '13px', color: 'var(--text-main)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  <span style={{ fontSize: '14px' }}>👤</span>
-                                  <span>
-                                    {tx.type === 'income' ? 'Người trả' : 'Người hưởng thụ'}:{' '}
-                                    <strong>{tx.payee.payee_name || tx.payee.name}</strong>
-                                  </span>
-                                </div>
-                              )}
+                              {(() => {
+                                const getRulePayeeName = () => {
+                                  if (tx.payee?.payee_name || tx.payee?.name) return tx.payee.payee_name || tx.payee.name;
+                                  if (tx.payee_id && payees.length > 0) {
+                                    const p = payees.find((p: any) => String(p.id) === String(tx.payee_id));
+                                    if (p) return p.payee_name || p.name;
+                                  }
+                                  return null;
+                                };
+                                const rulePayee = getRulePayeeName();
+                                if (rulePayee) {
+                                  return (
+                                    <div style={{ fontSize: '13px', color: 'var(--text-main)', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                      <span style={{ fontSize: '14px' }}>👤</span>
+                                      <span>
+                                        {tx.type === 'income' ? 'Người trả' : 'Người hưởng thụ'}:{' '}
+                                        <strong>{rulePayee}</strong>
+                                      </span>
+                                    </div>
+                                  );
+                                }
+                                return <span style={{ color: 'var(--text-light)', fontSize: '13px' }}>-</span>;
+                              })()}
                               {parseNotesAndTitle(tx.title || tx.description || tx.name, tx.notes, tx.payee).displayNotes ? (
-                                <div style={{ fontSize: '12px', color: '#718EBF', fontStyle: 'italic', marginTop: tx.payee ? '2px' : '0' }}>
+                                <div style={{ fontSize: '12px', color: '#718EBF', fontStyle: 'italic', marginTop: '2px' }}>
                                   {parseNotesAndTitle(tx.title || tx.description || tx.name, tx.notes, tx.payee).displayNotes}
                                 </div>
-                              ) : (
-                                !tx.payee && <span style={{ color: 'var(--text-light)', fontSize: '13px' }}>-</span>
-                              )}
+                              ) : null}
                             </div>
                           </td>
                           <td style={{ color: tx.type === 'income' ? '#16DBCC' : '#FE5C73', fontWeight: '700', fontSize: '15px' }}>
@@ -2982,7 +3052,7 @@ export default function Transactions() {
                           const p = payees.find((p: any) => String(p.id) === String(tx.payee_id));
                           if (p) return p.payee_name || p.name;
                         }
-                        if (tx.source_type === 'recurring' && recurringTransactions.length > 0) {
+                        if ((tx.source_type === 'recurring' || tx.source_type === 'transfer') && recurringTransactions.length > 0) {
                           const ruleId = tx.recurring_rule_id || tx.rule_id || tx.source_id;
                           if (ruleId) {
                             const rule = recurringTransactions.find((r: any) => String(r.id) === String(ruleId));
@@ -2998,6 +3068,23 @@ export default function Transactions() {
                         return null;
                       };
                       const resolvedPayeeName = getPayeeName();
+
+                      const getRecurringRuleDescription = () => {
+                        if ((tx.source_type === 'recurring' || tx.source_type === 'transfer') && recurringTransactions.length > 0) {
+                          const ruleId = tx.recurring_rule_id || tx.rule_id || tx.source_id;
+                          if (ruleId) {
+                            const rule = recurringTransactions.find((r: any) => String(r.id) === String(ruleId));
+                            if (rule) {
+                              const parsed = parseNotesAndTitle(rule.title || rule.name || '', rule.notes, rule.payee);
+                              if (parsed.displayNotes) {
+                                return parsed.displayNotes;
+                              }
+                              return `Tự động tạo theo quy tắc: ${parsed.displayTitle}`;
+                            }
+                          }
+                        }
+                        return null; // Trả về null nếu không phải giao dịch tự động của quy tắc định kỳ
+                      };
 
                       return (
                         <tr
@@ -3050,7 +3137,13 @@ export default function Transactions() {
                                   {parseNotesAndTitle(tx.title, tx.notes, tx.payee).displayNotes}
                                 </div>
                               ) : (
-                                ((activeTab !== 'recurring_history' && !resolvedPayeeName) || (activeTab === 'recurring_history')) && <span style={{ color: 'var(--text-light)', fontSize: '13px' }}>-</span>
+                                getRecurringRuleDescription() ? (
+                                  <div style={{ fontSize: '12px', color: '#718EBF', fontStyle: 'italic', marginTop: (activeTab !== 'recurring_history' && resolvedPayeeName) ? '2px' : '0' }}>
+                                    🔄 {getRecurringRuleDescription()}
+                                  </div>
+                                ) : (
+                                  !(activeTab !== 'recurring_history' && resolvedPayeeName) && <span style={{ color: 'var(--text-light)', fontSize: '13px' }}>-</span>
+                                )
                               )}
                             </div>
                           </td>
@@ -3916,6 +4009,12 @@ export default function Transactions() {
                 <span style={{ color: '#718EBF', fontWeight: '500' }}>Danh mục</span>
                 <span style={{ fontWeight: '600' }}>{viewingRuleTx.category?.name || '-'}</span>
               </div>
+              {getViewingRulePayeeName(viewingRuleTx) && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
+                  <span style={{ color: '#718EBF', fontWeight: '500' }}>{viewingRuleTx.type === 'income' ? 'Người trả' : 'Người hưởng thụ'}</span>
+                  <span style={{ fontWeight: '600' }}>{getViewingRulePayeeName(viewingRuleTx)}</span>
+                </div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
                 <span style={{ color: '#718EBF', fontWeight: '500' }}>Tần suất lặp lại</span>
                 <span style={{ fontWeight: '600' }}>
@@ -4003,10 +4102,10 @@ export default function Transactions() {
                   {viewingTx.isStub ? <div className="stub-skeleton" style={{ width: '140px' }} /> : (viewingTx.category?.name || '-')}
                 </span>
               </div>
-              {viewingTx.payee && (
+              {getViewingPayeeName(viewingTx) && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
-                  <span style={{ color: '#718EBF', fontWeight: '500' }}>Người hưởng thụ</span>
-                  <span style={{ fontWeight: '600' }}>{viewingTx.payee.payee_name || viewingTx.payee.name} ({viewingTx.payee.identifier})</span>
+                  <span style={{ color: '#718EBF', fontWeight: '500' }}>{viewingTx.type === 'income' ? 'Người trả' : 'Người hưởng thụ'}</span>
+                  <span style={{ fontWeight: '600' }}>{getViewingPayeeName(viewingTx)}</span>
                 </div>
               )}
               <div style={{ display: 'flex', justifyContent: 'space-between', paddingBottom: '12px', borderBottom: '1px solid var(--border-color)' }}>
