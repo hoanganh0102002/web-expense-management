@@ -364,7 +364,7 @@ const translations: Record<string, Record<string, string>> = {
     no_transactions_found: "Không tìm thấy giao dịch nào",
 
     // Category Extra
-    limit_reached: "Tạo thêm (0/20) để quản lý tốt hơn",
+    limit_reached: "Tạo thêm (0/20) để quản lý tốt hơn",//thay đổi giới hạn 20 thành 50 hay số nào cũng đc
     set_as_parent: "Thiết lập là Danh mục mẹ",
     cat_name_placeholder: "Ví dụ: Ăn uống, Di chuyển...",
     choose_icon_color: "Chọn biểu tượng & màu",
@@ -749,7 +749,7 @@ const translations: Record<string, Record<string, string>> = {
     no_transactions_found: "No transactions found",
 
     // Category Extra
-    limit_reached: "Create more (0/20) for better management",
+    limit_reached: "Create more (0/20) for better management", // Đổi 20 thành 50
     set_as_parent: "Set as Parent Category",
     cat_name_placeholder: "e.g. Food, Transport...",
     choose_icon_color: "Choose Icon & Color",
@@ -774,7 +774,20 @@ const translations: Record<string, Record<string, string>> = {
     reset_email_sent: "Password reset link sent!",
     general_error: "An error occurred, please try again later.",
   }
+
 };
+// const translations: Record<string, Record<string, string>> = {
+//   vi: { ... },
+//   en: { ... },
+//   ja: { // Thêm phần tiếng Nhật
+//     categories: "カテゴリ",
+//     wallets: "マイウォレット",
+//     transactions: "トランザクション",
+//     dashboard: "ダッシュボード",
+//     settings: "設定",
+//     logout: "ログアウト",
+//   }
+// };
 
 export const getCategoryTranslationKey = (name: string): string => {
   if (!name) return '';
@@ -815,13 +828,14 @@ export const getCategoryTranslationKey = (name: string): string => {
   }
 };
 
-type Language = 'vi' | 'en';
+type Language = 'vi' | 'en'; //'ja'
 
 interface LanguageContextType {
   language: Language;
   setLanguage: (lang: Language) => void;
   t: (key: string) => string;
   tCategory: (name: string) => string;
+
 }
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -834,6 +848,7 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const savedLang = localStorage.getItem('app_lang') as Language;
     if (savedLang && (savedLang === 'vi' || savedLang === 'en')) {
+      //if (savedLang && (savedLang === 'vi' || savedLang === 'en' || savedLang === 'ja')) thêm này vào bỏ if trên 
       setLanguage(savedLang);
     }
   }, []);
