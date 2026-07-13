@@ -770,36 +770,36 @@ export default function Wallets() {
   };
 
   return (
-    <div className="dashboard-container"> // Khung chứa bố cục
+    <div className="dashboard-container">
       <Sidebar activeItem="wallets" />
       <main className="main-content wallets-main">
         <nav className="navbar wallets-navbar">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}> // Khung chứa bố cục
-            <h1 className="page-title wallets-title" style={{ margin: 0 }}>{t('wallets_and_accounts')}</h1> // Tiêu đề cấp 1
-            <span style={{ color: 'var(--text-light)', opacity: 0.6 }}>•</span> // Nhãn văn bản ngắn
-            <button // Nút bấm chức năng
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <h1 className="page-title wallets-title" style={{ margin: 0 }}>{t('wallets_and_accounts')}</h1>
+            <span style={{ color: 'var(--text-light)', opacity: 0.6 }}>•</span>
+            <button
               onClick={() => setShowWalletBalance(!showWalletBalance)}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#718EBF', display: 'flex', alignItems: 'center', padding: '5px' }}
               title={showWalletBalance ? "Ẩn số tiền" : "Hiện số tiền"}
             >
               {showWalletBalance ? (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"> // Biểu tượng véc tơ SVG
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path> // Đoạn văn văn bản
-                  <circle cx="12" cy="12" r="3"></circle> // Hình tròn SVG
-                </svg> // Đóng biểu tượng SVG
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                  <circle cx="12" cy="12" r="3"></circle>
+                </svg>
               ) : (
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"> // Biểu tượng véc tơ SVG
-                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path> // Đoạn văn văn bản
-                  <line x1="1" y1="1" x2="23" y2="23"></line> // Đường kẻ SVG
-                </svg> // Đóng biểu tượng SVG
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                  <line x1="1" y1="1" x2="23" y2="23"></line>
+                </svg>
               )}
-            </button> // Đóng nút bấm
-          </div> // Đóng khung bố cục
-          <div className="nav-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}> // Khung chứa bố cục
-            <button // Nút bấm chức năng
+            </button>
+          </div>
+          <div className="nav-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
               onClick={() => {
                 if (!isLoggedIn) {
-                  alert(t('login_required_to_create_wallet')); // Hiển thị hộp thông báo
+                  alert(t('login_required_to_create_wallet'));
                   return;
                 }
                 setShowModal('deposit');
@@ -807,172 +807,172 @@ export default function Wallets() {
               className="secondary-action-btn btn-deposit"
               style={{ background: '#E8F5E9', color: '#2E7D32', borderColor: '#C8E6C9' }}
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"> // Biểu tượng véc tơ SVG
-                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" /> // Đoạn văn văn bản
-              </svg> // Đóng biểu tượng SVG
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+              </svg>
               Nạp tiền
-            </button> // Đóng nút bấm
-            <button // Nút bấm chức năng
+            </button>
+            <button
               onClick={() => {
                 if (!isLoggedIn) {
-                  alert(t('login_required_to_create_wallet')); // Hiển thị hộp thông báo
+                  alert(t('login_required_to_create_wallet'));
                   return;
                 }
                 setShowModal('transfer');
               }}
               className="secondary-action-btn btn-transfer"
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"> // Biểu tượng véc tơ SVG
-                <path d="M8 10L4 6l4-4" /> // Đoạn văn văn bản
-                <path d="M4 6h16" /> // Đoạn văn văn bản
-                <path d="M16 14l4 4-4 4" /> // Đoạn văn văn bản
-                <path d="M20 18H4" /> // Đoạn văn văn bản
-              </svg> // Đóng biểu tượng SVG
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 10L4 6l4-4" />
+                <path d="M4 6h16" />
+                <path d="M16 14l4 4-4 4" />
+                <path d="M20 18H4" />
+              </svg>
               Chuyển tiền
-            </button> // Đóng nút bấm
-            <button // Nút bấm chức năng
+            </button>
+            <button
               onClick={() => setShowExchangeModal(true)}
               className="secondary-action-btn btn-exchange"
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"> // Biểu tượng véc tơ SVG
-                <line x1="12" y1="1" x2="12" y2="23"></line> // Đường kẻ SVG
-                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path> // Đoạn văn văn bản
-              </svg> // Đóng biểu tượng SVG
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="1" x2="12" y2="23"></line>
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+              </svg>
               Đổi ngoại tệ
-            </button> // Đóng nút bấm
+            </button>
             {isLoggedIn && (
-              <button // Nút bấm chức năng
+              <button
                 onClick={() => setShowQrModal(true)}
                 className="secondary-action-btn btn-qr"
               >
                 <QrIcon size={15} />
                 Mã QR
-              </button> // Đóng nút bấm
+              </button>
             )}
-            <button // Nút bấm chức năng
+            <button
               onClick={() => {
                 if (!isLoggedIn) {
-                  alert(t('login_required_to_create_wallet')); // Hiển thị hộp thông báo
+                  alert(t('login_required_to_create_wallet'));
                   return;
                 }
                 setShowModal('create');
               }}
               className="primary-action-btn"
             >
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"> // Biểu tượng véc tơ SVG
-                <line x1="12" y1="5" x2="12" y2="19"></line> // Đường kẻ SVG
-                <line x1="5" y1="12" x2="19" y2="12"></line> // Đường kẻ SVG
-              </svg> // Đóng biểu tượng SVG
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
               Tạo ví mới
-            </button> // Đóng nút bấm
+            </button>
             {isLoggedIn ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}> // Khung chứa bố cục
-                <span style={{ fontWeight: '600', color: '#343C6A', fontSize: '15px' }}> // Nhãn văn bản ngắn
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                <span style={{ fontWeight: '600', color: '#343C6A', fontSize: '15px' }}>
                   {userData?.profile?.full_name || userData?.full_name || userData?.name || t('new_user')}
-                </span> // Đóng nhãn văn bản
-                <div style={{ position: 'relative', width: '45px', height: '45px' }}> // Khung chứa bố cục
-                  <img // Hình ảnh minh họa
+                </span>
+                <div style={{ position: 'relative', width: '45px', height: '45px' }}>
+                  <img
                     src={userData?.profile?.avatar_url || userData?.avatar_url || userData?.avatar || "https://api.dicebear.com/7.x/miniavs/svg?seed=EM&backgroundColor=b6e3f4"}
                     alt="Avatar"
                     style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }}
                   />
-                  <div style={{ position: 'absolute', bottom: 0, right: 0, width: '12px', height: '12px', background: '#16DBCC', border: '2px solid #fff', borderRadius: '50%' }}></div> // Khung chứa bố cục
-                </div> // Đóng khung bố cục
-              </div> // Đóng khung bố cục
+                  <div style={{ position: 'absolute', bottom: 0, right: 0, width: '12px', height: '12px', background: '#16DBCC', border: '2px solid #fff', borderRadius: '50%' }}></div>
+                </div>
+              </div>
             ) : (
               <Link href="/login" style={{ textDecoration: 'none', color: '#fff', background: '#343C6A', padding: '8px 15px', borderRadius: '20px', fontWeight: 'bold' }}>{t('login')}</Link>
             )}
-          </div> // Đóng khung bố cục
+          </div>
         </nav>
-        <div className="content-area wallets-container"> // Khung chứa bố cục
+        <div className="content-area wallets-container">
           {/* Tab Selector */}
-          <div className="wallets-tabs" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', marginBottom: '24px' }}> // Khung chứa bố cục
-            <div style={{ display: 'flex', gap: '8px' }}> // Khung chứa bố cục
-              <button // Nút bấm chức năng
+          <div className="wallets-tabs" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border-color)', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
                 onClick={() => setActiveTab('wallets')}
                 style={{
-                  padding: '12px 24px', /* Khoảng cách đệm */
-                  fontWeight: '700', /* Độ đậm chữ */
-                  fontSize: '16px', /* Cỡ chữ */
-                  cursor: 'pointer', /* Con trỏ chuột bàn tay */
-                  color: activeTab === 'wallets' ? '#1814F3' : 'var(--text-light)', /* Màu chữ */
+                  padding: '12px 24px', 
+                  fontWeight: '700', 
+                  fontSize: '16px', 
+                  cursor: 'pointer', 
+                  color: activeTab === 'wallets' ? '#1814F3' : 'var(--text-light)', 
                   borderBottom: activeTab === 'wallets' ? '3px solid #1814F3' : '3px solid transparent',
-                  transition: 'all 0.2s', /* Hiệu ứng mượt mà */
-                  background: 'none', /* Màu nền gradient */
+                  transition: 'all 0.2s', 
+                  background: 'none', 
                   borderTop: 'none', borderLeft: 'none', borderRight: 'none'
                 }}
               >
                 {t('wallets') || 'Ví của tôi'}
-              </button> // Đóng nút bấm
-              <button // Nút bấm chức năng
+              </button>
+              <button
                 onClick={() => setActiveTab('savings')}
                 style={{
-                  padding: '12px 24px', /* Khoảng cách đệm */
-                  fontWeight: '700', /* Độ đậm chữ */
-                  fontSize: '16px', /* Cỡ chữ */
-                  cursor: 'pointer', /* Con trỏ chuột bàn tay */
-                  color: activeTab === 'savings' ? '#1814F3' : 'var(--text-light)', /* Màu chữ */
+                  padding: '12px 24px', 
+                  fontWeight: '700', 
+                  fontSize: '16px', 
+                  cursor: 'pointer', 
+                  color: activeTab === 'savings' ? '#1814F3' : 'var(--text-light)', 
                   borderBottom: activeTab === 'savings' ? '3px solid #1814F3' : '3px solid transparent',
-                  transition: 'all 0.2s', /* Hiệu ứng mượt mà */
-                  background: 'none', /* Màu nền gradient */
+                  transition: 'all 0.2s', 
+                  background: 'none', 
                   borderTop: 'none', borderLeft: 'none', borderRight: 'none'
                 }}
               >
                 Ví tiết kiệm (Heo đất)
-              </button> // Đóng nút bấm
-            </div> // Đóng khung bố cục
+              </button>
+            </div>
 
-            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}> // Khung chứa bố cục
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '8px' }}>
               {/* Toggle Hidden Wallets (Only show if activeTab === 'wallets' and there are hidden wallets) */}
               {activeTab === 'wallets' && wallets.some(w => w.is_hidden) && (
-                <button // Nút bấm chức năng
+                <button
                   onClick={() => setShowHiddenWallets(!showHiddenWallets)}
                   style={{
-                    display: 'flex', /* Hiển thị kiểu hộp Flex */
-                    alignItems: 'center', /* Căn giữa trục phụ */
-                    gap: '6px', /* Khoảng cách các ô con */
-                    padding: '6px 12px', /* Khoảng cách đệm */
-                    borderRadius: '20px', /* Bo tròn góc khung */
-                    border: '1px solid var(--border-color)', /* Đường viền */
-                    background: showHiddenWallets ? 'rgba(24, 20, 243, 0.05)' : 'var(--card-bg)', /* Màu nền gradient */
-                    color: showHiddenWallets ? '#1814F3' : 'var(--text-light)', /* Màu chữ */
-                    cursor: 'pointer', /* Con trỏ chuột bàn tay */
-                    fontSize: '13px', /* Cỡ chữ */
-                    fontWeight: '600', /* Độ đậm chữ */
-                    transition: 'all 0.2s' /* Hiệu ứng mượt mà */
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: '6px', 
+                    padding: '6px 12px', 
+                    borderRadius: '20px', 
+                    border: '1px solid var(--border-color)', 
+                    background: showHiddenWallets ? 'rgba(24, 20, 243, 0.05)' : 'var(--card-bg)', 
+                    color: showHiddenWallets ? '#1814F3' : 'var(--text-light)', 
+                    cursor: 'pointer', 
+                    fontSize: '13px', 
+                    fontWeight: '600', 
+                    transition: 'all 0.2s' 
                   }}
                   title={showHiddenWallets ? "Ẩn ví ẩn" : "Hiện ví ẩn"}
                 >
                   {showHiddenWallets ? (
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"> // Biểu tượng véc tơ SVG
-                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path> // Đoạn văn văn bản
-                      <line x1="1" y1="1" x2="23" y2="23"></line> // Đường kẻ SVG
-                    </svg> // Đóng biểu tượng SVG
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                      <line x1="1" y1="1" x2="23" y2="23"></line>
+                    </svg>
                   ) : (
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"> // Biểu tượng véc tơ SVG
-                      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" /> // Đoạn văn văn bản
-                      <circle cx="12" cy="12" r="3" /> // Hình tròn SVG
-                    </svg> // Đóng biểu tượng SVG
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
                   )}
-                  <span>{showHiddenWallets ? 'Ẩn ví ẩn' : 'Hiện ví ẩn'}</span> // Nhãn văn bản ngắn
-                </button> // Đóng nút bấm
+                  <span>{showHiddenWallets ? 'Ẩn ví ẩn' : 'Hiện ví ẩn'}</span>
+                </button>
               )}
-            </div> // Đóng khung bố cục
-          </div> // Đóng khung bố cục
+            </div>
+          </div>
 
-          <div className="tab-pane-animation" key={activeTab}> // Khung chứa bố cục
+          <div className="tab-pane-animation" key={activeTab}>
             {activeTab === 'wallets' ? (
               isLoadingWallets ? (
-                <div style={{ textAlign: 'center', padding: '40px' }}>{t('loading')}</div> // Khung chứa bố cục
+                <div style={{ textAlign: 'center', padding: '40px' }}>{t('loading')}</div>
               ) : wallets.length === 0 ? (
-                <div className="wallets-empty-state" style={{ margin: '20px auto' }}> // Khung chứa bố cục
-                  <div className="empty-state-icon">👛</div> // Khung chứa bố cục
-                  <h3 className="empty-state-title">{t('no_wallets')}</h3> // Tiêu đề cấp 3
-                  <p className="empty-state-desc">{t('no_wallets_desc')}</p> // Đoạn văn văn bản
-                  <button // Nút bấm chức năng
+                <div className="wallets-empty-state" style={{ margin: '20px auto' }}>
+                  <div className="empty-state-icon">👛</div>
+                  <h3 className="empty-state-title">{t('no_wallets')}</h3>
+                  <p className="empty-state-desc">{t('no_wallets_desc')}</p>
+                  <button
                     onClick={() => {
                       if (!isLoggedIn) {
-                        alert(t('login_required_to_create_wallet')); // Hiển thị hộp thông báo
+                        alert(t('login_required_to_create_wallet'));
                         return;
                       }
                       setShowModal('create');
@@ -980,10 +980,10 @@ export default function Wallets() {
                     className="create-wallet-btn"
                   >
                     {t('create_wallet_now')}
-                  </button> // Đóng nút bấm
-                </div> // Đóng khung bố cục
+                  </button>
+                </div>
               ) : (
-                <div className="wallets-grid"> // Khung chứa bố cục
+                <div className="wallets-grid">
                   {wallets
                     .filter((w) => !w.is_hidden || showHiddenWallets)
                     .map((w) => {
@@ -993,114 +993,114 @@ export default function Wallets() {
                       const iconBg = getIconBgColor(cardColor);
 
                       return (
-                        <div key={w.id} className="wallet-card" style={{ background: cardColor, color: txtColor, opacity: w.is_hidden ? 0.6 : 1 }}> // Khung chứa bố cục
-                          <div className="wallet-card-decoration"></div> // Khung chứa bố cục
-                          <div className="wallet-card-header"> // Khung chứa bố cục
-                            <div> // Khung chứa bố cục
-                              <div className="wallet-label" style={{ color: muteColor }}>{t('balance_label')}</div> // Khung chứa bố cục
-                              <div className="wallet-balance"> // Khung chứa bố cục
+                        <div key={w.id} className="wallet-card" style={{ background: cardColor, color: txtColor, opacity: w.is_hidden ? 0.6 : 1 }}>
+                          <div className="wallet-card-decoration"></div>
+                          <div className="wallet-card-header">
+                            <div>
+                              <div className="wallet-label" style={{ color: muteColor }}>{t('balance_label')}</div>
+                              <div className="wallet-balance">
                                 {showWalletBalance ? (
                                   <>
                                     {formatWalletBalance(w.available_balance || 0)}
-                                    <span className="currency-symbol">đ</span> // Nhãn văn bản ngắn
+                                    <span className="currency-symbol">đ</span>
                                   </>
                                 ) : '******'}
-                              </div> // Đóng khung bố cục
-                            </div> // Đóng khung bố cục
-                            <div className="wallet-icon-wrapper" style={{ background: iconBg, color: txtColor }}> // Khung chứa bố cục
+                              </div>
+                            </div>
+                            <div className="wallet-icon-wrapper" style={{ background: iconBg, color: txtColor }}>
                               {renderWalletIcon(w.icon || 'wallet', 22)}
-                            </div> // Đóng khung bố cục
-                          </div> // Đóng khung bố cục
+                            </div>
+                          </div>
 
-                          <div className="wallet-card-footer"> // Khung chứa bố cục
-                            <div> // Khung chứa bố cục
-                              <div className="wallet-name" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}> // Khung chứa bố cục
-                                <span>{w.name}</span> // Nhãn văn bản ngắn
+                          <div className="wallet-card-footer">
+                            <div>
+                              <div className="wallet-name" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                <span>{w.name}</span>
                                 {w.is_hidden && (
-                                  <span style={{ /* Nhãn văn bản ngắn */
-                                    fontSize: '9px', /* Cỡ chữ */
-                                    fontWeight: '800', /* Độ đậm chữ */
-                                    background: getContrastColor(cardColor) === '#FFFFFF' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.08)', /* Màu nền gradient */
-                                    color: getContrastColor(cardColor) === '#FFFFFF' ? '#FF8A8A' : '#EF4444', /* Màu chữ */
-                                    padding: '2px 6px', /* Khoảng cách đệm */
-                                    borderRadius: '10px', /* Bo tròn góc khung */
+                                  <span style={{ 
+                                    fontSize: '9px', 
+                                    fontWeight: '800', 
+                                    background: getContrastColor(cardColor) === '#FFFFFF' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.08)', 
+                                    color: getContrastColor(cardColor) === '#FFFFFF' ? '#FF8A8A' : '#EF4444', 
+                                    padding: '2px 6px', 
+                                    borderRadius: '10px', 
                                     textTransform: 'uppercase'
                                   }}>
                                     Đã ẩn
-                                  </span> // Đóng nhãn văn bản
+                                  </span>
                                 )}
                                 {w.is_default_receiving && (
-                                  <span style={{ /* Nhãn văn bản ngắn */
-                                    fontSize: '9px', /* Cỡ chữ */
-                                    fontWeight: '800', /* Độ đậm chữ */
-                                    background: getContrastColor(cardColor) === '#FFFFFF' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.08)', /* Màu nền gradient */
-                                    color: getContrastColor(cardColor) === '#FFFFFF' ? '#B9F6CA' : '#10B981', /* Màu chữ */
-                                    padding: '2px 6px', /* Khoảng cách đệm */
-                                    borderRadius: '10px', /* Bo tròn góc khung */
+                                  <span style={{ 
+                                    fontSize: '9px', 
+                                    fontWeight: '800', 
+                                    background: getContrastColor(cardColor) === '#FFFFFF' ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.08)', 
+                                    color: getContrastColor(cardColor) === '#FFFFFF' ? '#B9F6CA' : '#10B981', 
+                                    padding: '2px 6px', 
+                                    borderRadius: '10px', 
                                     textTransform: 'uppercase'
                                   }}>
                                     Nhận mặc định
-                                  </span> // Đóng nhãn văn bản
+                                  </span>
                                 )}
-                              </div> // Đóng khung bố cục
-                              <div className="wallet-type-label" style={{ color: muteColor }}> // Khung chứa bố cục
+                              </div>
+                              <div className="wallet-type-label" style={{ color: muteColor }}>
                                 {t('type_label_prefix')}{w.type === 'cash' ? t('cash') : w.type === 'bank' ? t('bank') : t('ewallet')}
-                              </div> // Đóng khung bố cục
-                            </div> // Đóng khung bố cục
-                            <div className="wallet-actions"> // Khung chứa bố cục
-                              <button // Nút bấm chức năng
+                              </div>
+                            </div>
+                            <div className="wallet-actions">
+                              <button
                                 onClick={() => openHistory(w)}
                                 className="action-btn-edit"
                                 style={{ background: iconBg, color: txtColor }}
                               >
                                 Lịch sử
-                              </button> // Đóng nút bấm
-                              <button // Nút bấm chức năng
+                              </button>
+                              <button
                                 onClick={() => openEdit(w)}
                                 className="action-btn-edit"
                                 style={{ background: iconBg, color: txtColor }}
                               >
                                 {t('edit')}
-                              </button> // Đóng nút bấm
-                              <button // Nút bấm chức năng
+                              </button>
+                              <button
                                 onClick={() => handleDelete(w.id)}
                                 className="action-btn-delete"
                                 style={{ color: w.color ? (txtColor === '#FFFFFF' ? '#FF8A8A' : '#EF4444') : '#EF4444' }}
                               >
                                 {t('delete')}
-                              </button> // Đóng nút bấm
-                            </div> // Đóng khung bố cục
-                          </div> // Đóng khung bố cục
-                        </div> // Đóng khung bố cục
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                       );
                     })}
-                </div> // Đóng khung bố cục
+                </div>
               )
             ) : (
               // SAVINGS TAB
               isLoadingSavings ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-light)', fontWeight: '600' }}> // Khung chứa bố cục
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-light)', fontWeight: '600' }}>
                   {t('loading') || 'Đang tải dữ liệu...'}
-                </div> // Đóng khung bố cục
+                </div>
               ) : savingsError ? (
-                <div className="savings-empty-state" style={{ borderColor: 'var(--danger)', margin: '20px auto' }}> // Khung chứa bố cục
-                  <div className="empty-state-icon" style={{ animation: 'none' }}>⚠️</div> // Khung chứa bố cục
-                  <h3 className="empty-state-title" style={{ color: 'var(--danger)' }}>Đã xảy ra lỗi</h3> // Tiêu đề cấp 3
-                  <p className="empty-state-desc">{savingsError}</p> // Đoạn văn văn bản
-                  <button onClick={fetchSavingsGoals} className="create-wallet-btn" style={{ background: 'var(--danger)' }}>Thử lại</button> // Nút bấm chức năng
-                </div> // Đóng khung bố cục
+                <div className="savings-empty-state" style={{ borderColor: 'var(--danger)', margin: '20px auto' }}>
+                  <div className="empty-state-icon" style={{ animation: 'none' }}>⚠️</div>
+                  <h3 className="empty-state-title" style={{ color: 'var(--danger)' }}>Đã xảy ra lỗi</h3>
+                  <p className="empty-state-desc">{savingsError}</p>
+                  <button onClick={fetchSavingsGoals} className="create-wallet-btn" style={{ background: 'var(--danger)' }}>Thử lại</button>
+                </div>
               ) : savingsGoals.length === 0 ? (
-                <div className="savings-empty-state" style={{ margin: '20px auto' }}> // Khung chứa bố cục
-                  <div className="empty-state-icon">🐷</div> // Khung chứa bố cục
-                  <h3 className="empty-state-title">Chưa có mục tiêu tiết kiệm</h3> // Tiêu đề cấp 3
-                  <p className="empty-state-desc">Bắt đầu tích lũy tài chính bằng cách tạo mục tiêu tiết kiệm đầu tiên! Đặt tên, số tiền mong muốn và ngày đạt được.</p> // Đoạn văn văn bản
+                <div className="savings-empty-state" style={{ margin: '20px auto' }}>
+                  <div className="empty-state-icon">🐷</div>
+                  <h3 className="empty-state-title">Chưa có mục tiêu tiết kiệm</h3>
+                  <p className="empty-state-desc">Bắt đầu tích lũy tài chính bằng cách tạo mục tiêu tiết kiệm đầu tiên! Đặt tên, số tiền mong muốn và ngày đạt được.</p>
                   <Link href="/savings/create" className="create-wallet-btn" style={{ display: 'inline-block', background: 'linear-gradient(135deg, #6366F1 0%, #4F46E5 100%)', boxShadow: '0 8px 16px rgba(99, 102, 241, 0.2)' }}>
                     Tạo mục tiêu ngay
                   </Link>
-                </div> // Đóng khung bố cục
+                </div>
               ) : (
                 <>
-                  <div className="savings-grid"> // Khung chứa bố cục
+                  <div className="savings-grid">
                     {savingsGoals.map((goal) => {
                       const percent = calcPercent(goal.current_amount, goal.target_amount);
                       const isReached = percent >= 100;
@@ -1108,7 +1108,7 @@ export default function Wallets() {
                       let hasAutoSave = !!goal.auto_save_frequency;
                       if (!hasAutoSave && typeof window !== 'undefined') {
                         try {
-                          const localConfig = localStorage.getItem(`local_autosave_${goal.id}`); // Đọc bộ nhớ cục bộ localStorage
+                          const localConfig = localStorage.getItem(`local_autosave_${goal.id}`);
                           if (localConfig) {
                             const parsed = JSON.parse(localConfig);
                             if (parsed && parsed.enabled) {
@@ -1124,123 +1124,123 @@ export default function Wallets() {
                           key={goal.id}
                           style={{ textDecoration: 'none', color: 'inherit' }}
                         >
-                          <div className="saving-card"> // Khung chứa bố cục
-                            <div className="saving-card-header"> // Khung chứa bố cục
-                              <div className="saving-card-title">{goal.name}</div> // Khung chứa bố cục
+                          <div className="saving-card">
+                            <div className="saving-card-header">
+                              <div className="saving-card-title">{goal.name}</div>
                               {isReached ? (
-                                <div className="saving-card-days saving-goal-reached-badge">Đạt mục tiêu</div> // Khung chứa bố cục
+                                <div className="saving-card-days saving-goal-reached-badge">Đạt mục tiêu</div>
                               ) : remainingDays !== null ? (
-                                <div className="saving-card-days"> // Khung chứa bố cục
+                                <div className="saving-card-days">
                                   {remainingDays > 0 ? `Còn ${remainingDays} ngày` : remainingDays === 0 ? 'Đến hạn hôm nay' : `Quá hạn ${Math.abs(remainingDays)} ngày`}
-                                </div> // Đóng khung bố cục
+                                </div>
                               ) : (
-                                <div className="saving-card-days">Không giới hạn</div> // Khung chứa bố cục
+                                <div className="saving-card-days">Không giới hạn</div>
                               )}
-                            </div> // Đóng khung bố cục
+                            </div>
 
-                            <div className="saving-card-stats"> // Khung chứa bố cục
-                              <div className="saving-stat-item"> // Khung chứa bố cục
-                                <span className="saving-stat-label">Đã tích lũy</span> // Nhãn văn bản ngắn
-                                <span className="saving-stat-val accumulated">{formatVND(goal.current_amount)}</span> // Nhãn văn bản ngắn
-                              </div> // Đóng khung bố cục
-                              <div className="saving-stat-item" style={{ alignItems: 'flex-end' }}> // Khung chứa bố cục
-                                <span className="saving-stat-label">Mục tiêu</span> // Nhãn văn bản ngắn
-                                <span className="saving-stat-val target">{formatVND(goal.target_amount)}</span> // Nhãn văn bản ngắn
-                              </div> // Đóng khung bố cục
-                            </div> // Đóng khung bố cục
+                            <div className="saving-card-stats">
+                              <div className="saving-stat-item">
+                                <span className="saving-stat-label">Đã tích lũy</span>
+                                <span className="saving-stat-val accumulated">{formatVND(goal.current_amount)}</span>
+                              </div>
+                              <div className="saving-stat-item" style={{ alignItems: 'flex-end' }}>
+                                <span className="saving-stat-label">Mục tiêu</span>
+                                <span className="saving-stat-val target">{formatVND(goal.target_amount)}</span>
+                              </div>
+                            </div>
 
-                            <div className="saving-progress-container"> // Khung chứa bố cục
-                              <div className="saving-progress-track"> // Khung chứa bố cục
-                                <div // Khung chứa bố cục
+                            <div className="saving-progress-container">
+                              <div className="saving-progress-track">
+                                <div
                                   className="saving-progress-fill"
                                   style={{
-                                    width: `${percent}%`, /* Chiều rộng */
-                                    background: isReached ? '#10B981' : undefined /* Màu nền gradient */
+                                    width: `${percent}%`, 
+                                    background: isReached ? '#10B981' : undefined 
                                   }}
                                 ></div>
-                              </div> // Đóng khung bố cục
-                            </div> // Đóng khung bố cục
+                              </div>
+                            </div>
 
-                            <div className="saving-card-footer-info"> // Khung chứa bố cục
-                              <div className="saving-auto-badge"> // Khung chứa bố cục
-                                <span>Tự động tích lũy:</span> // Nhãn văn bản ngắn
-                                <span style={{ color: hasAutoSave ? '#10B981' : '#FF4B4A' }}> // Nhãn văn bản ngắn
+                            <div className="saving-card-footer-info">
+                              <div className="saving-auto-badge">
+                                <span>Tự động tích lũy:</span>
+                                <span style={{ color: hasAutoSave ? '#10B981' : '#FF4B4A' }}>
                                   {hasAutoSave ? 'Bật' : 'Tắt'}
-                                </span> // Đóng nhãn văn bản
-                              </div> // Đóng khung bố cục
-                              <div className="saving-percent"> // Khung chứa bố cục
+                                </span>
+                              </div>
+                              <div className="saving-percent">
                                 {percent}%
-                              </div> // Đóng khung bố cục
-                            </div> // Đóng khung bố cục
-                          </div> // Đóng khung bố cục
+                              </div>
+                            </div>
+                          </div>
                         </Link>
                       );
                     })}
-                  </div> // Đóng khung bố cục
+                  </div>
 
-                  <div className="create-goal-footer-btn-wrapper"> // Khung chứa bố cục
+                  <div className="create-goal-footer-btn-wrapper">
                     <Link href="/savings/create" className="btn-create-goal" style={{ textDecoration: 'none' }}>
-                      <span style={{ marginRight: '6px', fontSize: '18px', fontWeight: 'bold' }}>+</span> // Nhãn văn bản ngắn
-                      <span>Tạo mục tiêu tiết kiệm mới</span> // Nhãn văn bản ngắn
+                      <span style={{ marginRight: '6px', fontSize: '18px', fontWeight: 'bold' }}>+</span>
+                      <span>Tạo mục tiêu tiết kiệm mới</span>
                     </Link>
-                  </div> // Đóng khung bố cục
+                  </div>
                 </>
               )
             )}
-          </div> // Đóng khung bố cục
+          </div>
 
 
-        </div> // Đóng khung bố cục
+        </div>
       </main>
 
-      {/* MODAL TẠO / SỬA VÍ */}
+      {}
       {(showModal === 'create' || showModal === 'edit') && (
-        <div className="modal-overlay"> // Khung chứa bố cục
-          <div className="modal-content"> // Khung chứa bố cục
+        <div className="modal-overlay">
+          <div className="modal-content">
             {/* Modal Header */}
-            <div className="modal-header"> // Khung chứa bố cục
-              <button // Nút bấm chức năng
+            <div className="modal-header">
+              <button
                 type="button"
                 onClick={() => { setShowModal(null); resetForm(); }}
                 className="modal-back-btn"
               >
                 ‹
-              </button> // Đóng nút bấm
-              <h2 className="modal-title"> // Tiêu đề cấp 2
+              </button>
+              <h2 className="modal-title">
                 {showModal === 'create' ? t('add_new_wallet') : t('edit_wallet')}
               </h2>
-            </div> // Đóng khung bố cục
+            </div>
 
             {/* Live Card Preview */}
-            <div className="card-preview" style={{ background: color, color: getContrastColor(color) }}> // Khung chứa bố cục
-              <div className="wallet-card-decoration"></div> // Khung chứa bố cục
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}> // Khung chứa bố cục
-                <div> // Khung chứa bố cục
-                  <div className="wallet-label" style={{ color: getMutedContrastColor(color), letterSpacing: '0.5px' }}>{t('wallet_name')}</div> // Khung chứa bố cục
-                  <div style={{ fontSize: '18px', fontWeight: '700', wordBreak: 'break-all' }}> // Khung chứa bố cục
+            <div className="card-preview" style={{ background: color, color: getContrastColor(color) }}>
+              <div className="wallet-card-decoration"></div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                <div>
+                  <div className="wallet-label" style={{ color: getMutedContrastColor(color), letterSpacing: '0.5px' }}>{t('wallet_name')}</div>
+                  <div style={{ fontSize: '18px', fontWeight: '700', wordBreak: 'break-all' }}>
                     {name.toUpperCase() || t('my_new_wallet_placeholder')}
-                  </div> // Đóng khung bố cục
-                </div> // Đóng khung bố cục
-                <div className="wallet-icon-wrapper" style={{ background: getIconBgColor(color), color: getContrastColor(color) }}> // Khung chứa bố cục
+                  </div>
+                </div>
+                <div className="wallet-icon-wrapper" style={{ background: getIconBgColor(color), color: getContrastColor(color) }}>
                   {renderWalletIcon(icon, 22)}
-                </div> // Đóng khung bố cục
-              </div> // Đóng khung bố cục
-              <div> // Khung chứa bố cục
-                <div className="wallet-label" style={{ color: getMutedContrastColor(color), letterSpacing: '0.5px' }}> // Khung chứa bố cục
+                </div>
+              </div>
+              <div>
+                <div className="wallet-label" style={{ color: getMutedContrastColor(color), letterSpacing: '0.5px' }}>
                   {showModal === 'create' ? t('balance_label') : t('initial_balance')}
-                </div> // Đóng khung bố cục
-                <div style={{ fontSize: '26px', fontWeight: '800' }}> // Khung chứa bố cục
+                </div>
+                <div style={{ fontSize: '26px', fontWeight: '800' }}>
                   {formatWalletBalance(Number(balance) || 0)}
-                  <span className="currency-symbol">đ</span> // Nhãn văn bản ngắn
-                </div> // Đóng khung bố cục
-              </div> // Đóng khung bố cục
-            </div> // Đóng khung bố cục
+                  <span className="currency-symbol">đ</span>
+                </div>
+              </div>
+            </div>
 
-            <form onSubmit={showModal === 'create' ? handleCreate : handleUpdate}> // Form biểu mẫu nhập
+            <form onSubmit={showModal === 'create' ? handleCreate : handleUpdate}>
               {/* Wallet Name */}
-              <div style={{ marginBottom: '20px' }}> // Khung chứa bố cục
-                <label className="form-group-label">{t('wallet_name')}</label> // Nhãn tiêu đề trường nhập
-                <input // Ô nhập dữ liệu
+              <div style={{ marginBottom: '20px' }}>
+                <label className="form-group-label">{t('wallet_name')}</label>
+                <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
@@ -1248,14 +1248,14 @@ export default function Wallets() {
                   placeholder={t('wallet_name_placeholder')}
                   className="wallet-input"
                 />
-              </div> // Đóng khung bố cục
+              </div>
 
               {/* Initial Balance (Only visible when editing, locked to current balance) */}
               {showModal === 'edit' && (
-                <div style={{ marginBottom: '20px' }}> // Khung chứa bố cục
-                  <label className="form-group-label">{t('initial_balance_label')}</label> // Nhãn tiêu đề trường nhập
-                  <div style={{ position: 'relative' }}> // Khung chứa bố cục
-                    <input // Ô nhập dữ liệu
+                <div style={{ marginBottom: '20px' }}>
+                  <label className="form-group-label">{t('initial_balance_label')}</label>
+                  <div style={{ position: 'relative' }}>
+                    <input
                       type="number"
                       value={balance}
                       onChange={(e) => setBalance(e.target.value)}
@@ -1264,58 +1264,58 @@ export default function Wallets() {
                       className="wallet-input"
                       style={{ paddingRight: '40px' }}
                     />
-                    <span style={{ /* Nhãn văn bản ngắn */
-                      position: 'absolute', /* Định vị phần tử */
+                    <span style={{ 
+                      position: 'absolute', 
                       right: '18px',
                       top: '50%',
-                      transform: 'translateY(-50%)', /* Hiệu ứng biến đổi hình học */
-                      color: '#94A3B8', /* Màu chữ */
-                      fontWeight: 'bold' /* Độ đậm chữ */
+                      transform: 'translateY(-50%)', 
+                      color: '#94A3B8', 
+                      fontWeight: 'bold' 
                     }}>đ</span>
-                  </div> // Đóng khung bố cục
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px' }}> // Khung chứa bố cục
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"> // Biểu tượng véc tơ SVG
-                      <circle cx="12" cy="12" r="10" /> // Hình tròn SVG
-                      <line x1="12" y1="8" x2="12" y2="12" /> // Đường kẻ SVG
-                      <line x1="12" y1="16" x2="12.01" y2="16" /> // Đường kẻ SVG
-                    </svg> // Đóng biểu tượng SVG
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px' }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#EF4444" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="12" />
+                      <line x1="12" y1="16" x2="12.01" y2="16" />
+                    </svg>
                     <small style={{ color: '#EF4444', fontSize: '12px', fontWeight: '500' }}>
                       {t('balance_locked_warning')}
                     </small>
-                  </div> // Đóng khung bố cục
-                </div> // Đóng khung bố cục
+                  </div>
+                </div>
               )}
 
-              {/* Wallet Currency (Forced to VND) */}
-              <div style={{ marginBottom: '20px', display: 'none' }}> // Khung chứa bố cục
-                <label className="form-group-label">Đơn vị tiền tệ</label> // Nhãn tiêu đề trường nhập
-                <select // Menu thả xuống
+              {}
+              <div style={{ marginBottom: '20px', display: 'none' }}>
+                <label className="form-group-label">Đơn vị tiền tệ</label>
+                <select
                   value={walletCurrency}
                   onChange={(e) => setWalletCurrency(e.target.value)}
                   className="wallet-input"
                 >
-                  <option value="VND">VNĐ (₫)</option> // Giá trị trong menu
-                </select> // Đóng menu thả xuống
-              </div> // Đóng khung bố cục
+                  <option value="VND">VNĐ (₫)</option>
+                </select>
+              </div>
 
               {/* Wallet Type */}
-              <div style={{ marginBottom: '20px' }}> // Khung chứa bố cục
-                <label className="form-group-label">Loại ví</label> // Nhãn tiêu đề trường nhập
-                <select // Menu thả xuống
+              <div style={{ marginBottom: '20px' }}>
+                <label className="form-group-label">Loại ví</label>
+                <select
                   value={type}
                   onChange={(e) => setType(e.target.value)}
                   className="wallet-input"
                 >
-                  <option value="cash">Tiền mặt</option> // Giá trị trong menu
-                  <option value="bank">Tiền gửi ngân hàng</option> // Giá trị trong menu
-                  <option value="ewallet">Ví điện tử</option> // Giá trị trong menu
-                </select> // Đóng menu thả xuống
-              </div> // Đóng khung bố cục
+                  <option value="cash">Tiền mặt</option>
+                  <option value="bank">Tiền gửi ngân hàng</option>
+                  <option value="ewallet">Ví điện tử</option>
+                </select>
+              </div>
 
               {/* Icon Selection */}
-              <div style={{ marginBottom: '20px' }}> // Khung chứa bố cục
-                <label className="form-group-label">{t('select_icon')}</label> // Nhãn tiêu đề trường nhập
-                <div className="icon-grid"> // Khung chứa bố cục
+              <div style={{ marginBottom: '20px' }}>
+                <label className="form-group-label">{t('select_icon')}</label>
+                <div className="icon-grid">
                   {[
                     { key: 'cash', component: CardNoteIcon },
                     { key: 'bank', component: BankIcon },
@@ -1331,27 +1331,27 @@ export default function Wallets() {
                     const isSelected = icon === ic.key;
                     const IconComp = ic.component;
                     return (
-                      <button // Nút bấm chức năng
+                      <button
                         key={ic.key}
                         type="button"
                         onClick={() => setIcon(ic.key)}
                         className={`icon-select-btn ${isSelected ? 'active' : ''}`}
                       >
                         <IconComp size={22} />
-                      </button> // Đóng nút bấm
+                      </button>
                     );
                   })}
-                </div> // Đóng khung bố cục
-              </div> // Đóng khung bố cục
+                </div>
+              </div>
 
               {/* Color Selection */}
-              <div style={{ marginBottom: '24px' }}> // Khung chứa bố cục
-                <label className="form-group-label">{t('select_color')}</label> // Nhãn tiêu đề trường nhập
-                <div className="color-grid"> // Khung chứa bố cục
+              <div style={{ marginBottom: '24px' }}>
+                <label className="form-group-label">{t('select_color')}</label>
+                <div className="color-grid">
                   {colorOptions.map((col) => {
                     const isSelected = color === col;
                     return (
-                      <button // Nút bấm chức năng
+                      <button
                         key={col}
                         type="button"
                         onClick={() => setColor(col)}
@@ -1360,73 +1360,73 @@ export default function Wallets() {
                       />
                     );
                   })}
-                </div> // Đóng khung bố cục
-              </div> // Đóng khung bố cục
+                </div>
+              </div>
 
               {showModal === 'edit' && (
-                <div className="wallet-settings-group"> // Khung chứa bố cục
-                  <div className="setting-switch-item"> // Khung chứa bố cục
-                    <div className="setting-switch-label"> // Khung chứa bố cục
-                      <span className="switch-title">Ẩn ví khỏi màn hình</span> // Nhãn văn bản ngắn
-                      <span className="switch-desc">Ẩn ví này khỏi danh sách hiển thị trên trang chủ và các biểu đồ báo cáo.</span> // Nhãn văn bản ngắn
-                    </div> // Đóng khung bố cục
-                    <label className="premium-switch"> // Nhãn tiêu đề trường nhập
-                      <input // Ô nhập dữ liệu
+                <div className="wallet-settings-group">
+                  <div className="setting-switch-item">
+                    <div className="setting-switch-label">
+                      <span className="switch-title">Ẩn ví khỏi màn hình</span>
+                      <span className="switch-desc">Ẩn ví này khỏi danh sách hiển thị trên trang chủ và các biểu đồ báo cáo.</span>
+                    </div>
+                    <label className="premium-switch">
+                      <input
                         type="checkbox"
                         checked={isHidden}
                         onChange={(e) => setIsHidden(e.target.checked)}
                       />
-                      <span className="premium-switch-slider"></span> // Nhãn văn bản ngắn
-                    </label> // Đóng nhãn tiêu đề
-                  </div> // Đóng khung bố cục
+                      <span className="premium-switch-slider"></span>
+                    </label>
+                  </div>
 
                   {/* Only show default receiving setting for bank or ewallet */}
                   {(type === 'bank' || type === 'ewallet') && (
-                    <div className="setting-switch-item" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}> // Khung chứa bố cục
-                      <div className="setting-switch-label"> // Khung chứa bố cục
-                        <span className="switch-title">Đặt làm ví nhận mặc định</span> // Nhãn văn bản ngắn
-                        <span className="switch-desc">Sử dụng ví này làm điểm nhận tiền mặc định cho các giao dịch chuyển khoản P2P/mã QR.</span> // Nhãn văn bản ngắn
-                      </div> // Đóng khung bố cục
-                      <label className="premium-switch"> // Nhãn tiêu đề trường nhập
-                        <input // Ô nhập dữ liệu
+                    <div className="setting-switch-item" style={{ borderTop: '1px solid var(--border-color)', paddingTop: '16px' }}>
+                      <div className="setting-switch-label">
+                        <span className="switch-title">Đặt làm ví nhận mặc định</span>
+                        <span className="switch-desc">Sử dụng ví này làm điểm nhận tiền mặc định cho các giao dịch chuyển khoản P2P/mã QR.</span>
+                      </div>
+                      <label className="premium-switch">
+                        <input
                           type="checkbox"
                           checked={isDefaultReceiving}
                           onChange={(e) => setIsDefaultReceiving(e.target.checked)}
                         />
-                        <span className="premium-switch-slider"></span> // Nhãn văn bản ngắn
-                      </label> // Đóng nhãn tiêu đề
-                    </div> // Đóng khung bố cục
+                        <span className="premium-switch-slider"></span>
+                      </label>
+                    </div>
                   )}
-                </div> // Đóng khung bố cục
+                </div>
               )}
 
               {/* Action Buttons */}
-              <div style={{ display: 'flex', gap: '12px' }}> // Khung chứa bố cục
-                <button type="submit" className="btn-submit-wallet"> // Nút bấm chức năng
-                  <span>{showModal === 'create' ? t('create_wallet_btn') : t('save_changes')}</span> // Nhãn văn bản ngắn
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button type="submit" className="btn-submit-wallet">
+                  <span>{showModal === 'create' ? t('create_wallet_btn') : t('save_changes')}</span>
                   {showModal === 'create' ? (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"> // Biểu tượng véc tơ SVG
-                      <circle cx="12" cy="12" r="10" /> // Hình tròn SVG
-                      <line x1="12" y1="8" x2="12" y2="16" /> // Đường kẻ SVG
-                      <line x1="8" y1="12" x2="16" y2="12" /> // Đường kẻ SVG
-                    </svg> // Đóng biểu tượng SVG
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="12" cy="12" r="10" />
+                      <line x1="12" y1="8" x2="12" y2="16" />
+                      <line x1="8" y1="12" x2="16" y2="12" />
+                    </svg>
                   ) : (
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"> // Biểu tượng véc tơ SVG
-                      <polyline points="20 6 9 17 4 12" /> // Đoạn văn văn bản
-                    </svg> // Đóng biểu tượng SVG
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
                   )}
-                </button> // Đóng nút bấm
-              </div> // Đóng khung bố cục
-            </form> // Đóng form biểu mẫu
-          </div> // Đóng khung bố cục
-        </div> // Đóng khung bố cục
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* TRANSFER MODAL */}
       {showModal === 'transfer' && (
-        <div className="modal-overlay"> // Khung chứa bố cục
-          <div className="modal-content wallet-premium-modal" style={{ maxWidth: '500px', position: 'relative' }}> // Khung chứa bố cục
-            <button // Nút bấm chức năng
+        <div className="modal-overlay">
+          <div className="modal-content wallet-premium-modal" style={{ maxWidth: '500px', position: 'relative' }}>
+            <button
               type="button"
               onClick={() => {
                 setShowModal(null);
@@ -1442,107 +1442,107 @@ export default function Wallets() {
               className="modal-close-btn"
             >
               ×
-            </button> // Đóng nút bấm
-            <div className="modal-title-left" style={{ marginBottom: '20px' }}> // Khung chứa bố cục
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1814F3" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"> // Biểu tượng véc tơ SVG
-                <path d="M8 10L4 6l4-4" /> // Đoạn văn văn bản
-                <path d="M4 6h16" /> // Đoạn văn văn bản
-                <path d="M16 14l4 4-4 4" /> // Đoạn văn văn bản
-                <path d="M20 18H4" /> // Đoạn văn văn bản
-              </svg> // Đóng biểu tượng SVG
-              <h3>Chuyển khoản</h3> // Tiêu đề cấp 3
-            </div> // Đóng khung bố cục
+            </button>
+            <div className="modal-title-left" style={{ marginBottom: '20px' }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1814F3" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 10L4 6l4-4" />
+                <path d="M4 6h16" />
+                <path d="M16 14l4 4-4 4" />
+                <path d="M20 18H4" />
+              </svg>
+              <h3>Chuyển khoản</h3>
+            </div>
 
             {/* Tab selection */}
-            <div className="qr-modal-tabs" style={{ marginBottom: '20px' }}> // Khung chứa bố cục
-              <div // Khung chứa bố cục
+            <div className="qr-modal-tabs" style={{ marginBottom: '20px' }}>
+              <div
                 className={`qr-tab-item ${transferTab === 'internal' ? 'active' : ''}`}
                 onClick={() => setTransferTab('internal')}
               >
                 Chuyển nội bộ
-              </div> // Đóng khung bố cục
-              <div // Khung chứa bố cục
+              </div>
+              <div
                 className={`qr-tab-item ${transferTab === 'p2p' ? 'active' : ''}`}
                 onClick={() => setTransferTab('p2p')}
               >
                 Đến người khác
-              </div> // Đóng khung bố cục
-            </div> // Đóng khung bố cục
+              </div>
+            </div>
 
             {transferTab === 'internal' ? (
               <>
-                <div className="transfer-row"> // Khung chứa bố cục
-                  <div className="transfer-col" style={{ position: 'relative' }}> // Khung chứa bố cục
-                    <div className="transfer-label">Tên ví chuyển</div> // Khung chứa bố cục
-                    <select // Menu thả xuống
+                <div className="transfer-row">
+                  <div className="transfer-col" style={{ position: 'relative' }}>
+                    <div className="transfer-label">Tên ví chuyển</div>
+                    <select
                       value={transferFrom}
                       onChange={e => setTransferFrom(e.target.value)}
                       className="wallet-premium-input wallet-input"
                       style={{ appearance: 'none', paddingRight: '36px' }}
                     >
-                      <option value="" disabled>Chọn tên ví...</option> // Giá trị trong menu
+                      <option value="" disabled>Chọn tên ví...</option>
                       {wallets.filter(w => !w.is_hidden).map(w => <option key={w.id} value={w.id}>{w.name} ({formatWalletCurrency(w.available_balance, w.currency_code)})</option>)}
-                    </select> // Đóng menu thả xuống
-                    <svg style={{ position: 'absolute', right: '14px', bottom: '16px', pointerEvents: 'none' }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8F9BB3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg> // Biểu tượng véc tơ SVG
-                  </div> // Đóng khung bố cục
+                    </select>
+                    <svg style={{ position: 'absolute', right: '14px', bottom: '16px', pointerEvents: 'none' }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8F9BB3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                  </div>
 
-                  <div className="transfer-arrow-icon"> // Khung chứa bố cục
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"> // Biểu tượng véc tơ SVG
-                      <line x1="5" y1="12" x2="19" y2="12"></line> // Đường kẻ SVG
-                      <polyline points="12 5 19 12 12 19"></polyline> // Đoạn văn văn bản
-                    </svg> // Đóng biểu tượng SVG
-                  </div> // Đóng khung bố cục
+                  <div className="transfer-arrow-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FFF" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <line x1="5" y1="12" x2="19" y2="12"></line>
+                      <polyline points="12 5 19 12 12 19"></polyline>
+                    </svg>
+                  </div>
 
-                  <div className="transfer-col" style={{ position: 'relative' }}> // Khung chứa bố cục
-                    <div className="transfer-label">Tên ví nhận</div> // Khung chứa bố cục
-                    <select // Menu thả xuống
+                  <div className="transfer-col" style={{ position: 'relative' }}>
+                    <div className="transfer-label">Tên ví nhận</div>
+                    <select
                       value={transferTo}
                       onChange={e => setTransferTo(e.target.value)}
                       className="wallet-premium-input wallet-input"
                       style={{ appearance: 'none', paddingRight: '36px' }}
                     >
-                      <option value="" disabled>Chọn tên ví...</option> // Giá trị trong menu
+                      <option value="" disabled>Chọn tên ví...</option>
                       {wallets.filter(w => !w.is_hidden).map(w => <option key={w.id} value={w.id}>{w.name} ({formatWalletCurrency(w.available_balance, w.currency_code)})</option>)}
-                    </select> // Đóng menu thả xuống
-                    <svg style={{ position: 'absolute', right: '14px', bottom: '16px', pointerEvents: 'none' }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8F9BB3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg> // Biểu tượng véc tơ SVG
-                  </div> // Đóng khung bố cục
-                </div> // Đóng khung bố cục
+                    </select>
+                    <svg style={{ position: 'absolute', right: '14px', bottom: '16px', pointerEvents: 'none' }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8F9BB3" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                  </div>
+                </div>
 
-                <div style={{ marginBottom: '30px' }}> // Khung chứa bố cục
-                  <input // Ô nhập dữ liệu
+                <div style={{ marginBottom: '30px' }}>
+                  <input
                     type="number"
                     value={transferAmount}
                     onChange={e => setTransferAmount(e.target.value)}
                     placeholder="Nhập số tiền..."
                     className="wallet-premium-input wallet-input"
                   />
-                </div> // Đóng khung bố cục
+                </div>
 
-                <button // Nút bấm chức năng
+                <button
                   onClick={handleTransfer}
                   disabled={isTransferring}
                   className="wallet-premium-btn"
                 >
                   {isTransferring ? 'Đang xử lý...' : 'Chuyển tiền ngay'}
-                </button> // Đóng nút bấm
+                </button>
               </>
             ) : (
               <>
                 {!p2pRecipient ? (
                   <>
-                    <div className="p2p-form-group"> // Khung chứa bố cục
-                      <label className="p2p-form-label">Thông tin người hưởng thụ</label> // Nhãn tiêu đề trường nhập
-                      <input // Ô nhập dữ liệu
+                    <div className="p2p-form-group">
+                      <label className="p2p-form-label">Thông tin người hưởng thụ</label>
+                      <input
                         type="text"
                         value={p2pIdentifier}
                         onChange={e => setP2pIdentifier(e.target.value)}
                         placeholder="Mã định danh (ví dụ: USR123456)"
                         className="wallet-premium-input wallet-input"
                       />
-                    </div> // Đóng khung bố cục
+                    </div>
 
-                    <div className="p2p-btn-group"> // Khung chứa bố cục
-                      <button // Nút bấm chức năng
+                    <div className="p2p-btn-group">
+                      <button
                         type="button"
                         onClick={() => {
                           setShowContactsModal(true);
@@ -1550,107 +1550,107 @@ export default function Wallets() {
                         }}
                         className="p2p-action-btn btn-contact"
                       >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"> // Biểu tượng véc tơ SVG
-                          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /> // Đoạn văn văn bản
-                          <circle cx="9" cy="7" r="4" /> // Hình tròn SVG
-                          <path d="M23 21v-2a4 4 0 0 0-3-3.87" /> // Đoạn văn văn bản
-                          <path d="M16 3.13a4 4 0 0 1 0 7.75" /> // Đoạn văn văn bản
-                        </svg> // Đóng biểu tượng SVG
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                          <circle cx="9" cy="7" r="4" />
+                          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+                        </svg>
                         Danh bạ
-                      </button> // Đóng nút bấm
-                      <button // Nút bấm chức năng
+                      </button>
+                      <button
                         type="button"
                         onClick={handleP2pCheck}
                         disabled={isP2pChecking}
                         className="p2p-action-btn btn-check"
                       >
                         {isP2pChecking ? 'Đang kiểm tra...' : 'Kiểm tra'}
-                      </button> // Đóng nút bấm
-                    </div> // Đóng khung bố cục
+                      </button>
+                    </div>
                   </>
                 ) : (
-                  <div style={{ animation: 'fadeIn 0.25s' }}> // Khung chứa bố cục
+                  <div style={{ animation: 'fadeIn 0.25s' }}>
                     {/* Beneficiary Info Card */}
-                    <div className="beneficiary-card" style={{ marginTop: 0, marginBottom: '20px' }}> // Khung chứa bố cục
-                      <img // Hình ảnh minh họa
+                    <div className="beneficiary-card" style={{ marginTop: 0, marginBottom: '20px' }}>
+                      <img
                         src={p2pRecipient.avatar_url || "https://api.dicebear.com/7.x/miniavs/svg?seed=" + p2pRecipient.payee_name}
                         alt={p2pRecipient.payee_name}
                         className="beneficiary-avatar"
                       />
-                      <div className="beneficiary-info"> // Khung chứa bố cục
-                        <div className="beneficiary-name">{p2pRecipient.payee_name}</div> // Khung chứa bố cục
-                        <div className="beneficiary-id">{p2pRecipient.identifier}</div> // Khung chứa bố cục
+                      <div className="beneficiary-info">
+                        <div className="beneficiary-name">{p2pRecipient.payee_name}</div>
+                        <div className="beneficiary-id">{p2pRecipient.identifier}</div>
                         {p2pRecipient.recipient_wallet_name && (
-                          <div className="beneficiary-wallet"> // Khung chứa bố cục
-                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"> // Biểu tượng véc tơ SVG
-                              <path d="M20 12V8H6a2 2 0 0 0-2-2c0-1.1.9-2 2-2h12v4" /> // Đoạn văn văn bản
-                              <path d="M4 6v12c0 1.1.9 2 2 2h14v-4" /> // Đoạn văn văn bản
-                              <path d="M18 12a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h4v-6h-4z" /> // Đoạn văn văn bản
-                            </svg> // Đóng biểu tượng SVG
-                            <span>Ví nhận: {p2pRecipient.recipient_wallet_name}</span> // Nhãn văn bản ngắn
-                          </div> // Đóng khung bố cục
+                          <div className="beneficiary-wallet">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M20 12V8H6a2 2 0 0 0-2-2c0-1.1.9-2 2-2h12v4" />
+                              <path d="M4 6v12c0 1.1.9 2 2 2h14v-4" />
+                              <path d="M18 12a2 2 0 0 0-2 2v2a2 2 0 0 0 2 2h4v-6h-4z" />
+                            </svg>
+                            <span>Ví nhận: {p2pRecipient.recipient_wallet_name}</span>
+                          </div>
                         )}
-                      </div> // Đóng khung bố cục
-                      <button // Nút bấm chức năng
+                      </div>
+                      <button
                         type="button"
                         onClick={() => setP2pRecipient(null)}
                         className="beneficiary-close-btn"
                       >
                         ✕
-                      </button> // Đóng nút bấm
-                    </div> // Đóng khung bố cục
+                      </button>
+                    </div>
 
                     {/* P2P Send Form Details */}
-                    <div> // Khung chứa bố cục
-                      <div className="p2p-form-group"> // Khung chứa bố cục
-                        <label className="p2p-form-label">Chọn ví chuyển tiền</label> // Nhãn tiêu đề trường nhập
-                        <select // Menu thả xuống
+                    <div>
+                      <div className="p2p-form-group">
+                        <label className="p2p-form-label">Chọn ví chuyển tiền</label>
+                        <select
                           value={p2pFromWalletId}
                           onChange={e => setP2pFromWalletId(e.target.value)}
                           className="p2p-select wallet-premium-input"
                         >
-                          <option value="" disabled>Chọn ví chuyển...</option> // Giá trị trong menu
+                          <option value="" disabled>Chọn ví chuyển...</option>
                           {/* Filter out cash and hidden wallets */}
                           {wallets.filter(w => w.type !== 'cash' && !w.is_hidden).map(w => (
-                            <option key={w.id} value={w.id}> // Giá trị trong menu
+                            <option key={w.id} value={w.id}>
                               {w.name} ({formatWalletCurrency(w.available_balance, w.currency_code)})
                             </option>
                           ))}
-                        </select> // Đóng menu thả xuống
-                      </div> // Đóng khung bố cục
+                        </select>
+                      </div>
 
-                      <div className="p2p-form-group"> // Khung chứa bố cục
-                        <label className="p2p-form-label">Số tiền chuyển</label> // Nhãn tiêu đề trường nhập
-                        <input // Ô nhập dữ liệu
+                      <div className="p2p-form-group">
+                        <label className="p2p-form-label">Số tiền chuyển</label>
+                        <input
                           type="number"
                           value={p2pAmount}
                           onChange={e => setP2pAmount(e.target.value)}
                           placeholder="Nhập số tiền..."
                           className="wallet-premium-input wallet-input"
                         />
-                      </div> // Đóng khung bố cục
+                      </div>
 
-                      <div className="p2p-form-group"> // Khung chứa bố cục
-                        <label className="p2p-form-label">Lời nhắn / Ghi chú</label> // Nhãn tiêu đề trường nhập
-                        <input // Ô nhập dữ liệu
+                      <div className="p2p-form-group">
+                        <label className="p2p-form-label">Lời nhắn / Ghi chú</label>
+                        <input
                           type="text"
                           value={p2pNotes}
                           onChange={e => setP2pNotes(e.target.value)}
                           placeholder="Lời nhắn cho người nhận (tùy chọn)"
                           className="wallet-premium-input wallet-input"
                         />
-                      </div> // Đóng khung bố cục
+                      </div>
 
-                      <div className="p2p-btn-group" style={{ marginTop: '24px' }}> // Khung chứa bố cục
-                        <button // Nút bấm chức năng
+                      <div className="p2p-btn-group" style={{ marginTop: '24px' }}>
+                        <button
                           type="button"
                           onClick={() => setP2pRecipient(null)}
                           className="p2p-action-btn"
                           style={{ background: 'var(--bg-color)', color: 'var(--text-main)', flex: 1 }}
                         >
                           Quay lại
-                        </button> // Đóng nút bấm
-                        <button // Nút bấm chức năng
+                        </button>
+                        <button
                           type="button"
                           onClick={handleP2pTransfer}
                           disabled={isP2pTransferring}
@@ -1658,109 +1658,109 @@ export default function Wallets() {
                           style={{ flex: 2 }}
                         >
                           {isP2pTransferring ? 'Đang chuyển khoản...' : 'Xác nhận chuyển'}
-                        </button> // Đóng nút bấm
-                      </div> // Đóng khung bố cục
-                    </div> // Đóng khung bố cục
-                  </div> // Đóng khung bố cục
+                        </button>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </>
             )}
-          </div> // Đóng khung bố cục
-        </div> // Đóng khung bố cục
+          </div>
+        </div>
       )}
 
       {/* HISTORY MODAL */}
       {showModal === 'history' && (
-        <div className="modal-overlay" onClick={() => setShowModal(null)}> // Khung chứa bố cục
-          <div className="modal-content wallet-premium-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px', maxHeight: '80vh', overflowY: 'auto', position: 'relative' }}> // Khung chứa bố cục
-            <button // Nút bấm chức năng
+        <div className="modal-overlay" onClick={() => setShowModal(null)}>
+          <div className="modal-content wallet-premium-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '600px', maxHeight: '80vh', overflowY: 'auto', position: 'relative' }}>
+            <button
               type="button"
               onClick={() => setShowModal(null)}
               className="modal-close-btn"
             >
               ×
-            </button> // Đóng nút bấm
-            <div className="modal-title-left"> // Khung chứa bố cục
-              <h3>Lịch sử giao dịch - {historyWallet?.name}</h3> // Tiêu đề cấp 3
-            </div> // Đóng khung bố cục
+            </button>
+            <div className="modal-title-left">
+              <h3>Lịch sử giao dịch - {historyWallet?.name}</h3>
+            </div>
 
             {isLoadingHistory ? (
-              <div style={{ color: '#718EBF', textAlign: 'center', padding: '30px', fontWeight: '600' }}>Đang tải dữ liệu...</div> // Khung chứa bố cục
+              <div style={{ color: '#718EBF', textAlign: 'center', padding: '30px', fontWeight: '600' }}>Đang tải dữ liệu...</div>
             ) : historyTransactions.length === 0 ? (
-              <div style={{ color: '#718EBF', textAlign: 'center', padding: '30px', fontWeight: '600' }}>Chưa có giao dịch nào trong ví này.</div> // Khung chứa bố cục
+              <div style={{ color: '#718EBF', textAlign: 'center', padding: '30px', fontWeight: '600' }}>Chưa có giao dịch nào trong ví này.</div>
             ) : (
-              <div className="history-list"> // Khung chứa bố cục
+              <div className="history-list">
                 {historyTransactions.map((tx: any) => (
-                  <div key={tx.id} className="wallet-history-row"> // Khung chứa bố cục
-                    <div> // Khung chứa bố cục
-                      <div className="history-row-title">{tx.title || tx.category_name || tx.notes || 'Giao dịch'}</div> // Khung chứa bố cục
-                      <div className="history-row-date">{new Date(tx.transaction_date).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div> // Khung chứa bố cục
-                    </div> // Đóng khung bố cục
-                    <div className={`history-row-amount ${tx.type === 'expense' ? 'expense' : 'income'}`}> // Khung chứa bố cục
+                  <div key={tx.id} className="wallet-history-row">
+                    <div>
+                      <div className="history-row-title">{tx.title || tx.category_name || tx.notes || 'Giao dịch'}</div>
+                      <div className="history-row-date">{new Date(tx.transaction_date).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
+                    </div>
+                    <div className={`history-row-amount ${tx.type === 'expense' ? 'expense' : 'income'}`}>
                       {tx.type === 'expense' ? '-' : '+'}
                       {formatWalletCurrency(tx.amount || 0, historyWallet?.currency_code || 'VND')}
-                    </div> // Đóng khung bố cục
-                  </div> // Đóng khung bố cục
+                    </div>
+                  </div>
                 ))}
-              </div> // Đóng khung bố cục
+              </div>
             )}
-          </div> // Đóng khung bố cục
-        </div> // Đóng khung bố cục
+          </div>
+        </div>
       )}
 
       {/* Deposit Modal */}
       {showModal === 'deposit' && (
-        <div className="modal-overlay" onClick={() => setShowModal(null)}> // Khung chứa bố cục
-          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px', borderRadius: '24px', padding: '0', overflow: 'hidden' }}> // Khung chứa bố cục
+        <div className="modal-overlay" onClick={() => setShowModal(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px', borderRadius: '24px', padding: '0', overflow: 'hidden' }}>
             {/* Header */}
-            <div style={{ display: 'flex', alignItems: 'center', padding: '20px', borderBottom: '1px solid #F1F5F9' }}> // Khung chứa bố cục
-              <button // Nút bấm chức năng
+            <div style={{ display: 'flex', alignItems: 'center', padding: '20px', borderBottom: '1px solid #F1F5F9' }}>
+              <button
                 type="button"
                 onClick={() => setShowModal(null)}
                 style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#1C2755', fontWeight: 'bold' }}
               >
                 &lt;
-              </button> // Đóng nút bấm
-              <h2 style={{ flex: 1, textAlign: 'center', fontSize: '20px', margin: 0, fontWeight: '800', color: '#1C2755' }}> // Tiêu đề cấp 2
+              </button>
+              <h2 style={{ flex: 1, textAlign: 'center', fontSize: '20px', margin: 0, fontWeight: '800', color: '#1C2755' }}>
                 Sandbox Simulate
               </h2>
-              <div style={{ width: '20px' }}></div> // Khung chứa bố cục
-            </div> // Đóng khung bố cục
+              <div style={{ width: '20px' }}></div>
+            </div>
 
-            <div style={{ padding: '24px' }}> // Khung chứa bố cục
-              <div style={{ background: '#F4F7FF', borderRadius: '16px', padding: '16px', display: 'flex', gap: '12px', marginBottom: '24px', border: '1px solid #E5E9F2' }}> // Khung chứa bố cục
-                <div style={{ color: '#4F46E5', fontSize: '20px' }}>ⓘ</div> // Khung chứa bố cục
-                <div style={{ fontSize: '13px', color: '#475569', lineHeight: '1.5' }}> // Khung chứa bố cục
+            <div style={{ padding: '24px' }}>
+              <div style={{ background: '#F4F7FF', borderRadius: '16px', padding: '16px', display: 'flex', gap: '12px', marginBottom: '24px', border: '1px solid #E5E9F2' }}>
+                <div style={{ color: '#4F46E5', fontSize: '20px' }}>ⓘ</div>
+                <div style={{ fontSize: '13px', color: '#475569', lineHeight: '1.5' }}>
                   Tính năng này dùng để giả lập việc nhận tiền từ tài khoản VietinBank Sandbox của hệ thống.
-                </div> // Đóng khung bố cục
-              </div> // Đóng khung bố cục
+                </div>
+              </div>
 
-              <form onSubmit={handleDeposit}> // Form biểu mẫu nhập
-                <div style={{ marginBottom: '20px' }}> // Khung chứa bố cục
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', marginBottom: '8px' }}> // Nhãn tiêu đề trường nhập
+              <form onSubmit={handleDeposit}>
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', marginBottom: '8px' }}>
                     VÍ THỤ HƯỞNG
-                  </label> // Đóng nhãn tiêu đề
-                  <select // Menu thả xuống
+                  </label>
+                  <select
                     className="wallet-input"
                     value={depositWalletId}
                     onChange={(e) => setDepositWalletId(e.target.value)}
                     required
                     style={{ width: '100%', padding: '16px', borderRadius: '16px', background: '#F8FAFC', border: '1px solid #E2E8F0', fontSize: '16px', fontWeight: '700', color: '#1C2755', outline: 'none' }}
                   >
-                    <option value="" disabled>-- Chọn ví --</option> // Giá trị trong menu
+                    <option value="" disabled>-- Chọn ví --</option>
                     {wallets.map((w) => (
-                      <option key={w.id} value={w.id}> // Giá trị trong menu
+                      <option key={w.id} value={w.id}>
                         🔴 {w.name} ({formatWalletBalance(w.available_balance || 0)} đ)
                       </option>
                     ))}
-                  </select> // Đóng menu thả xuống
-                </div> // Đóng khung bố cục
+                  </select>
+                </div>
 
-                <div style={{ marginBottom: '20px' }}> // Khung chứa bố cục
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', marginBottom: '8px' }}> // Nhãn tiêu đề trường nhập
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', marginBottom: '8px' }}>
                     SỐ TIỀN NHẬN (VND)
-                  </label> // Đóng nhãn tiêu đề
-                  <input // Ô nhập dữ liệu
+                  </label>
+                  <input
                     type="number"
                     className="wallet-input"
                     value={depositAmount}
@@ -1771,17 +1771,17 @@ export default function Wallets() {
                     style={{ width: '100%', padding: '16px', borderRadius: '16px', background: '#F8FAFC', border: '1px solid #E2E8F0', fontSize: '18px', fontWeight: '800', color: '#1C2755', outline: 'none' }}
                   />
                   {depositAmount && !isNaN(Number(depositAmount)) && (
-                    <div style={{ fontSize: '13px', color: '#64748B', fontStyle: 'italic', marginTop: '8px' }}> // Khung chứa bố cục
+                    <div style={{ fontSize: '13px', color: '#64748B', fontStyle: 'italic', marginTop: '8px' }}>
                       ({Number(depositAmount).toLocaleString('vi-VN')} đồng)
-                    </div> // Đóng khung bố cục
+                    </div>
                   )}
-                </div> // Đóng khung bố cục
+                </div>
 
-                <div style={{ marginBottom: '20px' }}> // Khung chứa bố cục
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', marginBottom: '8px' }}> // Nhãn tiêu đề trường nhập
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', marginBottom: '8px' }}>
                     TÊN NGƯỜI GỬI (SANDBOX)
-                  </label> // Đóng nhãn tiêu đề
-                  <input // Ô nhập dữ liệu
+                  </label>
+                  <input
                     type="text"
                     className="wallet-input"
                     value={depositSender}
@@ -1789,84 +1789,84 @@ export default function Wallets() {
                     required
                     style={{ width: '100%', padding: '16px', borderRadius: '16px', background: '#F8FAFC', border: '1px solid #E2E8F0', fontSize: '15px', fontWeight: '700', color: '#1C2755', outline: 'none' }}
                   />
-                </div> // Đóng khung bố cục
+                </div>
 
-                <div style={{ marginBottom: '32px' }}> // Khung chứa bố cục
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', marginBottom: '8px' }}> // Nhãn tiêu đề trường nhập
+                <div style={{ marginBottom: '32px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#64748B', textTransform: 'uppercase', marginBottom: '8px' }}>
                     NỘI DUNG CHUYỂN KHOẢN
-                  </label> // Đóng nhãn tiêu đề
-                  <input // Ô nhập dữ liệu
+                  </label>
+                  <input
                     type="text"
                     className="wallet-input"
                     value={depositNotes}
                     onChange={(e) => setDepositNotes(e.target.value)}
                     style={{ width: '100%', padding: '16px', borderRadius: '16px', background: '#F8FAFC', border: '1px solid #E2E8F0', fontSize: '15px', fontWeight: '500', color: '#1C2755', outline: 'none' }}
                   />
-                </div> // Đóng khung bố cục
+                </div>
 
-                <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}> // Khung chứa bố cục
-                  <button // Nút bấm chức năng
+                <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+                  <button
                     type="button"
                     onClick={() => setShowModal(null)}
                     style={{
-                      flex: 1, /* Độ giãn chiếm không gian */
-                      padding: '14px', /* Khoảng cách đệm */
-                      borderRadius: '12px', /* Bo tròn góc khung */
-                      border: '1px solid #E2E8F0', /* Đường viền */
-                      background: 'white', /* Màu nền gradient */
-                      color: '#64748B', /* Màu chữ */
-                      fontWeight: '700', /* Độ đậm chữ */
-                      cursor: 'pointer' /* Con trỏ chuột bàn tay */
+                      flex: 1, 
+                      padding: '14px', 
+                      borderRadius: '12px', 
+                      border: '1px solid #E2E8F0', 
+                      background: 'white', 
+                      color: '#64748B', 
+                      fontWeight: '700', 
+                      cursor: 'pointer' 
                     }}
                   >
                     Hủy
-                  </button> // Đóng nút bấm
-                  <button // Nút bấm chức năng
+                  </button>
+                  <button
                     type="submit"
                     disabled={isDepositing}
                     style={{
-                      flex: 2, /* Độ giãn chiếm không gian */
-                      padding: '14px', /* Khoảng cách đệm */
-                      borderRadius: '12px', /* Bo tròn góc khung */
-                      border: 'none', /* Đường viền */
-                      background: 'linear-gradient(135deg, #1814F3 0%, #396AFF 100%)', /* Màu nền gradient */
-                      color: 'white', /* Màu chữ */
-                      fontWeight: '700', /* Độ đậm chữ */
-                      cursor: isDepositing ? 'not-allowed' : 'pointer', /* Con trỏ chuột bàn tay */
-                      opacity: isDepositing ? 0.7 : 1, /* Độ mờ */
-                      boxShadow: '0 4px 10px rgba(24, 20, 243, 0.2)' /* Độ bóng đổ */
+                      flex: 2, 
+                      padding: '14px', 
+                      borderRadius: '12px', 
+                      border: 'none', 
+                      background: 'linear-gradient(135deg, #1814F3 0%, #396AFF 100%)', 
+                      color: 'white', 
+                      fontWeight: '700', 
+                      cursor: isDepositing ? 'not-allowed' : 'pointer', 
+                      opacity: isDepositing ? 0.7 : 1, 
+                      boxShadow: '0 4px 10px rgba(24, 20, 243, 0.2)' 
                     }}
                   >
                     {isDepositing ? 'Đang xử lý...' : 'Xác nhận'}
-                  </button> // Đóng nút bấm
-                </div> // Đóng khung bố cục
-              </form> // Đóng form biểu mẫu
-            </div> // Đóng khung bố cục
-          </div> // Đóng khung bố cục
-        </div> // Đóng khung bố cục
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
       )}
 
       {showExchangeModal && (
-        <div className="modal-overlay" style={{ zIndex: 10000 }} onClick={() => setShowExchangeModal(false)}> // Khung chứa bố cục
-          <div className="modal-content wallet-premium-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px', borderRadius: '24px', padding: '30px', position: 'relative' }}> // Khung chứa bố cục
-            <button // Nút bấm chức năng
+        <div className="modal-overlay" style={{ zIndex: 10000 }} onClick={() => setShowExchangeModal(false)}>
+          <div className="modal-content wallet-premium-modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px', borderRadius: '24px', padding: '30px', position: 'relative' }}>
+            <button
               type="button"
               onClick={() => setShowExchangeModal(false)}
               className="modal-close-btn"
               style={{ position: 'absolute', right: '20px', top: '20px', background: 'none', border: 'none', fontSize: '24px', cursor: 'pointer', color: '#718EBF' }}
             >
               ×
-            </button> // Đóng nút bấm
-            <div className="modal-title-left" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}> // Khung chứa bố cục
-              <span style={{ fontSize: '24px' }}>💱</span> // Nhãn văn bản ngắn
-              <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: 'var(--text-main)' }}>Quy đổi ngoại tệ</h3> // Tiêu đề cấp 3
-            </div> // Đóng khung bố cục
+            </button>
+            <div className="modal-title-left" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+              <span style={{ fontSize: '24px' }}>💱</span>
+              <h3 style={{ margin: 0, fontSize: '20px', fontWeight: '800', color: 'var(--text-main)' }}>Quy đổi ngoại tệ</h3>
+            </div>
 
-            <div style={{ background: 'var(--bg-color)', padding: '20px', borderRadius: '20px', border: '1px solid var(--border-color)', marginBottom: '20px' }}> // Khung chứa bố cục
-              {/* Input Số tiền */}
-              <div style={{ marginBottom: '15px' }}> // Khung chứa bố cục
-                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '13px', fontWeight: '600' }}>Số tiền cần đổi</label> // Nhãn tiêu đề trường nhập
-                <input // Ô nhập dữ liệu
+            <div style={{ background: 'var(--bg-color)', padding: '20px', borderRadius: '20px', border: '1px solid var(--border-color)', marginBottom: '20px' }}>
+              {}
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', color: '#718EBF', fontSize: '13px', fontWeight: '600' }}>Số tiền cần đổi</label>
+                <input
                   type="number"
                   value={exchangeAmount}
                   onChange={e => setExchangeAmount(e.target.value)}
@@ -1874,133 +1874,133 @@ export default function Wallets() {
                   className="wallet-input"
                   style={{ width: '100%', padding: '12px 16px', fontSize: '16px', fontWeight: '700', borderRadius: '12px', background: 'var(--card-bg)', border: '1px solid var(--border-color)', color: 'var(--text-main)' }}
                 />
-              </div> // Đóng khung bố cục
+              </div>
 
-              {/* Hàng chọn ngoại tệ */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}> // Khung chứa bố cục
-                <div style={{ flex: 1 }}> // Khung chứa bố cục
-                  <label style={{ display: 'block', marginBottom: '6px', color: '#718EBF', fontSize: '12px', fontWeight: '600' }}>Từ loại tiền</label> // Nhãn tiêu đề trường nhập
-                  <select // Menu thả xuống
+              {}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '15px' }}>
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#718EBF', fontSize: '12px', fontWeight: '600' }}>Từ loại tiền</label>
+                  <select
                     value={exchangeFrom}
                     onChange={e => setExchangeFrom(e.target.value)}
                     className="wallet-input"
                     style={{ width: '100%', padding: '10px', fontSize: '14px', fontWeight: '700', borderRadius: '10px', background: 'var(--card-bg)', border: '1px solid var(--border-color)', color: 'var(--text-main)' }}
                   >
-                    <option value="USD">USD ($)</option> // Giá trị trong menu
-                    <option value="EUR">EUR (€)</option> // Giá trị trong menu
-                    <option value="GBP">GBP (£)</option> // Giá trị trong menu
-                    <option value="JPY">JPY (¥)</option> // Giá trị trong menu
-                    <option value="VND">VNĐ (₫)</option> // Giá trị trong menu
-                  </select> // Đóng menu thả xuống
-                </div> // Đóng khung bố cục
+                    <option value="USD">USD ($)</option>
+                    <option value="EUR">EUR (€)</option>
+                    <option value="GBP">GBP (£)</option>
+                    <option value="JPY">JPY (¥)</option>
+                    <option value="VND">VNĐ (₫)</option>
+                  </select>
+                </div>
 
-                <button // Nút bấm chức năng
+                <button
                   type="button"
                   onClick={handleSwapCurrencies}
                   style={{
-                    background: 'linear-gradient(135deg, #1814F3 0%, #396AFF 100%)', /* Màu nền gradient */
-                    border: 'none', /* Đường viền */
-                    width: '36px', /* Chiều rộng */
-                    height: '36px', /* Chiều cao */
-                    borderRadius: '50%', /* Bo tròn góc khung */
-                    color: '#fff', /* Màu chữ */
-                    display: 'flex', /* Hiển thị kiểu hộp Flex */
-                    alignItems: 'center', /* Căn giữa trục phụ */
-                    justifyContent: 'center', /* Căn giữa trục chính */
-                    cursor: 'pointer', /* Con trỏ chuột bàn tay */
+                    background: 'linear-gradient(135deg, #1814F3 0%, #396AFF 100%)', 
+                    border: 'none', 
+                    width: '36px', 
+                    height: '36px', 
+                    borderRadius: '50%', 
+                    color: '#fff', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    cursor: 'pointer', 
                     marginTop: '18px',
-                    boxShadow: '0 4px 10px rgba(24, 20, 243, 0.2)', /* Độ bóng đổ */
-                    transition: 'all 0.2s', /* Hiệu ứng mượt mà */
-                    fontSize: '16px' /* Cỡ chữ */
+                    boxShadow: '0 4px 10px rgba(24, 20, 243, 0.2)', 
+                    transition: 'all 0.2s', 
+                    fontSize: '16px' 
                   }}
                   onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
                   onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
                 >
                   🔄
-                </button> // Đóng nút bấm
+                </button>
 
-                <div style={{ flex: 1 }}> // Khung chứa bố cục
-                  <label style={{ display: 'block', marginBottom: '6px', color: '#718EBF', fontSize: '12px', fontWeight: '600' }}>Sang loại tiền</label> // Nhãn tiêu đề trường nhập
-                  <select // Menu thả xuống
+                <div style={{ flex: 1 }}>
+                  <label style={{ display: 'block', marginBottom: '6px', color: '#718EBF', fontSize: '12px', fontWeight: '600' }}>Sang loại tiền</label>
+                  <select
                     value={exchangeTo}
                     onChange={e => setExchangeTo(e.target.value)}
                     className="wallet-input"
                     style={{ width: '100%', padding: '10px', fontSize: '14px', fontWeight: '700', borderRadius: '10px', background: 'var(--card-bg)', border: '1px solid var(--border-color)', color: 'var(--text-main)' }}
                   >
-                    <option value="VND">VNĐ (₫)</option> // Giá trị trong menu
-                    <option value="USD">USD ($)</option> // Giá trị trong menu
-                    <option value="EUR">EUR (€)</option> // Giá trị trong menu
-                    <option value="GBP">GBP (£)</option> // Giá trị trong menu
-                    <option value="JPY">JPY (¥)</option> // Giá trị trong menu
-                  </select> // Đóng menu thả xuống
-                </div> // Đóng khung bố cục
-              </div> // Đóng khung bố cục
+                    <option value="VND">VNĐ (₫)</option>
+                    <option value="USD">USD ($)</option>
+                    <option value="EUR">EUR (€)</option>
+                    <option value="GBP">GBP (£)</option>
+                    <option value="JPY">JPY (¥)</option>
+                  </select>
+                </div>
+              </div>
 
-              {/* Kết quả quy đổi */}
-              <div style={{ marginTop: '20px', padding: '15px', background: 'var(--card-bg)', borderRadius: '14px', border: '1px solid var(--border-color)', textAlign: 'center' }}> // Khung chứa bố cục
-                <div style={{ fontSize: '13px', color: '#718EBF', marginBottom: '6px', fontWeight: '500' }}>Kết quả quy đổi tương đương</div> // Khung chứa bố cục
-                <div style={{ fontSize: '22px', fontWeight: '800', color: '#16DBCC' }}> // Khung chứa bố cục
+              {}
+              <div style={{ marginTop: '20px', padding: '15px', background: 'var(--card-bg)', borderRadius: '14px', border: '1px solid var(--border-color)', textAlign: 'center' }}>
+                <div style={{ fontSize: '13px', color: '#718EBF', marginBottom: '6px', fontWeight: '500' }}>Kết quả quy đổi tương đương</div>
+                <div style={{ fontSize: '22px', fontWeight: '800', color: '#16DBCC' }}>
                   {getConvertedAmount()} {exchangeTo}
-                </div> // Đóng khung bố cục
-              </div> // Đóng khung bố cục
-            </div> // Đóng khung bố cục
+                </div>
+              </div>
+            </div>
 
-            {/* Bảng tỷ giá hôm nay */}
-            <div> // Khung chứa bố cục
-              <h4 style={{ margin: '0 0 10px 0', fontSize: '14px', color: 'var(--text-main)', fontWeight: '700' }}>Tỷ giá quy đổi tham khảo:</h4> // Tiêu đề cấp 4
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}> // Khung chứa bố cục
-                <div style={{ padding: '10px 12px', background: 'var(--bg-color)', borderRadius: '10px', fontSize: '13px', color: 'var(--text-main)', display: 'flex', justifyContent: 'space-between', border: '1px solid var(--border-color)' }}> // Khung chứa bố cục
-                  <span style={{ fontWeight: '600' }}>💵 1 USD</span> // Nhãn văn bản ngắn
-                  <span style={{ fontWeight: '700', color: '#1814F3' }}>{Math.round(exchangeRates.VND || 25450).toLocaleString('vi-VN')} ₫</span> // Nhãn văn bản ngắn
-                </div> // Đóng khung bố cục
-                <div style={{ padding: '10px 12px', background: 'var(--bg-color)', borderRadius: '10px', fontSize: '13px', color: 'var(--text-main)', display: 'flex', justifyContent: 'space-between', border: '1px solid var(--border-color)' }}> // Khung chứa bố cục
-                  <span style={{ fontWeight: '600' }}>💶 1 EUR</span> // Nhãn văn bản ngắn
-                  <span style={{ fontWeight: '700', color: '#1814F3' }}>{Math.round((exchangeRates.VND || 25450) / (exchangeRates.EUR || 0.93)).toLocaleString('vi-VN')} ₫</span> // Nhãn văn bản ngắn
-                </div> // Đóng khung bố cục
-                <div style={{ padding: '10px 12px', background: 'var(--bg-color)', borderRadius: '10px', fontSize: '13px', color: 'var(--text-main)', display: 'flex', justifyContent: 'space-between', border: '1px solid var(--border-color)' }}> // Khung chứa bố cục
-                  <span style={{ fontWeight: '600' }}>💷 1 GBP</span> // Nhãn văn bản ngắn
-                  <span style={{ fontWeight: '700', color: '#1814F3' }}>{Math.round((exchangeRates.VND || 25450) / (exchangeRates.GBP || 0.79)).toLocaleString('vi-VN')} ₫</span> // Nhãn văn bản ngắn
-                </div> // Đóng khung bố cục
-                <div style={{ padding: '10px 12px', background: 'var(--bg-color)', borderRadius: '10px', fontSize: '13px', color: 'var(--text-main)', display: 'flex', justifyContent: 'space-between', border: '1px solid var(--border-color)' }}> // Khung chứa bố cục
-                  <span style={{ fontWeight: '600' }}>💴 1 JPY</span> // Nhãn văn bản ngắn
-                  <span style={{ fontWeight: '700', color: '#1814F3' }}>{Math.round((exchangeRates.VND || 25450) / (exchangeRates.JPY || 158)).toLocaleString('vi-VN')} ₫</span> // Nhãn văn bản ngắn
-                </div> // Đóng khung bố cục
-              </div> // Đóng khung bố cục
-            </div> // Đóng khung bố cục
+            {}
+            <div>
+              <h4 style={{ margin: '0 0 10px 0', fontSize: '14px', color: 'var(--text-main)', fontWeight: '700' }}>Tỷ giá quy đổi tham khảo:</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div style={{ padding: '10px 12px', background: 'var(--bg-color)', borderRadius: '10px', fontSize: '13px', color: 'var(--text-main)', display: 'flex', justifyContent: 'space-between', border: '1px solid var(--border-color)' }}>
+                  <span style={{ fontWeight: '600' }}>💵 1 USD</span>
+                  <span style={{ fontWeight: '700', color: '#1814F3' }}>{Math.round(exchangeRates.VND || 25450).toLocaleString('vi-VN')} ₫</span>
+                </div>
+                <div style={{ padding: '10px 12px', background: 'var(--bg-color)', borderRadius: '10px', fontSize: '13px', color: 'var(--text-main)', display: 'flex', justifyContent: 'space-between', border: '1px solid var(--border-color)' }}>
+                  <span style={{ fontWeight: '600' }}>💶 1 EUR</span>
+                  <span style={{ fontWeight: '700', color: '#1814F3' }}>{Math.round((exchangeRates.VND || 25450) / (exchangeRates.EUR || 0.93)).toLocaleString('vi-VN')} ₫</span>
+                </div>
+                <div style={{ padding: '10px 12px', background: 'var(--bg-color)', borderRadius: '10px', fontSize: '13px', color: 'var(--text-main)', display: 'flex', justifyContent: 'space-between', border: '1px solid var(--border-color)' }}>
+                  <span style={{ fontWeight: '600' }}>💷 1 GBP</span>
+                  <span style={{ fontWeight: '700', color: '#1814F3' }}>{Math.round((exchangeRates.VND || 25450) / (exchangeRates.GBP || 0.79)).toLocaleString('vi-VN')} ₫</span>
+                </div>
+                <div style={{ padding: '10px 12px', background: 'var(--bg-color)', borderRadius: '10px', fontSize: '13px', color: 'var(--text-main)', display: 'flex', justifyContent: 'space-between', border: '1px solid var(--border-color)' }}>
+                  <span style={{ fontWeight: '600' }}>💴 1 JPY</span>
+                  <span style={{ fontWeight: '700', color: '#1814F3' }}>{Math.round((exchangeRates.VND || 25450) / (exchangeRates.JPY || 158)).toLocaleString('vi-VN')} ₫</span>
+                </div>
+              </div>
+            </div>
 
-            <button // Nút bấm chức năng
+            <button
               type="button"
               onClick={() => setShowExchangeModal(false)}
               className="wallet-premium-btn"
               style={{ marginTop: '20px', background: 'var(--bg-color)', color: 'var(--text-main)', border: '1px solid var(--border-color)', width: '100%', padding: '12px', borderRadius: '12px', fontWeight: '700', cursor: 'pointer' }}
             >
               Đóng
-            </button> // Đóng nút bấm
-          </div> // Đóng khung bố cục
-        </div> // Đóng khung bố cục
+            </button>
+          </div>
+        </div>
       )}
       {showQrModal && isLoggedIn && (
-        <div className="modal-overlay" onClick={() => setShowQrModal(false)}> // Khung chứa bố cục
-          <div className="qr-app-modal-content" onClick={(e) => e.stopPropagation()}> // Khung chứa bố cục
+        <div className="modal-overlay" onClick={() => setShowQrModal(false)}>
+          <div className="qr-app-modal-content" onClick={(e) => e.stopPropagation()}>
             {/* Header: Title and Back button */}
-            <div className="qr-modal-header"> // Khung chứa bố cục
-              <button // Nút bấm chức năng
+            <div className="qr-modal-header">
+              <button
                 type="button"
                 onClick={() => setShowQrModal(false)}
                 className="qr-modal-back-btn"
               >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"> // Biểu tượng véc tơ SVG
-                  <polyline points="15 18 9 12 15 6"></polyline> // Đoạn văn văn bản
-                </svg> // Đóng biểu tượng SVG
-              </button> // Đóng nút bấm
-              <h2 className="qr-modal-title">Mã QR của tôi</h2> // Tiêu đề cấp 2
-            </div> // Đóng khung bố cục
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="15 18 9 12 15 6"></polyline>
+                </svg>
+              </button>
+              <h2 className="qr-modal-title">Mã QR của tôi</h2>
+            </div>
 
-            <div className="qr-tab-content"> // Khung chứa bố cục
-              {/* White QR Code Card */}
-              <div className="qr-code-card"> // Khung chứa bố cục
-                <div className="qr-code-wrapper"> // Khung chứa bố cục
-                  <img // Hình ảnh minh họa
+            <div className="qr-tab-content">
+              {}
+              <div className="qr-code-card">
+                <div className="qr-code-wrapper">
+                  <img
                     src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
                       JSON.stringify({
                         type: 'internal',
@@ -2013,128 +2013,128 @@ export default function Wallets() {
                     alt="QR Code"
                     className="qr-code-image-element"
                   />
-                </div> // Đóng khung bố cục
+                </div>
 
-                <div className="qr-card-tip">Mã QR nội bộ P2P</div> // Khung chứa bố cục
+                <div className="qr-card-tip">Mã QR nội bộ P2P</div>
 
-                <div className="qr-card-id-row"> // Khung chứa bố cục
-                  <span className="qr-card-id-val">{userData?.identifier || 'N/A'}</span> // Nhãn văn bản ngắn
-                  <button // Nút bấm chức năng
+                <div className="qr-card-id-row">
+                  <span className="qr-card-id-val">{userData?.identifier || 'N/A'}</span>
+                  <button
                     onClick={handleCopyId}
                     className="qr-card-copy-btn"
                     title="Sao chép ID"
                     type="button"
                   >
                     {copied ? 'Đã chép! ✓' : (
-                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"> // Biểu tượng véc tơ SVG
-                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" /> // Hình vẽ khối vuông SVG
-                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /> // Đoạn văn văn bản
-                      </svg> // Đóng biểu tượng SVG
+                      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                      </svg>
                     )}
-                  </button> // Đóng nút bấm
-                </div> // Đóng khung bố cục
-              </div> // Đóng khung bố cục
+                  </button>
+                </div>
+              </div>
 
               {/* Form Controls */}
-              <div className="qr-form-section"> // Khung chứa bố cục
+              <div className="qr-form-section">
                 {/* Select Wallet */}
-                <div className="qr-form-group"> // Khung chứa bố cục
-                  <label className="qr-form-label">Chọn ví nhận tiền</label> // Nhãn tiêu đề trường nhập
-                  <div className="qr-input-wrapper"> // Khung chứa bố cục
-                    <span className="qr-input-icon"> // Nhãn văn bản ngắn
+                <div className="qr-form-group">
+                  <label className="qr-form-label">Chọn ví nhận tiền</label>
+                  <div className="qr-input-wrapper">
+                    <span className="qr-input-icon">
                       {renderWalletIcon(
                         wallets.find(w => w.id === selectedReceivingWalletId)?.icon || 'wallet',
                         16,
                         { color: '#1814F3' }
                       )}
-                    </span> // Đóng nhãn văn bản
-                    <select // Menu thả xuống
+                    </span>
+                    <select
                       value={selectedReceivingWalletId}
                       onChange={(e) => handleSelectReceivingWallet(e.target.value)}
                       className="qr-select-input"
                     >
                       {wallets.filter(w => w.type !== 'cash' && !w.is_hidden).map((w) => (
-                        <option key={w.id} value={w.id}> // Giá trị trong menu
+                        <option key={w.id} value={w.id}>
                           {w.name} ({formatWalletBalance(w.available_balance || 0)}đ)
                         </option>
                       ))}
-                    </select> // Đóng menu thả xuống
-                    <span className="qr-select-caret"> // Nhãn văn bản ngắn
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"> // Biểu tượng véc tơ SVG
-                        <polyline points="6 9 12 15 18 9"></polyline> // Đoạn văn văn bản
-                      </svg> // Đóng biểu tượng SVG
-                    </span> // Đóng nhãn văn bản
-                  </div> // Đóng khung bố cục
-                </div> // Đóng khung bố cục
+                    </select>
+                    <span className="qr-select-caret">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="6 9 12 15 18 9"></polyline>
+                      </svg>
+                    </span>
+                  </div>
+                </div>
 
                 {/* Amount input */}
-                <div className="qr-form-group"> // Khung chứa bố cục
-                  <div className="qr-input-wrapper"> // Khung chứa bố cục
-                    <span className="qr-input-icon qr-symbol-icon">$</span> // Nhãn văn bản ngắn
-                    <input // Ô nhập dữ liệu
+                <div className="qr-form-group">
+                  <div className="qr-input-wrapper">
+                    <span className="qr-input-icon qr-symbol-icon">$</span>
+                    <input
                       type="number"
                       value={qrAmount}
                       onChange={(e) => setQrAmount(e.target.value)}
                       placeholder="Số tiền (Tùy chọn)"
                       className="qr-text-input"
                     />
-                  </div> // Đóng khung bố cục
-                </div> // Đóng khung bố cục
+                  </div>
+                </div>
 
                 {/* Notes input */}
-                <div className="qr-form-group"> // Khung chứa bố cục
-                  <div className="qr-input-wrapper"> // Khung chứa bố cục
-                    <span className="qr-input-icon qr-symbol-icon"> // Nhãn văn bản ngắn
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"> // Biểu tượng véc tơ SVG
-                        <line x1="3" y1="12" x2="21" y2="12"></line> // Đường kẻ SVG
-                        <line x1="3" y1="6" x2="21" y2="6"></line> // Đường kẻ SVG
-                        <line x1="3" y1="18" x2="21" y2="18"></line> // Đường kẻ SVG
-                      </svg> // Đóng biểu tượng SVG
-                    </span> // Đóng nhãn văn bản
-                    <input // Ô nhập dữ liệu
+                <div className="qr-form-group">
+                  <div className="qr-input-wrapper">
+                    <span className="qr-input-icon qr-symbol-icon">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="3" y1="12" x2="21" y2="12"></line>
+                        <line x1="3" y1="6" x2="21" y2="6"></line>
+                        <line x1="3" y1="18" x2="21" y2="18"></line>
+                      </svg>
+                    </span>
+                    <input
                       type="text"
                       value={qrDescription}
                       onChange={(e) => setQrDescription(e.target.value)}
                       placeholder="Ghi chú (Tùy chọn)"
                       className="qr-text-input"
                     />
-                  </div> // Đóng khung bố cục
-                </div> // Đóng khung bố cục
-              </div> // Đóng khung bố cục
-            </div> // Đóng khung bố cục
-          </div> // Đóng khung bố cục
-        </div> // Đóng khung bố cục
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* CONTACTS MODAL */}
       {showContactsModal && (
-        <div className="modal-overlay" onClick={() => setShowContactsModal(false)}> // Khung chứa bố cục
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px' }}> // Khung chứa bố cục
-            <button // Nút bấm chức năng
+        <div className="modal-overlay" onClick={() => setShowContactsModal(false)}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px' }}>
+            <button
               type="button"
               onClick={() => setShowContactsModal(false)}
               className="modal-close-btn"
             >
               ×
-            </button> // Đóng nút bấm
-            <div className="modal-title-left"> // Khung chứa bố cục
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1814F3" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"> // Biểu tượng véc tơ SVG
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" /> // Đoạn văn văn bản
-                <circle cx="9" cy="7" r="4" /> // Hình tròn SVG
-                <path d="M23 21v-2a4 4 0 0 0-3-3.87" /> // Đoạn văn văn bản
-                <path d="M16 3.13a4 4 0 0 1 0 7.75" /> // Đoạn văn văn bản
-              </svg> // Đóng biểu tượng SVG
-              <h3>Danh bạ người nhận</h3> // Tiêu đề cấp 3
-            </div> // Đóng khung bố cục
+            </button>
+            <div className="modal-title-left">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1814F3" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+                <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+              </svg>
+              <h3>Danh bạ người nhận</h3>
+            </div>
 
             {isLoadingContacts ? (
-              <div style={{ textAlign: 'center', padding: '20px', color: '#718EBF' }}>Đang tải...</div> // Khung chứa bố cục
+              <div style={{ textAlign: 'center', padding: '20px', color: '#718EBF' }}>Đang tải...</div>
             ) : contactsList.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '20px', color: '#718EBF' }}>Danh bạ trống.</div> // Khung chứa bố cục
+              <div style={{ textAlign: 'center', padding: '20px', color: '#718EBF' }}>Danh bạ trống.</div>
             ) : (
-              <div className="payees-list"> // Khung chứa bố cục
+              <div className="payees-list">
                 {contactsList.map(contact => (
-                  <div // Khung chứa bố cục
+                  <div
                     key={contact.id}
                     className="payee-item"
                     onClick={() => {
@@ -2142,18 +2142,18 @@ export default function Wallets() {
                       setShowContactsModal(false);
                     }}
                   >
-                    <div className="payee-item-details"> // Khung chứa bố cục
-                      <img // Hình ảnh minh họa
+                    <div className="payee-item-details">
+                      <img
                         src={contact.avatar_url || "https://api.dicebear.com/7.x/miniavs/svg?seed=" + contact.payee_name}
                         alt={contact.payee_name}
                         className="payee-item-avatar"
                       />
-                      <div> // Khung chứa bố cục
-                        <div className="payee-item-name">{contact.payee_name}</div> // Khung chứa bố cục
-                        <div className="payee-item-id">{contact.identifier}</div> // Khung chứa bố cục
-                      </div> // Đóng khung bố cục
-                    </div> // Đóng khung bố cục
-                    <button // Nút bấm chức năng
+                      <div>
+                        <div className="payee-item-name">{contact.payee_name}</div>
+                        <div className="payee-item-id">{contact.identifier}</div>
+                      </div>
+                    </div>
+                    <button
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -2162,18 +2162,18 @@ export default function Wallets() {
                       className="payee-delete-btn"
                       title="Xóa liên hệ"
                     >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"> // Biểu tượng véc tơ SVG
-                        <polyline points="3 6 5 6 21 6"></polyline> // Đoạn văn văn bản
-                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /> // Đoạn văn văn bản
-                      </svg> // Đóng biểu tượng SVG
-                    </button> // Đóng nút bấm
-                  </div> // Đóng khung bố cục
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                      </svg>
+                    </button>
+                  </div>
                 ))}
-              </div> // Đóng khung bố cục
+              </div>
             )}
-          </div> // Đóng khung bố cục
-        </div> // Đóng khung bố cục
+          </div>
+        </div>
       )}
-    </div> // Đóng khung bố cục
+    </div>
   );
 }
