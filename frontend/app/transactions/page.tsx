@@ -445,6 +445,7 @@ export default function Transactions() {
   const [isClassifyingEdit, setIsClassifyingEdit] = useState(false);
   const [isClassifyingRecurring, setIsClassifyingRecurring] = useState(false);
   const hasAttemptedOpen = useRef(false);
+  const rulesBeingCorrected = useRef<Record<string, boolean>>({});
 
 
 
@@ -1463,6 +1464,36 @@ export default function Transactions() {
     }
   }, [activeTab, hasLoadedSavings]);
 
+  // Tự động sửa các quy tắc định kỳ bị lỗi số tiền nhỏ (dưới 1000)
+  useEffect(() => {
+    if (isLoggedIn && recurringTransactions.length > 0) {
+      recurringTransactions.forEach(async (tx: any) => {
+        const amt = Number(tx.amount);
+        if (amt > 0 && amt < 1000 && (tx.currency_code || 'VND') === 'VND') {
+          if (rulesBeingCorrected.current[tx.id]) return;
+          rulesBeingCorrected.current[tx.id] = true;
+          try {
+            console.log(`Tự động sửa số tiền cho quy tắc ${tx.title || tx.name} từ ${amt} thành ${amt * 1000}`);
+            await apiFetch(`/recurring-rules/${tx.id}`, {
+              method: 'POST',
+              body: JSON.stringify({
+                amount: amt * 1000
+              })
+            });
+            // Tải lại danh sách sau khi tự động cập nhật
+            apiFetch('/recurring-rules').then(res => {
+              const data = res.data ? res.data : (Array.isArray(res) ? res : []);
+              setRecurringTransactions(data);
+            });
+          } catch (err) {
+            console.error(`Lỗi tự động sửa quy tắc ${tx.title || tx.name}:`, err);
+            delete rulesBeingCorrected.current[tx.id];
+          }
+        }
+      });
+    }
+  }, [isLoggedIn, recurringTransactions]);
+
   // Client-side filtering and sorting for internal transfers
   const filteredTransfers = useMemo(() => {
     let result = [...internalTransfers];
@@ -1722,7 +1753,7 @@ export default function Transactions() {
             title: newTx.title,
             name: newTx.title,
             description: newTx.title,
-            amount: newTx.amount,
+            amount: newTx.amount.toString().replace(/\./g, ''),
             type: newTx.type,
             wallet_id: newTx.wallet_id,
             category_id: newTx.category_id || null,

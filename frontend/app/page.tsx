@@ -1,172 +1,179 @@
-"use client";
-import React, { useState, useEffect, useMemo } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import Sidebar from './components/Sidebar';
-import { useAppContext } from './context/AppContext';
-import { useLanguage } from './lib/translations';
-import { budgetApi, reportApi, transactionApi } from './lib/api';
-import { getThisMonthRange } from './lib/dateHelpers';
+"use client"; // Chỉ định đây là Client Component chạy trực tiếp trên trình duyệt
+import React, { useState, useEffect, useMemo } from 'react'; // Nhập thư viện React và các Hook để quản lý trạng thái, vòng đời component
+import Link from 'next/link'; // Nhập thẻ Link hỗ trợ chuyển trang tối ưu trong Next.js
+import { useRouter } from 'next/navigation'; // Nhập hook useRouter để điều hướng trang bằng code
+import Sidebar from './components/Sidebar'; // Nhập thanh Sidebar điều hướng menu bên trái
+import { useAppContext } from './context/AppContext'; // Lấy dữ liệu chia sẻ chung toàn hệ thống từ AppContext
+import { useLanguage } from './lib/translations'; // Nhập thư viện đa ngôn ngữ tiếng Việt/tiếng Anh
+import { budgetApi, reportApi, transactionApi } from './lib/api'; // Các hàm API gọi lên server lấy ngân sách, báo cáo, giao dịch
+import { getThisMonthRange } from './lib/dateHelpers'; // Hàm lấy ngày bắt đầu và kết thúc của tháng hiện tại
 
-const parseIcon = (iconName: string) => {
-  const iconMap: Record<string, string> = {
-    food: '🍜', car: '🚗', shopping_cart: '🛒', shopping_bag: '🛍️', gamepad: '🎮', 
-    beauty: '💇', health: '🏥', heart: '💖', receipt: '📋', house: '🏠', 
-    users: '🤝', chart: '📈', book: '📚', salary: '💰', award: '🏆', 
-    business: '🏢', profit: '💹', debt: '📉', support: '🤗', building: '🏙️', 
-    rings: '💍', grid: '🔲', monitor: '🖥️', cash: '💵', coffee: '☕', 
-    baby_clothing: '👶', book_open: '📖', paw: '🐾', dumbbell: '🏋️', baby_bottle: '🍼', 
-    masks: '🎭', beer: '🍺', suitcase: '🧳', tshirt: '👕', croissant: '🥐', 
-    graduation_cap: '🎓', water_drop_money: '💧', basket: '🧺', cigarette: '🚬', teddy_bear: '🧸', 
-    bread: '🍞', heart_paw: '🐾', globe: '🌍', hand_money: '🤲', coffee_cup: '☕', 
-    money_bag: '💰', graduation_cap_alt: '🧑‍🎓', masks_alt: '🎭', house_money: '🏠', handshake: '🤝', 
-    clapperboard: '🎬', medical_shield: '🛡️', lightbulb: '💡', gas_station: '⛽', gas_cylinder: '🛢️', 
-    flower: '🌸', inbox_archive: '📥', heart_money: '💖', house_settings: '🏠', desktop: '🖥️', 
-    shopping_cart_alt: '🛒', hand_coin: '🪙', piggy_bank: '🐷', scissors: '✂️', restaurant: '🍽️', 
-    ticket: '🎫', motorcycle: '🏍️', dumbbell_alt: '🏋️‍♀️', house_search: '🏠', school: '🏫', 
-    wallet_shield: '🛡️', car_settings: '🚗', first_aid: '🚑', parking: '🅿️', phone_call: '📞', 
-    baby_carriage: '🚼', glove: '🧤', car_shopping: '🚗', train: '🚆', chair: '🪑', 
-    car_alt: '🚙', bill: '🧾', teddy_bear_alt: '🧸', headphones: '🎧', laptop: '💻', 
-    office_chair: '💺', medical_shield_alt: '🛡️', electricity: '⚡', hand_heart: '🫶', heart_plus: '💖', 
-    gift_box: '🎁', spa: '💆', gift: '🎁', airplane: '✈️', chart_alt: '📊', 
-    wallet: '👛', water_drop: '💧', discount: '🏷️', bill_dollar: '🧾', mobile_dollar: '📱', 
+  // Hàm nhận diện và trả về biểu tượng emoji tương ứng với tên icon từ database
+  const parseIcon = (iconName: string) => { // Hàm tìm và trả về emoji tương ứng với tên icon từ DB
+  const iconMap: Record<string, string> = { // Khai báo đối tượng bản đồ ánh xạ các từ khóa icon sang emoji
+    food: '🍜', car: '🚗', shopping_cart: '🛒', shopping_bag: '🛍️', gamepad: '🎮',
+    beauty: '💇', health: '🏥', heart: '💖', receipt: '📋', house: '🏠',
+    users: '🤝', chart: '📈', book: '📚', salary: '💰', award: '🏆',
+    business: '🏢', profit: '💹', debt: '📉', support: '🤗', building: '🏙️',
+    rings: '💍', grid: '🔲', monitor: '🖥️', cash: '💵', coffee: '☕',
+    baby_clothing: '👶', book_open: '📖', paw: '🐾', dumbbell: '🏋️', baby_bottle: '🍼',
+    masks: '🎭', beer: '🍺', suitcase: '🧳', tshirt: '👕', croissant: '🥐',
+    graduation_cap: '🎓', water_drop_money: '💧', basket: '🧺', cigarette: '🚬', teddy_bear: '🧸',
+    bread: '🍞', heart_paw: '🐾', globe: '🌍', hand_money: '🤲', coffee_cup: '☕',
+    money_bag: '💰', graduation_cap_alt: '🧑‍🎓', masks_alt: '🎭', house_money: '🏠', handshake: '🤝',
+    clapperboard: '🎬', medical_shield: '🛡️', lightbulb: '💡', gas_station: '⛽', gas_cylinder: '🛢️',
+    flower: '🌸', inbox_archive: '📥', heart_money: '💖', house_settings: '🏠', desktop: '🖥️',
+    shopping_cart_alt: '🛒', hand_coin: '🪙', piggy_bank: '🐷', scissors: '✂️', restaurant: '🍽️',
+    ticket: '🎫', motorcycle: '🏍️', dumbbell_alt: '🏋️‍♀️', house_search: '🏠', school: '🏫',
+    wallet_shield: '🛡️', car_settings: '🚗', first_aid: '🚑', parking: '🅿️', phone_call: '📞',
+    baby_carriage: '🚼', glove: '🧤', car_shopping: '🚗', train: '🚆', chair: '🪑',
+    car_alt: '🚙', bill: '🧾', teddy_bear_alt: '🧸', headphones: '🎧', laptop: '💻',
+    office_chair: '💺', medical_shield_alt: '🛡️', electricity: '⚡', hand_heart: '🫶', heart_plus: '💖',
+    gift_box: '🎁', spa: '💆', gift: '🎁', airplane: '✈️', chart_alt: '📊',
+    wallet: '👛', water_drop: '💧', discount: '🏷️', bill_dollar: '🧾', mobile_dollar: '📱',
     bank: '🏦', network: '🌐', parking_alt: '🅿️', plane: '✈️', fire: '🔥',
     star: '⭐', music: '🎵', camera: '📷', brush: '🖌️', rocket: '🚀',
     pill: '💊', wine: '🍷', pizza: '🍕', hammer: '🔨', key: '🔑'
   };
-  return iconMap[iconName] || null;
+  return iconMap[iconName] || null; // Trả về emoji nếu tìm thấy, ngược lại trả về null
 };
 
-const formatDate = (dateStr: string) => {
-  if (!dateStr) return '';
+  // Hàm chuyển đổi định dạng ngày từ chuỗi ISO sang định dạng dd/mm/yyyy
+  const formatDate = (dateStr: string) => { // Hàm định dạng lại chuỗi ngày giờ thành ngày/tháng/năm
+  if (!dateStr) return ''; // Trả về rỗng nếu không có dữ liệu ngày truyền vào
   try {
-    const d = new Date(dateStr);
-    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
-  } catch (e) {
-    return dateStr;
-  }
+    const d = new Date(dateStr); // Khởi tạo đối tượng Date từ chuỗi truyền vào
+    return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`; // Trả về dạng dd/mm/yyyy
+  } catch (e) { // Phòng ngừa lỗi nếu chuỗi ngày không đúng định dạng
+    return dateStr; // Trả về chuỗi gốc nếu xảy ra lỗi chuyển đổi
+  } // Kết thúc kiểm tra điều kiện dữ liệu
 };
 
-const getDatesBetween = (startDateStr: string, endDateStr: string): string[] => {
-  const dates: string[] = [];
-  if (!startDateStr || !endDateStr) return dates;
-  let curr = new Date(startDateStr);
-  const end = new Date(endDateStr);
-  while (curr <= end) {
-    const dateString = `${curr.getFullYear()}-${String(curr.getMonth() + 1).padStart(2, '0')}-${String(curr.getDate()).padStart(2, '0')}`;
-    dates.push(dateString);
-    curr.setDate(curr.getDate() + 1);
-  }
-  return dates;
+  // Hàm sinh ra mảng chứa chuỗi tất cả các ngày nằm giữa ngày bắt đầu và kết thúc
+  const getDatesBetween = (startDateStr: string, endDateStr: string): string[] => { // Hàm trả về danh sách các ngày nằm giữa 2 mốc thời gian
+  const dates: string[] = []; // Khởi tạo mảng chứa kết quả các ngày
+  if (!startDateStr || !endDateStr) return dates; // Trả về mảng rỗng nếu thiếu một trong hai ngày
+  let curr = new Date(startDateStr); // Khởi tạo ngày bắt đầu chạy // Đặt ngày chạy bắt đầu
+  const end = new Date(endDateStr); // Khởi tạo ngày kết thúc làm mốc dừng // Đặt ngày kết thúc làm mốc dừng
+  while (curr <= end) { // Vòng lặp tăng dần từng tháng một // Vòng lặp tăng dần từ ngày bắt đầu đến ngày kết thúc
+    const dateString = `${curr.getFullYear()}-${String(curr.getMonth() + 1).padStart(2, '0')}-${String(curr.getDate()).padStart(2, '0')}`; // Định dạng ngày yyyy-mm-dd
+    dates.push(dateString); // Đẩy ngày vừa định dạng vào mảng kết quả
+    curr.setDate(curr.getDate() + 1); // Tăng ngày hiện tại lên 1 ngày
+  } // Kết thúc kiểm tra điều kiện dữ liệu
+  return dates; // Trả về mảng danh sách ngày đầy đủ
 };
 
-const getMonthsBetween = (startDateStr: string, endDateStr: string): any[] => {
-  const months: any[] = [];
-  if (!startDateStr || !endDateStr) return months;
+  // Hàm sinh ra danh sách các tháng nằm giữa hai mốc thời gian
+  const getMonthsBetween = (startDateStr: string, endDateStr: string): any[] => { // Hàm trả về danh sách các tháng nằm giữa 2 mốc
+  const months: any[] = []; // Khởi tạo mảng chứa các đối tượng tháng
+  if (!startDateStr || !endDateStr) return months; // Trả về rỗng nếu thiếu mốc thời gian
   let curr = new Date(startDateStr);
-  curr.setDate(1); // avoid month overflow issues
+  curr.setDate(1); // Đặt ngày là mùng 1 để tránh lỗi cộng tháng bị lệch số ngày tối đa
   const end = new Date(endDateStr);
-  end.setDate(1);
+  end.setDate(1); // Đặt mốc kết thúc về ngày mùng 1
   while (curr <= end) {
-    months.push({
-      month: curr.getMonth() + 1,
-      year: curr.getFullYear(),
-      label: `${String(curr.getMonth() + 1).padStart(2, '0')}/${curr.getFullYear()}`
+    months.push({ // Đẩy thông tin tháng vào danh sách kết quả
+      month: curr.getMonth() + 1, // Lưu giá trị tháng (từ 1 đến 12)
+      year: curr.getFullYear(), // Lưu giá trị năm tương ứng
+      label: `${String(curr.getMonth() + 1).padStart(2, '0')}/${curr.getFullYear()}` // Nhãn hiển thị mm/yyyy trên biểu đồ
     });
-    curr.setMonth(curr.getMonth() + 1);
-  }
-  return months;
+    curr.setMonth(curr.getMonth() + 1); // Tăng tháng hiện tại lên 1 tháng
+  } // Kết thúc kiểm tra điều kiện dữ liệu
+  return months; // Trả về danh sách tháng
 };
 
 export default function Dashboard() {
-  const router = useRouter();
-  const { isLoggedIn, wallets, transactions, isLoadingWallets, userData, categories, hasUnreadNotifications, unreadNotificationsCount } = useAppContext();
-  const { t, tCategory } = useLanguage();
-  const [showWalletBalance, setShowWalletBalance] = useState(true);
-  const [selectedWalletId, setSelectedWalletId] = useState<string>('');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [budgetsList, setBudgetsList] = useState<any[]>([]);
-  const [isLoadingBudget, setIsLoadingBudget] = useState(false);
+  const router = useRouter(); // Khởi tạo router Next.js để điều hướng trang
+  //84
+  const { isLoggedIn, wallets, transactions, isLoadingWallets, userData, categories, hasUnreadNotifications, unreadNotificationsCount } = useAppContext(); // Lấy dữ liệu người dùng, ví, giao dịch từ AppContext//Sử dụng useAppContext() để lấy ví, giao dịch, người dùng...
+  const { t, tCategory } = useLanguage(); // Hook hỗ trợ dịch đa ngôn ngữ cho giao diện
+  const [showWalletBalance, setShowWalletBalance] = useState(true); // State quản lý việc ẩn hoặc hiện số dư ví
+  const [selectedWalletId, setSelectedWalletId] = useState<string>(''); // State lưu ID của ví đang được chọn để lọc dữ liệu
+  const [searchQuery, setSearchQuery] = useState(''); // State lưu từ khóa tìm kiếm giao dịch
+  const [budgetsList, setBudgetsList] = useState<any[]>([]); // State lưu danh sách ngân sách (budgets)
+  const [isLoadingBudget, setIsLoadingBudget] = useState(false); // State lưu trạng thái đang tải dữ liệu ngân sách
   // Statistics States
-  const [summaryData, setSummaryData] = useState({ income: 0, expense: 0, net: 0 });
-  const [lastMonthSummary, setLastMonthSummary] = useState({ income: 0, expense: 0, net: 0 });
-  const [trendsData, setTrendsData] = useState<any[]>([]);
-  const [categoryData, setCategoryData] = useState<any[]>([]);
-  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
-  const [isLoadingTrends, setIsLoadingTrends] = useState(false);
-  const [isLoadingCategory, setIsLoadingCategory] = useState(false);
-  const [hoveredBar, setHoveredBar] = useState<{ idx: number, type: 'income' | 'expense' | null }>({ idx: -1, type: null });
-  const [hoveredCategory, setHoveredCategory] = useState<number | null>(null);
-  const [allocationType, setAllocationType] = useState<'parent' | 'child'>('parent');
-  const [selectedCategoryIdx, setSelectedCategoryIdx] = useState<number>(0);
-  const [dailyTrendsData, setDailyTrendsData] = useState<any[]>([]);
-  const [isLoadingDailyTrends, setIsLoadingDailyTrends] = useState(false);
-  const [hoveredDailyPoint, setHoveredDailyPoint] = useState<number | null>(null);
-  const [chartMode, setChartMode] = useState<'expense' | 'income' | 'balance'>('expense');
-  const [hoveredTopCategory, setHoveredTopCategory] = useState<number | null>(null);
-  const [timePeriod, setTimePeriod] = useState<'week' | 'month' | 'quarter' | 'year' | 'custom'>('month');
-  const [customStartDate, setCustomStartDate] = useState('');
-  const [customEndDate, setCustomEndDate] = useState('');
-  const [activeStartDate, setActiveStartDate] = useState('');
-  const [activeEndDate, setActiveEndDate] = useState('');
-  const [trendsGroupBy, setTrendsGroupBy] = useState<'day' | 'month'>('day');
+  const [summaryData, setSummaryData] = useState({ income: 0, expense: 0, net: 0 }); // State lưu tóm tắt doanh thu, chi tiêu, số dư ròng của kỳ hiện tại
+  const [lastMonthSummary, setLastMonthSummary] = useState({ income: 0, expense: 0, net: 0 }); // State lưu tóm tắt doanh thu, chi tiêu, số dư ròng của kỳ trước
+  const [trendsData, setTrendsData] = useState<any[]>([]); // State lưu dữ liệu xu hướng doanh thu & chi tiêu cho biểu đồ cột
+  const [categoryData, setCategoryData] = useState<any[]>([]); // State lưu dữ liệu chi tiêu phân bổ theo các danh mục
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false); // State quản lý trạng thái đang tải dữ liệu tóm tắt thu chi
+  const [isLoadingTrends, setIsLoadingTrends] = useState(false); // State quản lý trạng thái đang tải dữ liệu biểu đồ cột
+  const [isLoadingCategory, setIsLoadingCategory] = useState(false); // State quản lý trạng thái đang tải dữ liệu biểu đồ tròn
+  const [hoveredBar, setHoveredBar] = useState<{ idx: number, type: 'income' | 'expense' | null }>({ idx: -1, type: null }); // State lưu cột biểu đồ đang được hovered chuột
+  const [hoveredCategory, setHoveredCategory] = useState<number | null>(null); // State lưu phân khúc biểu đồ tròn đang được hovered chuột
+  const [allocationType, setAllocationType] = useState<'parent' | 'child'>('parent'); // State lưu chế độ xem danh mục cha hay con
+  const [selectedCategoryIdx, setSelectedCategoryIdx] = useState<number>(0); // State lưu index danh mục đang được chọn
+  const [dailyTrendsData, setDailyTrendsData] = useState<any[]>([]); // State lưu chi tiết chi tiêu hàng ngày cho biểu đồ đường
+  const [isLoadingDailyTrends, setIsLoadingDailyTrends] = useState(false); // State quản lý trạng thái tải dữ liệu chi tiêu hàng ngày
+  const [hoveredDailyPoint, setHoveredDailyPoint] = useState<number | null>(null); // State lưu điểm trên biểu đồ đường đang hovered chuột
+  const [chartMode, setChartMode] = useState<'expense' | 'income' | 'balance'>('expense'); // State lưu chế độ xem biểu đồ đường (chi tiêu, thu nhập, số dư)
+  const [hoveredTopCategory, setHoveredTopCategory] = useState<number | null>(null); // State lưu index danh mục top 5 đang hovered chuột
+  const [timePeriod, setTimePeriod] = useState<'week' | 'month' | 'quarter' | 'year' | 'custom'>('month'); // State lưu kỳ lọc thời gian (tuần, tháng, quý, năm, tùy chỉnh)
+  const [customStartDate, setCustomStartDate] = useState(''); // State lưu ngày bắt đầu tùy chọn
+  const [customEndDate, setCustomEndDate] = useState(''); // State lưu ngày kết thúc tùy chọn
+  const [activeStartDate, setActiveStartDate] = useState(''); // State lưu ngày bắt đầu hiệu lực được áp dụng
+  const [activeEndDate, setActiveEndDate] = useState(''); // State lưu ngày kết thúc hiệu lực được áp dụng
+  const [trendsGroupBy, setTrendsGroupBy] = useState<'day' | 'month'>('day'); // State lưu chế độ gom nhóm biểu đồ (theo ngày hay tháng)
 
   // Category Transaction Modal States
   const [transactionModalCategory, setTransactionModalCategory] = useState<any | null>(null);
   const [modalTransactions, setModalTransactions] = useState<any[]>([]);
   const [isLoadingModalTransactions, setIsLoadingModalTransactions] = useState(false);
 
+  // Hàm mở modal hiển thị danh sách các giao dịch thuộc danh mục được chọn
   const handleOpenCategoryTransactions = (cat: any) => {
-    setTransactionModalCategory(cat);
-    setIsLoadingModalTransactions(true);
-    setModalTransactions([]);
+    setTransactionModalCategory(cat); // Gán thông tin danh mục được chọn vào state
+    setIsLoadingModalTransactions(true); // Đặt trạng thái đang tải giao dịch chi tiết
+    setModalTransactions([]); // Reset lại mảng danh sách giao dịch cũ
 
     // Find all categories matching the ID (including child category IDs if allocationType === 'parent')
-    const catIds = [cat.category_id];
-    if (allocationType === 'parent') {
-      categories.forEach((c: any) => {
-        if (c.id === cat.category_id) {
-          if (c.children) {
-            c.children.forEach((sub: any) => {
-              catIds.push(sub.id);
+    const catIds = [cat.category_id]; // Khởi tạo mảng danh sách ID cần truy vấn bắt đầu bằng ID danh mục hiện tại
+    if (allocationType === 'parent') { // Nếu đang ở chế độ xem danh mục cha
+      categories.forEach((c: any) => { // Duyệt qua tất cả danh mục hệ thống
+        if (c.id === cat.category_id) { // Tìm đúng danh mục cha đang click
+          if (c.children) { // Nếu danh mục cha này có các danh mục con
+            c.children.forEach((sub: any) => { // Duyệt qua từng danh mục con
+              catIds.push(sub.id); // Thêm ID của danh mục con vào mảng truy vấn để tính gộp
             });
-          }
-        }
+          } // Kết thúc kiểm tra điều kiện dữ liệu
+        } // Kết thúc kiểm tra điều kiện dữ liệu
       });
-    }
+    } // Kết thúc kiểm tra chưa đăng nhập
 
-    transactionApi.getAll({
-      start_date: activeStartDate || undefined,
-      end_date: activeEndDate || undefined,
-      wallet_id: selectedWalletId || undefined,
-      per_page: 2000
+    transactionApi.getAll({ // Gọi API lấy danh sách giao dịch từ server
+      start_date: activeStartDate || undefined, // Truyền ngày bắt đầu lọc nếu có
+      end_date: activeEndDate || undefined, // Truyền ngày kết thúc lọc nếu có
+      wallet_id: selectedWalletId || undefined, // Truyền ID ví cần lọc nếu có
+      per_page: 2000 // Giới hạn số lượng giao dịch tải về tối đa 2000 để tránh tải chậm
     })
-      .then(res => {
-        const txList = res.data?.data || res.data || [];
-        const filtered = txList.filter((tx: any) => {
-          if (tx.type !== 'expense') return false;
-          if (tx.source_type === 'transfer' && !tx.category_id) return false;
-          const txCatId = tx.category_id;
-          if (!txCatId) {
-            return catIds.includes('other') || catIds.includes('uncategorized');
-          }
-          return catIds.includes(txCatId);
+      .then(res => { // Nhận kết quả phản hồi thành công từ Backend
+        const txList = res.data?.data || res.data || []; // Trích xuất mảng giao dịch từ response
+        const filtered = txList.filter((tx: any) => { // Lọc các giao dịch phù hợp với danh mục
+          if (tx.type !== 'expense') return false; // Chỉ lấy các giao dịch chi tiêu (expense)
+          if (tx.source_type === 'transfer' && !tx.category_id) return false; // Bỏ qua các giao dịch chuyển tiền nội bộ không phân loại
+          const txCatId = tx.category_id; // Lấy ID danh mục của giao dịch hiện tại
+          if (!txCatId) { // Nếu giao dịch chưa phân loại danh mục
+            return catIds.includes('other') || catIds.includes('uncategorized'); // Gom vào nhóm khác hoặc chưa phân loại
+          } // Kết thúc kiểm tra điều kiện dữ liệu
+          return catIds.includes(txCatId); // Trả về true nếu ID danh mục nằm trong danh sách cần hiển thị
         });
-        setModalTransactions(filtered);
+        setModalTransactions(filtered); // Cập nhật mảng giao dịch lọc được vào state hiển thị trên modal
       })
-      .catch(err => {
-        console.error("Error loading category transactions:", err);
+      .catch(err => { // Xử lý lỗi nếu cuộc gọi API thất bại
+        console.error("Error loading category transactions:", err); // In lỗi ra console để debug
       })
-      .finally(() => {
-        setIsLoadingModalTransactions(false);
+      .finally(() => { // Vòng kết thúc chạy sau cả thành công lẫn thất bại
+        setIsLoadingModalTransactions(false); // Tắt trạng thái hiển thị loading
       });
   };
 
   // Reset selected category index when toggle views or data updates
-  useEffect(() => {
+  useEffect(() => { // Hook tự động thực hiện khi Dashboard được mount hoặc tháng/năm hiện tại thay đổi
     setSelectedCategoryIdx(0);
   }, [allocationType, categoryData]);
 
+  // Bản đồ đối chiếu nhanh từ category_id sang thông tin danh mục
   const categoriesMap = useMemo(() => {
     const map: Record<string, any> = {};
     categories.forEach((parent: any) => {
@@ -175,11 +182,12 @@ export default function Dashboard() {
         parent.children.forEach((child: any) => {
           map[child.id] = { ...child, parent_name: parent.name };
         });
-      }
+      } // Kết thúc kiểm tra điều kiện dữ liệu
     });
     return map;
   }, [categories]);
 
+  // Tạo dữ liệu xu hướng hoàn chỉnh có điền sẵn giá trị 0 cho các ngày không giao dịch
   const mergedTrends = useMemo(() => {
     if (trendsGroupBy === 'day') {
       const dates = getDatesBetween(activeStartDate, activeEndDate);
@@ -205,7 +213,7 @@ export default function Dashboard() {
           expense: found ? Number(found.expense) : 0
         };
       });
-    }
+    } // Kết thúc kiểm tra chưa đăng nhập
   }, [trendsData, trendsGroupBy, activeStartDate, activeEndDate]);
 
   const now = useMemo(() => new Date(), []);
@@ -213,73 +221,75 @@ export default function Dashboard() {
   const currentYear = now.getFullYear();
 
   // Load cache for budgets list when component mounts or month changes
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const cached = localStorage.getItem(`cached_dashboard_budgets_${currentMonth}_${currentYear}`);
-      if (cached) {
+  //Đọc từ localStorage để tải nhanh và ghi đè khi gọi API xong.
+  useEffect(() => { // Tự động chạy lại khi các dependencies thay đổi
+    if (typeof window !== 'undefined') { // Đảm bảo code chỉ chạy ở môi trường trình duyệt
+      const cached = localStorage.getItem(`cached_dashboard_budgets_${currentMonth}_${currentYear}`); // Lấy ngân sách đã lưu tạm từ bộ nhớ trình duyệt
+      if (cached) { // Nếu tồn tại bản lưu tạm
         try {
-          setBudgetsList(JSON.parse(cached));
-        } catch (e) {
-          localStorage.removeItem(`cached_dashboard_budgets_${currentMonth}_${currentYear}`);
-        }
-      }
-    }
+          setBudgetsList(JSON.parse(cached)); // Chuyển chuỗi JSON thành đối tượng và hiển thị lập tức lên giao diện
+        } catch (e) { // Đề phòng lỗi cú pháp JSON
+          localStorage.removeItem(`cached_dashboard_budgets_${currentMonth}_${currentYear}`); // Xóa bản cache lỗi để tránh lặp lại lỗi
+        } // Kết thúc kiểm tra điều kiện dữ liệu
+      } // Kết thúc kiểm tra điều kiện dữ liệu
+    } // Kết thúc kiểm tra chưa đăng nhập
   }, [currentMonth, currentYear]);
 
-  useEffect(() => {
+  useEffect(() => { // Tự động chạy lại khi các dependencies thay đổi
     if (isLoggedIn) {
-      const cacheKey = `cached_dashboard_budgets_${currentMonth}_${currentYear}`;
-      const hasCache = budgetsList.length > 0 || (typeof window !== 'undefined' && localStorage.getItem(cacheKey));
-      if (!hasCache) {
-        setIsLoadingBudget(true);
-      }
-      budgetApi.getAll(currentMonth, currentYear)
-        .then(res => {
-          const list = res.data || [];
-          setBudgetsList(list);
-          localStorage.setItem(cacheKey, JSON.stringify(list));
+      const cacheKey = `cached_dashboard_budgets_${currentMonth}_${currentYear}`; // Khởi tạo khóa định danh lưu tạm
+      const hasCache = budgetsList.length > 0 || (typeof window !== 'undefined' && localStorage.getItem(cacheKey)); // Kiểm tra đã có cache chưa
+      if (!hasCache) { // Nếu chưa có cache
+        setIsLoadingBudget(true); // Hiển thị trạng thái đang tải dữ liệu từ server
+      } // Kết thúc kiểm tra điều kiện dữ liệu
+      budgetApi.getAll(currentMonth, currentYear) // Gọi API lấy thông tin ngân sách
+        .then(res => { // API phản hồi thành công
+          const list = res.data || []; // Trích xuất danh sách ngân sách trả về
+          setBudgetsList(list); // Gán dữ liệu ngân sách vào state
+          localStorage.setItem(cacheKey, JSON.stringify(list)); // Ghi đè hoặc lưu mới vào bộ nhớ tạm trình duyệt
         })
-        .catch(err => {
-          console.error("Error fetching budgets on dashboard:", err);
+        .catch(err => { // API lỗi
+          console.error("Error fetching budgets on dashboard:", err); // Log lỗi ra màn hình console
         })
-        .finally(() => {
-          setIsLoadingBudget(false);
+        .finally(() => { // Tắt loading
+          setIsLoadingBudget(false); // Kết thúc quá trình tải ngân sách
         });
-    }
-  }, [isLoggedIn, currentMonth, currentYear, transactions]);
+    } // Kết thúc kiểm tra chưa đăng nhập
+  }, [isLoggedIn, currentMonth, currentYear, transactions]);//
 
   // Save dashboard statistics cache when data updates
-  useEffect(() => {
-    if (isLoggedIn && typeof window !== 'undefined') {
-      const cacheKey = `cached_dashboard_stats_${selectedWalletId}_${timePeriod}_${customStartDate}_${customEndDate}_${trendsGroupBy}`;
-      if (
-        summaryData.income !== 0 ||
-        summaryData.expense !== 0 ||
-        categoryData.length > 0 ||
-        trendsData.length > 0 ||
-        dailyTrendsData.length > 0
-      ) {
-        localStorage.setItem(cacheKey, JSON.stringify({
-          summaryData,
-          lastMonthSummary,
-          categoryData,
-          trendsData,
-          dailyTrendsData
-        }));
-      }
-    }
-  }, [summaryData, lastMonthSummary, categoryData, trendsData, dailyTrendsData, isLoggedIn, selectedWalletId, timePeriod, customStartDate, customEndDate, trendsGroupBy]);
-
+  //Lưu dữ liệu biểu đồ, doanh thu, chi tiêu vào localStorage theo bộ lọc.
+  useEffect(() => { // Tự động chạy lại khi các dependencies thay đổi
+    if (isLoggedIn && typeof window !== 'undefined') { // Kiểm tra nếu người dùng đã đăng nhập và đang ở trình duyệt
+      const cacheKey = `cached_dashboard_stats_${selectedWalletId}_${timePeriod}_${customStartDate}_${customEndDate}_${trendsGroupBy}`; // Tạo khóa cache dựa trên các bộ lọc
+      if ( // Bắt đầu khối kiểm tra dữ liệu thực tế
+        summaryData.income !== 0 || // Tổng thu nhập khác 0 hoặc
+        summaryData.expense !== 0 || // Tổng chi tiêu khác 0 hoặc
+        categoryData.length > 0 || // Có dữ liệu danh mục chi tiêu hoặc
+        trendsData.length > 0 || // Có dữ liệu xu hướng biểu đồ cột hoặc
+        dailyTrendsData.length > 0 // Có dữ liệu xu hướng biểu đồ đường
+      ) { // Nếu có ít nhất một dữ liệu tồn tại
+        localStorage.setItem(cacheKey, JSON.stringify({ // Lưu trữ dữ liệu vào localStorage để hiển thị nhanh lần sau
+          summaryData, // Lưu dữ liệu tóm tắt thu chi
+          lastMonthSummary, // Lưu dữ liệu tóm tắt kỳ trước
+          categoryData, // Lưu dữ liệu danh mục chi tiêu
+          trendsData, // Lưu dữ liệu biểu đồ cột
+          dailyTrendsData // Lưu dữ liệu biểu đồ đường
+        })); // Đóng hàm lưu cache
+      } // Kết thúc kiểm tra điều kiện dữ liệu
+    } // Kết thúc kiểm tra chưa đăng nhập
+  }, [summaryData, lastMonthSummary, categoryData, trendsData, dailyTrendsData, isLoggedIn, selectedWalletId, timePeriod, customStartDate, customEndDate, trendsGroupBy]); // Danh sách các biến theo dõi sự thay đổi
+  //
   // Fetch report data based on time period
-  useEffect(() => {
-    if (!isLoggedIn) {
-      setSummaryData({ income: 0, expense: 0, net: 0 });
-      setLastMonthSummary({ income: 0, expense: 0, net: 0 });
-      setCategoryData([]);
-      setTrendsData([]);
-      setDailyTrendsData([]);
-      return;
-    }
+  useEffect(() => { // Tự động chạy lại khi các dependencies thay đổi
+    if (!isLoggedIn) { // Nếu người dùng chưa đăng nhập hệ thống
+      setSummaryData({ income: 0, expense: 0, net: 0 }); // Đặt dữ liệu tóm tắt thu chi về 0
+      setLastMonthSummary({ income: 0, expense: 0, net: 0 }); // Đặt dữ liệu tóm tắt kỳ trước về 0
+      setCategoryData([]); // Xóa danh sách dữ liệu danh mục chi tiêu
+      setTrendsData([]); // Xóa danh sách dữ liệu xu hướng biểu đồ cột
+      setDailyTrendsData([]); // Xóa danh sách dữ liệu xu hướng biểu đồ đường
+      return; // Dừng thực thi tiếp tục bên dưới
+    } // Kết thúc kiểm tra chưa đăng nhập
 
     // Determine date range
     let start_date = '';
@@ -287,7 +297,7 @@ export default function Dashboard() {
     let last_month_start = '';
     let last_month_end = '';
     let trendsGroupBy: 'day' | 'month' = 'day';
-
+    //Lưu dữ liệu biểu đồ, doanh thu, chi tiêu vào localStorage theo bộ lọc.
     const nowVal = new Date();
 
     switch (timePeriod) {
@@ -296,37 +306,37 @@ export default function Dashboard() {
         const diff = nowVal.getDate() - day + (day === 0 ? -6 : 1);
         const monday = new Date(nowVal.setDate(diff));
         start_date = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, '0')}-${String(monday.getDate()).padStart(2, '0')}`;
-        
+
         const sunday = new Date(monday);
         sunday.setDate(monday.getDate() + 6);
         end_date = `${sunday.getFullYear()}-${String(sunday.getMonth() + 1).padStart(2, '0')}-${String(sunday.getDate()).padStart(2, '0')}`;
-        
+
         // Last week dates
         const prevMonday = new Date(monday);
         prevMonday.setDate(monday.getDate() - 7);
         last_month_start = `${prevMonday.getFullYear()}-${String(prevMonday.getMonth() + 1).padStart(2, '0')}-${String(prevMonday.getDate()).padStart(2, '0')}`;
-        
+
         const prevSunday = new Date(prevMonday);
         prevSunday.setDate(prevMonday.getDate() + 6);
         last_month_end = `${prevSunday.getFullYear()}-${String(prevSunday.getMonth() + 1).padStart(2, '0')}-${String(prevSunday.getDate()).padStart(2, '0')}`;
-        
+
         trendsGroupBy = 'day';
         break;
-      }
+      } // Kết thúc kiểm tra điều kiện dữ liệu
       case 'month': {
         const firstDay = new Date(nowVal.getFullYear(), nowVal.getMonth(), 1);
         const lastDay = new Date(nowVal.getFullYear(), nowVal.getMonth() + 1, 0);
         start_date = `${firstDay.getFullYear()}-${String(firstDay.getMonth() + 1).padStart(2, '0')}-01`;
         end_date = `${lastDay.getFullYear()}-${String(lastDay.getMonth() + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
-        
+
         // Last month dates
         const lastMonthDate = new Date(nowVal.getFullYear(), nowVal.getMonth() - 1, 1);
         last_month_start = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}-01`;
         last_month_end = `${lastMonthDate.getFullYear()}-${String(lastMonthDate.getMonth() + 1).padStart(2, '0')}-${String(new Date(lastMonthDate.getFullYear(), lastMonthDate.getMonth() + 1, 0).getDate()).padStart(2, '0')}`;
-        
+
         trendsGroupBy = 'day';
         break;
-      }
+      } // Kết thúc kiểm tra điều kiện dữ liệu
       case 'quarter': {
         const quarter = Math.floor(nowVal.getMonth() / 3);
         const firstMonth = quarter * 3;
@@ -335,7 +345,7 @@ export default function Dashboard() {
         const lastDay = new Date(nowVal.getFullYear(), lastMonth + 1, 0);
         start_date = `${firstDay.getFullYear()}-${String(firstDay.getMonth() + 1).padStart(2, '0')}-01`;
         end_date = `${lastDay.getFullYear()}-${String(lastDay.getMonth() + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`;
-        
+
         // Last quarter dates
         const prevQuarterFirstMonth = firstMonth - 3 >= 0 ? firstMonth - 3 : 9;
         const prevQuarterYear = firstMonth - 3 >= 0 ? nowVal.getFullYear() : nowVal.getFullYear() - 1;
@@ -343,77 +353,77 @@ export default function Dashboard() {
         const prevQuarterLastDay = new Date(prevQuarterYear, prevQuarterFirstMonth + 3, 0);
         last_month_start = `${prevQuarterFirstDay.getFullYear()}-${String(prevQuarterFirstDay.getMonth() + 1).padStart(2, '0')}-01`;
         last_month_end = `${prevQuarterLastDay.getFullYear()}-${String(prevQuarterLastDay.getMonth() + 1).padStart(2, '0')}-${String(prevQuarterLastDay.getDate()).padStart(2, '0')}`;
-        
+
         trendsGroupBy = 'month';
         break;
-      }
+      } // Kết thúc kiểm tra điều kiện dữ liệu
       case 'year': {
         start_date = `${nowVal.getFullYear()}-01-01`;
         end_date = `${nowVal.getFullYear()}-12-31`;
-        
+
         // Last year dates
         last_month_start = `${nowVal.getFullYear() - 1}-01-01`;
         last_month_end = `${nowVal.getFullYear() - 1}-12-31`;
-        
+
         trendsGroupBy = 'month';
         break;
-      }
+      } // Kết thúc kiểm tra điều kiện dữ liệu
       case 'custom': {
         if (!customStartDate || !customEndDate) return; // Wait until dates are entered
         start_date = customStartDate;
         end_date = customEndDate;
-        
+
         // Compare with same duration shifted back
         const s = new Date(customStartDate);
         const e = new Date(customEndDate);
         const diffDays = Math.ceil((e.getTime() - s.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-        
+
         const prevS = new Date(s);
         prevS.setDate(s.getDate() - diffDays);
         const prevE = new Date(e);
         prevE.setDate(e.getDate() - diffDays);
-        
+
         last_month_start = `${prevS.getFullYear()}-${String(prevS.getMonth() + 1).padStart(2, '0')}-${String(prevS.getDate()).padStart(2, '0')}`;
         last_month_end = `${prevE.getFullYear()}-${String(prevE.getMonth() + 1).padStart(2, '0')}-${String(prevE.getDate()).padStart(2, '0')}`;
-        
+
         trendsGroupBy = diffDays <= 45 ? 'day' : 'month';
         break;
-      }
-    }
-
-    setActiveStartDate(start_date);
-    setActiveEndDate(end_date);
+      } // Kết thúc kiểm tra điều kiện dữ liệu
+    } // Kết thúc kiểm tra chưa đăng nhập
+    //
+    setActiveStartDate(start_date);//
+    setActiveEndDate(end_date);//
     setTrendsGroupBy(trendsGroupBy);
-
-    const cacheKey = `cached_dashboard_stats_${selectedWalletId}_${timePeriod}_${customStartDate}_${customEndDate}_${trendsGroupBy}`;
+    //Tải lại dữ liệu biểu đồ cũ từ bộ nhớ tạm trước khi lấy dữ liệu mới.
+    const cacheKey = `cached_dashboard_stats_${selectedWalletId}_${timePeriod}_${customStartDate}_${customEndDate}_${trendsGroupBy}`; // Tạo khóa cache dựa trên các bộ lọc
     let hasCache = false;
     if (typeof window !== 'undefined') {
-      const cached = localStorage.getItem(cacheKey);
+      const cached = localStorage.getItem(cacheKey); // Đọc dữ liệu đã lưu tạm trong bộ nhớ trình duyệt
       if (cached) {
-        hasCache = true;
+        hasCache = true; // Đánh dấu đã tải thành công dữ liệu từ cache để giảm thời gian hiển thị
         try {
-          const parsed = JSON.parse(cached);
-          if (parsed.summaryData) setSummaryData(parsed.summaryData);
-          if (parsed.lastMonthSummary) setLastMonthSummary(parsed.lastMonthSummary);
-          if (parsed.categoryData) setCategoryData(parsed.categoryData);
-          if (parsed.trendsData) setTrendsData(parsed.trendsData);
-          if (parsed.dailyTrendsData) setDailyTrendsData(parsed.dailyTrendsData);
+          const parsed = JSON.parse(cached); // Chuyển đổi chuỗi JSON lưu tạm thành đối tượng dữ liệu
+          if (parsed.summaryData) setSummaryData(parsed.summaryData); // Nạp nhanh dữ liệu tóm tắt thu chi từ cache
+          if (parsed.lastMonthSummary) setLastMonthSummary(parsed.lastMonthSummary); // Nạp nhanh dữ liệu tóm tắt kỳ trước từ cache
+          if (parsed.categoryData) setCategoryData(parsed.categoryData); // Nạp nhanh dữ liệu phân bổ danh mục từ cache
+          if (parsed.trendsData) setTrendsData(parsed.trendsData); // Nạp nhanh dữ liệu xu hướng biểu đồ cột từ cache
+          if (parsed.dailyTrendsData) setDailyTrendsData(parsed.dailyTrendsData); // Nạp nhanh dữ liệu xu hướng biểu đồ đường từ cache
         } catch (e) {
-          localStorage.removeItem(cacheKey);
+          localStorage.removeItem(cacheKey); // Xóa cache cũ nếu định dạng không khớp
           hasCache = false;
-        }
-      }
-    }
+        } // Kết thúc kiểm tra điều kiện dữ liệu
+      } // Kết thúc kiểm tra điều kiện dữ liệu
+    }//
 
     // Fetch summary
     if (!hasCache) {
       setIsLoadingSummary(true);
-    }
+    } // Kết thúc kiểm tra chưa đăng nhập
     reportApi.getSummary(start_date, end_date, selectedWalletId || undefined)
-      .then(res => {
+      .then(res => { // API phản hồi thành công
         if (res.status === 'success' && res.data) {
           setSummaryData(res.data);
-        }
+        } // Kết thúc kiểm tra điều kiện dữ liệu
       })
       .catch(err => console.error("Error fetching summary:", err))
       .finally(() => setIsLoadingSummary(false));
@@ -421,13 +431,13 @@ export default function Dashboard() {
     // Fetch last period's summary for comparison
     if (last_month_start && last_month_end) {
       reportApi.getSummary(last_month_start, last_month_end, selectedWalletId || undefined)
-        .then(res => {
+        .then(res => { // API phản hồi thành công
           if (res.status === 'success' && res.data) {
             setLastMonthSummary(res.data);
-          }
+          } // Kết thúc kiểm tra điều kiện dữ liệu
         })
         .catch(err => console.error("Error fetching last period summary:", err));
-    }
+    } // Kết thúc kiểm tra chưa đăng nhập
 
     // Helper functions for date formatting in client-side calculations
     const getLocalDateString = (isoString: string) => {
@@ -436,7 +446,7 @@ export default function Dashboard() {
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       } catch (e) {
         return isoString.substring(0, 10);
-      }
+      } // Kết thúc kiểm tra điều kiện dữ liệu
     };
 
     const getLocalMonthString = (isoString: string) => {
@@ -445,21 +455,22 @@ export default function Dashboard() {
         return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       } catch (e) {
         return isoString.substring(0, 7);
-      }
+      } // Kết thúc kiểm tra điều kiện dữ liệu
     };
-
+    //
     if (selectedWalletId) {
       // Fetch category and daily spending stats: We load transactions for the selected range filtered by wallet
       if (!hasCache) {
         setIsLoadingCategory(true);
         setIsLoadingDailyTrends(true);
         setIsLoadingTrends(true);
-      }
-      transactionApi.getAll({ start_date, end_date, per_page: 2000, wallet_id: selectedWalletId })
-        .then(res => {
-          const txList = res.data?.data || res.data || [];
+      } // Kết thúc kiểm tra điều kiện dữ liệu
+      //Gọi transactionApi.getAll lọc theo ví, rồi dùng forEach cộng dồn danh mục và xu hướng trên client.
+      transactionApi.getAll({ start_date, end_date, per_page: 2000, wallet_id: selectedWalletId }) // Gọi API lấy danh sách giao dịch từ server
+        .then(res => { // API phản hồi thành công
+          const txList = res.data?.data || res.data || []; // Trích xuất mảng giao dịch từ response
           const grouped: Record<string, any> = {};
-          
+
           // Calculate daily trends client-side
           const dailyMap: Record<string, number> = {};
           const monthlyMap: Record<string, number> = {};
@@ -473,20 +484,20 @@ export default function Dashboard() {
             if (type === 'expense' && amt > 0 && !(tx.source_type === 'transfer' && !tx.category_id)) {
               const catId = tx.category_id || 'other';
               const fullCat = categoriesMap[catId];
-              
+
               const catName = tCategory(fullCat?.name || tx.category?.name || tx.category_name || 'Other');
               const catColor = fullCat?.color || tx.category?.color || '#718EBF';
               const catIcon = fullCat?.icon || tx.category?.icon || '📁';
               const parentId = fullCat?.parent_id || tx.category?.parent_id || null;
-              
+
               let parentName = fullCat?.parent_name || tx.category?.parent?.name || null;
               if (!parentName && parentId) {
                 parentName = categoriesMap[parentId]?.name || null;
-              }
+              } // Kết thúc kiểm tra điều kiện dữ liệu
               if (parentName) {
                 parentName = tCategory(parentName);
-              }
-              
+              } // Kết thúc kiểm tra điều kiện dữ liệu
+
               if (!grouped[catId]) {
                 grouped[catId] = {
                   category_id: catId,
@@ -497,9 +508,9 @@ export default function Dashboard() {
                   parent_name: parentName,
                   amount: 0
                 };
-              }
+              } // Kết thúc kiểm tra điều kiện dữ liệu
               grouped[catId].amount += amt;
-            }
+            } // Kết thúc kiểm tra điều kiện dữ liệu
 
             // Trends grouping (daily & monthly)
             const dateStr = tx.transaction_date ? tx.transaction_date.substring(0, 10) : '';
@@ -511,21 +522,21 @@ export default function Dashboard() {
               if (type === 'expense') {
                 dailyMap[localDate] = (dailyMap[localDate] || 0) + amt;
                 monthlyMap[localMonth] = (monthlyMap[localMonth] || 0) + amt;
-              }
+              } // Kết thúc kiểm tra điều kiện dữ liệu
 
               // Income vs Expense grouped by day/month for column chart
               const key = trendsGroupBy === 'day' ? localDate : localMonth;
               if (!trendsMap[key]) {
                 trendsMap[key] = { income: 0, expense: 0 };
-              }
+              } // Kết thúc kiểm tra điều kiện dữ liệu
               if (type === 'income') {
                 trendsMap[key].income += amt;
               } else if (type === 'expense') {
                 trendsMap[key].expense += amt;
-              }
-            }
+              } // Kết thúc kiểm tra điều kiện dữ liệu
+            } // Kết thúc kiểm tra điều kiện dữ liệu
           });
-          
+
           setCategoryData(Object.values(grouped));
 
           // Format daily trends matching SVG expectations
@@ -543,7 +554,7 @@ export default function Dashboard() {
                 expense
               });
             });
-          }
+          } // Kết thúc kiểm tra điều kiện dữ liệu
           setDailyTrendsData(computedDailyTrends);
 
           // Format trends data for column chart matching API expectations
@@ -569,14 +580,14 @@ export default function Dashboard() {
                 expense: val.expense
               });
             });
-          }
+          } // Kết thúc kiểm tra điều kiện dữ liệu
           setTrendsData(computedTrends);
         })
         .catch(err => console.error("Error fetching categories and trends via transactions:", err))
-        .finally(() => {
+        .finally(() => { // Khối lệnh luôn luôn thực thi sau khi hoàn tất
           setIsLoadingCategory(false);
-          setIsLoadingDailyTrends(false);
-          setIsLoadingTrends(false);
+          setIsLoadingDailyTrends(false); // Tắt hiển thị trạng thái loading biểu đồ đường
+          setIsLoadingTrends(false); // Tắt hiển thị trạng thái loading biểu đồ cột
         });
     } else {
       // Selected wallet is empty (All wallets) -> Query aggregated backend API
@@ -584,40 +595,41 @@ export default function Dashboard() {
         setIsLoadingCategory(true);
         setIsLoadingDailyTrends(true);
         setIsLoadingTrends(true);
-      }
+      } // Kết thúc kiểm tra điều kiện dữ liệu
 
       // 1. Fetch categories
-      reportApi.getCategories({ start_date, end_date, type: 'expense' })
-        .then(res => {
+      reportApi.getCategories({ start_date, end_date, type: 'expense' }) // Gọi API Backend lấy danh sách chi tiêu theo danh mục
+        .then(res => { // API phản hồi thành công
           if (res.status === 'success' && res.data) {
-            const list = (res.data.categories || []).map((cat: any) => ({
+            const list = (res.data.categories || []).map((cat: any) => ({ // Duyệt qua từng danh mục và tạo đối tượng mới
               ...cat,
-              category_name: tCategory(cat.category_name),
-              parent_name: cat.parent_name ? tCategory(cat.parent_name) : null
-            }));
-            setCategoryData(list);
-          }
+              category_name: tCategory(cat.category_name), // Dịch tên danh mục sang ngôn ngữ hiển thị (tiếng Việt/tiếng Anh)
+              parent_name: cat.parent_name ? tCategory(cat.parent_name) : null // Dịch tên danh mục cha nếu có
+            })); // Đóng hàm lưu cache
+            setCategoryData(list); // Lưu danh sách danh mục đã xử lý ngôn ngữ vào state để vẽ biểu đồ tròn
+          } // Kết thúc kiểm tra điều kiện dữ liệu
         })
-        .catch(err => console.error("Error fetching categories:", err))
-        .finally(() => setIsLoadingCategory(false));
+        .catch(err => console.error("Error fetching categories:", err)) // Xử lý lỗi nếu gọi danh mục thất bại
+        .finally(() => setIsLoadingCategory(false)); // Tắt trạng thái hiển thị loading của biểu đồ tròn
 
       // 2. Fetch trends (for both columns and line charts)
-      reportApi.getTrends(start_date, end_date, trendsGroupBy)
-        .then(res => {
+      reportApi.getTrends(start_date, end_date, trendsGroupBy) // Gọi API Backend lấy dữ liệu xu hướng thu chi
+        .then(res => { // API phản hồi thành công
           if (res.status === 'success' && res.data) {
-            setTrendsData(res.data || []);
-            setDailyTrendsData(res.data || []);
-          }
+            setTrendsData(res.data || []); // Cập nhật dữ liệu xu hướng cho biểu đồ cột
+            setDailyTrendsData(res.data || []); // Cập nhật dữ liệu xu hướng cho biểu đồ đường spline
+          } // Kết thúc kiểm tra điều kiện dữ liệu
         })
-        .catch(err => console.error("Error fetching trends:", err))
-        .finally(() => {
-          setIsLoadingDailyTrends(false);
-          setIsLoadingTrends(false);
+        .catch(err => console.error("Error fetching trends:", err)) // Xử lý lỗi gọi API xu hướng
+        .finally(() => { // Khối lệnh luôn luôn thực thi sau khi hoàn tất
+          setIsLoadingDailyTrends(false); // Tắt hiển thị trạng thái loading biểu đồ đường
+          setIsLoadingTrends(false); // Tắt hiển thị trạng thái loading biểu đồ cột
         });
-    }
+    } // Kết thúc kiểm tra chưa đăng nhập
 
   }, [isLoggedIn, timePeriod, customStartDate, customEndDate, transactions, categoriesMap, selectedWalletId, trendsGroupBy]);
 
+  // Hàm xử lý việc sao chép cấu hình ngân sách từ tháng trước sang tháng này
   const handleCopyBudgets = async () => {
     const fromMonth = currentMonth === 1 ? 12 : currentMonth - 1;
     const fromYear = currentMonth === 1 ? currentYear - 1 : currentYear;
@@ -640,45 +652,49 @@ export default function Dashboard() {
         alert(error.message || t('copy_budget_error'));
       } finally {
         setIsLoadingBudget(false);
-      }
-    }
+      } // Kết thúc kiểm tra điều kiện dữ liệu
+    } // Kết thúc kiểm tra chưa đăng nhập
   };
 
   // Calculate overall budget stats
-  const overallBudget = budgetsList.find(b => b.category_id === null);
-  const categoryBudgets = budgetsList.filter(b => b.category_id !== null);
+  const overallBudget = budgetsList.find(b => b.category_id === null); // Tìm cấu hình ngân sách chung của cả tháng
+  const categoryBudgets = budgetsList.filter(b => b.category_id !== null); // Lấy danh sách ngân sách cụ thể của từng danh mục
 
-  const rawTotalLimit = overallBudget 
-    ? parseFloat(overallBudget.limit_amount) 
+  // Tính tổng hạn mức ngân sách: nếu có ngân sách chung thì lấy, không thì cộng dồn các danh mục
+  const rawTotalLimit = overallBudget
+    ? parseFloat(overallBudget.limit_amount)
     : categoryBudgets.reduce((sum, b) => sum + parseFloat(b.limit_amount), 0);
-  const totalLimit = isNaN(rawTotalLimit) || !isFinite(rawTotalLimit) ? 0 : rawTotalLimit;
+  const totalLimit = isNaN(rawTotalLimit) || !isFinite(rawTotalLimit) ? 0 : rawTotalLimit; // Tổng hạn mức ngân sách an toàn
 
-  const rawTotalUsed = overallBudget 
-    ? parseFloat(overallBudget.used_amount) 
+  // Tính tổng số tiền đã chi tiêu nằm trong ngân sách
+  const rawTotalUsed = overallBudget
+    ? parseFloat(overallBudget.used_amount)
     : categoryBudgets.reduce((sum, b) => sum + parseFloat(b.used_amount), 0);
-  const totalUsed = isNaN(rawTotalUsed) || !isFinite(rawTotalUsed) ? 0 : rawTotalUsed;
+  const totalUsed = isNaN(rawTotalUsed) || !isFinite(rawTotalUsed) ? 0 : rawTotalUsed; // Tổng số tiền đã dùng an toàn
 
-  const totalPct = (totalLimit > 0 && isFinite(totalLimit) && !isNaN(totalLimit) && isFinite(totalUsed) && !isNaN(totalUsed)) 
-    ? Math.round((totalUsed / totalLimit) * 100) 
+  // Tính tỷ lệ phần trăm ngân sách đã sử dụng thực tế
+  const totalPct = (totalLimit > 0 && isFinite(totalLimit) && !isNaN(totalLimit) && isFinite(totalUsed) && !isNaN(totalUsed))
+    ? Math.round((totalUsed / totalLimit) * 100)
     : 0;
 
   // Tính toán số liệu từ dữ liệu thật
-  const totalBalance = wallets.reduce((sum, w) => sum + parseFloat(w.available_balance || 0), 0);
-  const displayIncome = summaryData.income;
-  const displayExpense = summaryData.expense;
-  const displayNet = summaryData.net;
+  const totalBalance = wallets.reduce((sum, w) => sum + parseFloat(w.available_balance || 0), 0); // Tính tổng số dư khả dụng từ tất cả các ví
+  const displayIncome = summaryData.income; // Số tiền tổng thu nhập hiển thị trên ô Tổng Thu Nhập
+  const displayExpense = summaryData.expense; // Số tiền tổng chi tiêu hiển thị trên ô Tổng Chi Tiêu
+  const displayNet = summaryData.net; // Tính số dư ròng (Tổng Thu - Tổng Chi) hiển thị trên ô Số Dư Ròng
 
   // So sánh tháng này vs tháng trước (tăng/giảm %)
   const lastExpense = lastMonthSummary.expense;
   const safeDisplayExpense = isNaN(displayExpense) || !isFinite(displayExpense) ? 0 : displayExpense;
   const safeLastExpense = isNaN(lastExpense) || !isFinite(lastExpense) ? 0 : lastExpense;
-  const expenseChangePercent = (safeLastExpense > 0 && isFinite(safeLastExpense) && !isNaN(safeLastExpense) && isFinite(safeDisplayExpense) && !isNaN(safeDisplayExpense)) 
-    ? ((safeDisplayExpense - safeLastExpense) / safeLastExpense) * 100 
+  // Tính phần trăm chênh lệch chi tiêu của kỳ này so với kỳ trước
+  const expenseChangePercent = (safeLastExpense > 0 && isFinite(safeLastExpense) && !isNaN(safeLastExpense) && isFinite(safeDisplayExpense) && !isNaN(safeDisplayExpense))
+    ? ((safeDisplayExpense - safeLastExpense) / safeLastExpense) * 100
     : (safeDisplayExpense > 0 ? 100 : 0);
 
   // Group all categories by their parent category to avoid double counting
-  const rootCategoriesMap: Record<string, any> = {};
-  
+  const rootCategoriesMap: Record<string, any> = {}; // Gom các khoản chi tiêu danh mục con vào danh mục cha tương ứng
+
   categoryData.forEach(cat => {
     const amount = Math.abs(cat.amount);
     if (amount === 0) return;
@@ -687,7 +703,7 @@ export default function Dashboard() {
       // It's a root category
       if (!rootCategoriesMap[cat.category_id]) {
         rootCategoriesMap[cat.category_id] = { ...cat, amount: 0 };
-      }
+      } // Kết thúc kiểm tra điều kiện dữ liệu
       rootCategoriesMap[cat.category_id].amount += amount;
     } else {
       // It's a subcategory - group it into its parent
@@ -696,7 +712,7 @@ export default function Dashboard() {
       const parentName = tCategory(parentCat?.name || cat.parent_name || 'Other');
       const parentColor = parentCat?.color || cat.category_color || '#718EBF';
       const parentIcon = parentCat?.icon || cat.category_icon || '📁';
-      
+
       if (!rootCategoriesMap[parentId]) {
         rootCategoriesMap[parentId] = {
           category_id: parentId,
@@ -706,13 +722,13 @@ export default function Dashboard() {
           parent_id: null,
           amount: 0
         };
-      }
+      } // Kết thúc kiểm tra điều kiện dữ liệu
       rootCategoriesMap[parentId].amount += amount;
-    }
+    } // Kết thúc kiểm tra chưa đăng nhập
   });
 
-  const rootCategoriesList = Object.values(rootCategoriesMap).sort((a: any, b: any) => b.amount - a.amount);
-  const totalCategoryExpense = rootCategoriesList.reduce((sum, cat) => sum + cat.amount, 0);
+  const rootCategoriesList = Object.values(rootCategoriesMap).sort((a: any, b: any) => b.amount - a.amount); // Chuyển đối tượng danh mục cha thành mảng và sắp xếp chi tiêu
+  const totalCategoryExpense = rootCategoriesList.reduce((sum, cat) => sum + cat.amount, 0); // Tính tổng chi tiêu cộng gộp từ các danh mục cha
 
   // Compute active categories list based on allocationType
   let activeCategoriesList: any[] = [];
@@ -727,9 +743,10 @@ export default function Dashboard() {
         amount: Math.abs(cat.amount)
       }))
       .sort((a: any, b: any) => b.amount - a.amount);
-  }
+  } // Kết thúc kiểm tra điều kiện dữ liệu
 
   // Compute correct percentages
+  // Bổ sung tỷ lệ phần trăm chi tiêu của từng danh mục so với tổng chi tiêu
   const processedCategoryData = activeCategoriesList.map((cat: any) => {
     const amt = isNaN(cat.amount) || !isFinite(cat.amount) ? 0 : cat.amount;
     const totalExp = isNaN(totalCategoryExpense) || !isFinite(totalCategoryExpense) ? 0 : totalCategoryExpense;
@@ -740,6 +757,7 @@ export default function Dashboard() {
     };
   });
 
+  // Lấy ra 5 danh mục cha có mức chi tiêu cao nhất để hiển thị bảng xếp hạng
   const top5Categories = rootCategoriesList.map((cat: any) => {
     const amt = isNaN(cat.amount) || !isFinite(cat.amount) ? 0 : cat.amount;
     const totalExp = isNaN(totalCategoryExpense) || !isFinite(totalCategoryExpense) ? 0 : totalCategoryExpense;
@@ -756,47 +774,49 @@ export default function Dashboard() {
 
 
 
+  // Lấy danh sách giao dịch gần đây, lọc theo ví nếu có chọn ví cụ thể
   const filteredRecentTransactions = useMemo(() => {
     if (!selectedWalletId) return transactions;
     return transactions.filter((tx: any) => tx.wallet_id === selectedWalletId);
   }, [transactions, selectedWalletId]);
 
+  // Hàm định dạng số tiền sang chuẩn tiền tệ Việt Nam đồng (VND)
   const formatCurrency = (amount: number | string) => {
     const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     if (isNaN(numericAmount)) return '0';
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(numericAmount);
   };
 
-  const displayName = userData?.profile?.full_name || userData?.full_name || userData?.name || t('new_user');
+  const displayName = userData?.profile?.full_name || userData?.full_name || userData?.name || t('new_user'); // Xác định tên người dùng để hiển thị
 
   return (
     <div className="dashboard-container">
       <Sidebar activeItem="dashboard" />
-      <main className="main-content" style={{background:'var(--bg-color)'}}>
+      <main className="main-content" style={{ background: 'var(--bg-color)' }}>
         <nav className="navbar">
           <h1 className="page-title">{t('dashboard')}</h1>
           <div className="nav-actions">
-             <form onSubmit={(e) => {
+            <form onSubmit={(e) => {
               e.preventDefault();
               if (searchQuery.trim()) {
                 router.push(`/transactions?search=${encodeURIComponent(searchQuery.trim())}`);
-              }
+              } // Kết thúc kiểm tra điều kiện dữ liệu
             }} className="search-bar">
-              <span style={{ fontSize: '16px', display: 'flex', alignItems: 'center', userSelect: 'none' }}>🔍</span>
-              <input 
-                type="text" 
-                placeholder="Tìm kiếm..." 
+              <span style={{ fontSize: '16px', /* Cỡ chữ 16px */ display: 'flex', alignItems: 'center', userSelect: 'none' }}>🔍</span>
+              <input
+                type="text"
+                placeholder="Tìm kiếm..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </form>
-            <button 
+            <button
               onClick={() => router.push('/reports')}
-              style={{background:'#1814F3',color:'#fff',padding:'10px 20px',borderRadius:'24px',fontWeight:'600',border:'none',cursor:'pointer',fontSize:'15px',display:'flex',alignItems:'center',gap:'8px',whiteSpace:'nowrap'}}
+              style={{ background: '#1814F3', color: '#fff', padding: '10px 20px', borderRadius: '24px', fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */ border: 'none', cursor: 'pointer', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '8px', whiteSpace: 'nowrap' }}
             >
               {t('add_report')}
             </button>
-            <Link href="/notifications" style={{background: '#F5F7FA', width: '45px', height: '45px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffb300', cursor: 'pointer', fontSize: '20px', textDecoration: 'none', position: 'relative'}}>
+            <Link href="/notifications" style={{ background: '#F5F7FA', width: '45px', height: '45px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#ffb300', cursor: 'pointer', fontSize: '20px', /* Cỡ chữ 20px */ textDecoration: 'none', position: 'relative' }}>
               🔔
               {isLoggedIn && hasUnreadNotifications && unreadNotificationsCount > 0 && (
                 <span style={{
@@ -810,10 +830,10 @@ export default function Dashboard() {
                   borderRadius: '10px',
                   border: '2px solid #fff',
                   fontSize: '9px',
-                  fontWeight: '800',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
+                  fontWeight: '800', /* Độ đậm chữ 800 (Rất đậm) */
+                  display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
+                  alignItems: 'center', /* Căn các phần tử con giữa theo chiều dọc */
+                  justifyContent: 'center', /* Căn giữa các phần tử con theo chiều ngang */
                   padding: '0 4px'
                 }}>
                   {unreadNotificationsCount}
@@ -821,25 +841,25 @@ export default function Dashboard() {
               )}
             </Link>
             {isLoggedIn ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-                <span style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '15px' }}>{displayName}</span>
+              <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ alignItems: 'center', gap: '15px' }}>
+                <span style={{ fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */ color: 'var(--text-main)', fontSize: '15px' }}>{displayName}</span>
                 <div style={{ position: 'relative', width: '45px', height: '45px' }}>
-                  <img src={userData?.profile?.avatar_url || userData?.avatar_url || userData?.avatar || "https://api.dicebear.com/7.x/miniavs/svg?seed=EM&backgroundColor=b6e3f4"} alt="Avatar" className="avatar" style={{width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover'}}/>
+                  <img src={userData?.profile?.avatar_url || userData?.avatar_url || userData?.avatar || "https://api.dicebear.com/7.x/miniavs/svg?seed=EM&backgroundColor=b6e3f4"} alt="Avatar" className="avatar" style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
                   <div style={{ position: 'absolute', bottom: 0, right: 0, width: '12px', height: '12px', background: '#16DBCC', border: '2px solid #fff', borderRadius: '50%' }}></div>
                 </div>
               </div>
             ) : (
-              <Link href="/login" style={{textDecoration:'none',color:'#fff',background:'#343C6A',padding:'8px 15px',borderRadius:'20px',fontWeight:'bold'}}>{t('login')}</Link>
+              <Link href="/login" style={{ textDecoration: 'none', color: '#fff', background: '#343C6A', padding: '8px 15px', borderRadius: '20px', fontWeight: 'bold' }}>{t('login')}</Link>
             )}
           </div>
         </nav>
         <div className="content-area">
           {/* Time Filter Bar */}
           <div style={{
-            display: 'flex',
+            display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
             flexWrap: 'wrap',
-            justifyContent: 'space-between',
-            alignItems: 'center',
+            justifyContent: 'space-between', /* Đẩy các phần tử con ra xa nhau về hai biên */
+            alignItems: 'center', /* Căn các phần tử con giữa theo chiều dọc */
             background: 'var(--card-bg)',
             padding: '12px 20px',
             borderRadius: '16px',
@@ -848,7 +868,7 @@ export default function Dashboard() {
             gap: '16px',
             marginBottom: '5px'
           }}>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ gap: '8px', flexWrap: 'wrap' }}>
               {(['week', 'month', 'quarter', 'year', 'custom'] as const).map((p) => {
                 const labelMap = {
                   week: t('this_week') || 'Tuần này',
@@ -865,8 +885,8 @@ export default function Dashboard() {
                     style={{
                       padding: '8px 16px',
                       borderRadius: '12px',
-                      fontSize: '13px',
-                      fontWeight: '600',
+                      fontSize: '13px', /* Cỡ chữ 13px */
+                      fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */
                       cursor: 'pointer',
                       background: isActive ? 'var(--accent-gradient)' : 'var(--bg-color)',
                       color: isActive ? '#FFFFFF' : 'var(--text-light)',
@@ -882,17 +902,17 @@ export default function Dashboard() {
             </div>
 
             {/* Custom Date Inputs & Wallet Filter */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
               {timePeriod === 'custom' && (
                 <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
+                  display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
+                  alignItems: 'center', /* Căn các phần tử con giữa theo chiều dọc */
                   gap: '8px',
                   flexWrap: 'wrap',
                   animation: 'fadeUpIn 0.3s ease-out'
                 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '12px', color: 'var(--text-light)', fontWeight: '600' }}>{t('from_date')}</span>
+                  <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '12px', color: 'var(--text-light)', fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */ }}>{t('from_date')}</span>
                     <input
                       type="date"
                       value={customStartDate}
@@ -901,14 +921,14 @@ export default function Dashboard() {
                         padding: '6px 12px',
                         borderRadius: '10px',
                         border: '1px solid var(--border-color)',
-                        fontSize: '13px',
-                        color: 'var(--text-main)',
+                        fontSize: '13px', /* Cỡ chữ 13px */
+                        color: 'var(--text-main)', /* Màu chữ chính của theme */
                         background: 'var(--bg-color)'
                       }}
                     />
                   </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '12px', color: 'var(--text-light)', fontWeight: '600' }}>{t('to_date')}</span>
+                  <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ alignItems: 'center', gap: '6px' }}>
+                    <span style={{ fontSize: '12px', color: 'var(--text-light)', fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */ }}>{t('to_date')}</span>
                     <input
                       type="date"
                       value={customEndDate}
@@ -917,8 +937,8 @@ export default function Dashboard() {
                         padding: '6px 12px',
                         borderRadius: '10px',
                         border: '1px solid var(--border-color)',
-                        fontSize: '13px',
-                        color: 'var(--text-main)',
+                        fontSize: '13px', /* Cỡ chữ 13px */
+                        color: 'var(--text-main)', /* Màu chữ chính của theme */
                         background: 'var(--bg-color)'
                       }}
                     />
@@ -928,8 +948,8 @@ export default function Dashboard() {
 
               {/* Wallet Selector Dropdown */}
               {isLoggedIn && wallets.length > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '12px', color: 'var(--text-light)', fontWeight: '600', whiteSpace: 'nowrap' }}>
+                <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '12px', color: 'var(--text-light)', fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */ whiteSpace: 'nowrap' }}>
                     {t('filter_by_wallet') || 'Lọc theo ví:'}
                   </span>
                   <select
@@ -939,9 +959,9 @@ export default function Dashboard() {
                       padding: '8px 16px',
                       borderRadius: '12px',
                       border: '1px solid var(--border-color)',
-                      fontSize: '13px',
-                      fontWeight: '600',
-                      color: 'var(--text-main)',
+                      fontSize: '13px', /* Cỡ chữ 13px */
+                      fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */
+                      color: 'var(--text-main)', /* Màu chữ chính của theme */
                       background: 'var(--card-bg)',
                       boxShadow: '0 2px 5px rgba(0,0,0,0.02)',
                       cursor: 'pointer',
@@ -970,24 +990,24 @@ export default function Dashboard() {
               <div className="balance-label">{t('total_expense')}</div>
               <div className="balance-val">{isLoggedIn ? formatCurrency(displayExpense) : formatCurrency(0)}</div>
               {isLoggedIn && (
-                <div style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '4px', 
-                  fontSize: '11px', 
-                  fontWeight: '600', 
-                  marginTop: '4px' 
+                <div style={{
+                  display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
+                  alignItems: 'center', /* Căn các phần tử con giữa theo chiều dọc */
+                  gap: '4px',
+                  fontSize: '11px', /* Cỡ chữ 11px */
+                  fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */
+                  marginTop: '4px'
                 }}>
                   {expenseChangePercent > 0 ? (
                     <>
-                      <span style={{ color: '#FE5C73', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                      <span style={{ color: '#FE5C73', display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ alignItems: 'center', gap: '2px' }}>
                         📈 +{expenseChangePercent.toFixed(1)}%
                       </span>
                       <span style={{ color: 'var(--text-light)', fontWeight: 'normal' }}>{t('vs_last_month')}</span>
                     </>
                   ) : expenseChangePercent < 0 ? (
                     <>
-                      <span style={{ color: '#16DBCC', display: 'flex', alignItems: 'center', gap: '2px' }}>
+                      <span style={{ color: '#16DBCC', display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ alignItems: 'center', gap: '2px' }}>
                         📉 {expenseChangePercent.toFixed(1)}%
                       </span>
                       <span style={{ color: 'var(--text-light)', fontWeight: 'normal' }}>{t('vs_last_month')}</span>
@@ -1001,7 +1021,7 @@ export default function Dashboard() {
             <div className="balance-divider"></div>
             <div className="balance-item">
               <div className="balance-label">{t('net_balance')}</div>
-              <div className="balance-val" style={{color: isLoggedIn && displayNet >= 0 ? '#16DBCC' : '#FE5C73'}}>
+              <div className="balance-val" style={{ color: isLoggedIn && displayNet >= 0 ? '#16DBCC' : '#FE5C73' }}>
                 {isLoggedIn ? formatCurrency(displayNet) : formatCurrency(0)}
               </div>
             </div>
@@ -1014,17 +1034,17 @@ export default function Dashboard() {
 
 
           <div className="row">
-            <div className="col-2" style={{flex:1.8}}>
+            <div className="col-2" style={{ flex: 1.8 }}>
               <div className="section-header"><h2 className="section-title">{t('income_vs_expense')}</h2></div>
               <div className="chart-card">
-                <div className="bar-chart-mock" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                <div className="bar-chart-mock" style={{ height: '100%', display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ flexDirection: 'column' }}>
                   <div className="bar-legend">
                     <span><div className="dot diposit"></div> {t('income')}</span>
                     <span><div className="dot withdraw" style={{ background: '#FF6B81' }}></div> {t('spending')}</span>
                   </div>
                   <div className="bars-container" style={{
                     position: 'relative',
-                    display: 'flex',
+                    display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
                     gap: mergedTrends.length > 15 ? (mergedTrends.length > 25 ? '2px' : '6px') : '24px',
                     alignItems: 'flex-end',
                     justifyContent: 'space-around',
@@ -1036,7 +1056,7 @@ export default function Dashboard() {
                     overflow: 'visible'
                   }}>
                     {/* Horizontal Gridlines */}
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between', pointerEvents: 'none', zIndex: 0 }}>
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ flexDirection: 'column', justifyContent: 'space-between', pointerEvents: 'none', zIndex: 0 }}>
                       <div style={{ borderTop: '1px dashed var(--border-color)', width: '100%', height: '0', opacity: 0.8 }}></div>
                       <div style={{ borderTop: '1px dashed var(--border-color)', width: '100%', height: '0', opacity: 0.4 }}></div>
                       <div style={{ borderTop: '1px dashed var(--border-color)', width: '100%', height: '0', opacity: 0.4 }}></div>
@@ -1044,7 +1064,7 @@ export default function Dashboard() {
                     </div>
 
                     {!isLoggedIn || mergedTrends.length === 0 ? (
-                      <div style={{ display: 'flex', width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', zIndex: 1 }}>
+                      <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', zIndex: 1 }}>
                         <p style={{ color: '#718EBF' }}>{isLoadingTrends ? t('loading') : t('no_transaction_data')}</p>
                       </div>
                     ) : (
@@ -1060,8 +1080,8 @@ export default function Dashboard() {
                           const showLabel = mergedTrends.length <= 12 || idx % Math.ceil(mergedTrends.length / 6) === 0 || idx === mergedTrends.length - 1;
 
                           return (
-                            <div key={idx} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1, height: '100%', justifyContent: 'flex-end', zIndex: 1, position: 'relative' }}>
-                              
+                            <div key={idx} style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ flexDirection: 'column', alignItems: 'center', flex: 1, height: '100%', justifyContent: 'flex-end', zIndex: 1, position: 'relative' }}>
+
                               {/* Custom Floating Tooltip */}
                               {hoveredBar.idx === idx && hoveredBar.type !== null && (
                                 <div style={{
@@ -1071,29 +1091,29 @@ export default function Dashboard() {
                                   color: '#fff',
                                   padding: '8px 12px',
                                   borderRadius: '8px',
-                                  fontSize: '11px',
-                                  fontWeight: '600',
+                                  fontSize: '11px', /* Cỡ chữ 11px */
+                                  fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */
                                   boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)',
-                                  whiteSpace: 'nowrap',
+                                  whiteSpace: 'nowrap', /* Không cho xuống dòng tự động */
                                   zIndex: 10,
                                   pointerEvents: 'none',
                                   backdropFilter: 'blur(4px)',
                                   border: '1px solid rgba(255, 255, 255, 0.1)',
-                                  display: 'flex',
+                                  display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
                                   flexDirection: 'column',
                                   gap: '2px',
-                                  alignItems: 'center'
+                                  alignItems: 'center', /* Căn các phần tử con giữa theo chiều dọc */
                                 }}>
-                                  <span style={{ fontSize: '9px', opacity: 0.7, textTransform: 'uppercase' }}>{tooltipPrefix} {trend.label}</span>
+                                  <span style={{ fontSize: '9px', opacity: 0.7, textTransform: 'uppercase', /* Chuyển thành chữ IN HOA */ }}>{tooltipPrefix} {trend.label}</span>
                                   <span style={{ color: hoveredBar.type === 'income' ? '#16DBCC' : '#FF6B81' }}>
                                     {hoveredBar.type === 'income' ? `+ ${formatCurrency(trend.income)}` : `- ${formatCurrency(trend.expense)}`}
                                   </span>
                                 </div>
                               )}
 
-                              <div style={{ display: 'flex', alignItems: 'flex-end', gap: colGap, height: '130px', width: '100%', justifyContent: 'center' }}>
+                              <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ alignItems: 'flex-end', gap: colGap, height: '130px', width: '100%', justifyContent: 'center' }}>
                                 {/* Income Column */}
-                                <div 
+                                <div
                                   onMouseEnter={() => setHoveredBar({ idx, type: 'income' })}
                                   onMouseLeave={() => setHoveredBar({ idx, type: null })}
                                   style={{
@@ -1109,7 +1129,7 @@ export default function Dashboard() {
                                   }}
                                 />
                                 {/* Expense Column */}
-                                <div 
+                                <div
                                   onMouseEnter={() => setHoveredBar({ idx, type: 'expense' })}
                                   onMouseLeave={() => setHoveredBar({ idx, type: null })}
                                   style={{
@@ -1133,13 +1153,13 @@ export default function Dashboard() {
                                   transform: 'translateX(-50%)',
                                   fontSize: '9px',
                                   color: 'var(--text-light)',
-                                  fontWeight: '700',
+                                  fontWeight: '700', /* Độ đậm chữ 700 (Đậm) */
                                   background: 'var(--border-color)',
                                   padding: '2px 6px',
                                   borderRadius: '10px',
-                                  textTransform: 'uppercase',
+                                  textTransform: 'uppercase', /* Chuyển thành chữ IN HOA */
                                   letterSpacing: '0.5px',
-                                  whiteSpace: 'nowrap',
+                                  whiteSpace: 'nowrap', /* Không cho xuống dòng tự động */
                                   zIndex: 2
                                 }}>
                                   {trend.label}
@@ -1154,17 +1174,17 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
-            <div className="col-1" style={{flex:1.2}}>
-              <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="col-1" style={{ flex: 1.2 }}>
+              <div className="section-header" style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2 className="section-title">{t('expense_allocation')}</h2>
                 {isLoggedIn && categoryData.length > 0 && (
                   <div style={{
-                    display: 'flex',
+                    display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
                     background: 'var(--bg-color)',
                     padding: '3px',
                     borderRadius: '20px',
                     border: '1px solid var(--border-color)',
-                    alignItems: 'center'
+                    alignItems: 'center', /* Căn các phần tử con giữa theo chiều dọc */
                   }}>
                     <button
                       onClick={() => setAllocationType('parent')}
@@ -1172,8 +1192,8 @@ export default function Dashboard() {
                         padding: '6px 14px',
                         borderRadius: '16px',
                         border: 'none',
-                        fontSize: '11px',
-                        fontWeight: '700',
+                        fontSize: '11px', /* Cỡ chữ 11px */
+                        fontWeight: '700', /* Độ đậm chữ 700 (Đậm) */
                         cursor: 'pointer',
                         background: allocationType === 'parent' ? 'var(--card-bg)' : 'transparent',
                         color: allocationType === 'parent' ? 'var(--text-main)' : 'var(--text-light)',
@@ -1190,8 +1210,8 @@ export default function Dashboard() {
                         padding: '6px 14px',
                         borderRadius: '16px',
                         border: 'none',
-                        fontSize: '11px',
-                        fontWeight: '700',
+                        fontSize: '11px', /* Cỡ chữ 11px */
+                        fontWeight: '700', /* Độ đậm chữ 700 (Đậm) */
                         cursor: 'pointer',
                         background: allocationType === 'child' ? 'var(--card-bg)' : 'transparent',
                         color: allocationType === 'child' ? 'var(--text-main)' : 'var(--text-light)',
@@ -1205,14 +1225,14 @@ export default function Dashboard() {
                   </div>
                 )}
               </div>
-              <div className="chart-card" style={{ display: 'flex', flexDirection: 'row', gap: '30px', alignItems: 'center', padding: '24px 30px', minHeight: '260px' }}>
+              <div className="chart-card" style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ flexDirection: 'row', gap: '30px', alignItems: 'center', padding: '24px 30px', minHeight: '260px' }}>
                 {!isLoggedIn || categoryData.length === 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '20px 0', textAlign: 'center' }}>
+                  <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ flexDirection: 'column', width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '20px 0', textAlign: 'center' }}>
                     <span style={{ fontSize: '36px' }}>📊</span>
-                    <span style={{ color: 'var(--text-main)', fontWeight: '600', fontSize: '14px' }}>
+                    <span style={{ color: 'var(--text-main)', fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */ fontSize: '14px' }}>
                       {isLoadingCategory ? t('loading') : t('no_data')}
                     </span>
-                    <span style={{ color: 'var(--text-light)', fontSize: '11px', maxWidth: '200px' }}>
+                    <span style={{ color: 'var(--text-light)', fontSize: '11px', /* Cỡ chữ 11px */ maxWidth: '200px' }}>
                       {isLoadingCategory ? t('syncing_chart') : t('no_spending_in_period')}
                     </span>
                   </div>
@@ -1221,17 +1241,17 @@ export default function Dashboard() {
                     {(() => {
                       const activeIdx = hoveredCategory !== null ? hoveredCategory : selectedCategoryIdx;
                       const activeData = processedCategoryData[activeIdx] || null;
-                      
+
                       return (
                         <>
                           <div style={{
                             position: 'relative',
                             width: '160px',
                             height: '160px',
-                            flexShrink: 0,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
+                            flexShrink: 0, /* Không cho phép co bóp kích thước */
+                            display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
+                            alignItems: 'center', /* Căn các phần tử con giữa theo chiều dọc */
+                            justifyContent: 'center', /* Căn giữa các phần tử con theo chiều ngang */
                           }}>
                             <svg viewBox="0 0 100 100" style={{ width: '160px', height: '160px', transform: 'rotate(-90deg)', overflow: 'visible' }}>
                               {/* Background track circle */}
@@ -1256,7 +1276,7 @@ export default function Dashboard() {
                                   const strokeDashArray = `${segmentLength} ${c}`;
                                   const strokeDashOffset = - (accumulatedFraction * c);
                                   accumulatedFraction += (cat.percentage / 100);
-                                  
+
                                   return (
                                     <circle
                                       key={idx}
@@ -1281,43 +1301,43 @@ export default function Dashboard() {
                                 });
                               })()}
                             </svg>
-                            
+
                             {/* Center text overlay */}
                             <div style={{
                               position: 'absolute',
                               left: '50%',
                               top: '50%',
                               transform: 'translate(-50%, -50%)',
-                              display: 'flex',
+                              display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
                               flexDirection: 'column',
-                              alignItems: 'center',
-                              justifyContent: 'center',
+                              alignItems: 'center', /* Căn các phần tử con giữa theo chiều dọc */
+                              justifyContent: 'center', /* Căn giữa các phần tử con theo chiều ngang */
                               pointerEvents: 'none',
                               textAlign: 'center',
                               width: '95px',
                             }}>
-                              <span style={{ 
-                                fontSize: '10px', 
-                                color: activeData ? activeData.category_color || 'var(--text-light)' : 'var(--text-light)', 
-                                textTransform: 'uppercase', 
-                                letterSpacing: '0.5px', 
-                                fontWeight: '700',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap',
+                              <span style={{
+                                fontSize: '10px', /* Cỡ chữ 10px */
+                                color: activeData ? activeData.category_color || 'var(--text-light)' : 'var(--text-light)',
+                                textTransform: 'uppercase', /* Chuyển thành chữ IN HOA */
+                                letterSpacing: '0.5px',
+                                fontWeight: '700', /* Độ đậm chữ 700 (Đậm) */
+                                overflow: 'hidden', /* Ẩn mọi phần nội dung tràn ra ngoài */
+                                textOverflow: 'ellipsis', /* Hiển thị dấu ba chấm (...) khi chữ tràn */
+                                whiteSpace: 'nowrap', /* Không cho xuống dòng tự động */
                                 width: '100%',
                                 transition: 'color 0.2s ease'
                               }}>
                                 {activeData ? (activeData.category_name === 'uncategorized' ? 'Chưa phân loại' : activeData.category_name) : t('spending')}
                               </span>
-                              <span style={{ 
-                                fontSize: '13px', 
-                                fontWeight: '800', 
-                                color: 'var(--text-main)', 
-                                width: '100%', 
-                                overflow: 'hidden', 
-                                textOverflow: 'ellipsis', 
-                                whiteSpace: 'nowrap',
+                              <span style={{
+                                fontSize: '13px', /* Cỡ chữ 13px */
+                                fontWeight: '800', /* Độ đậm chữ 800 (Rất đậm) */
+                                color: 'var(--text-main)', /* Màu chữ chính của theme */
+                                width: '100%',
+                                overflow: 'hidden', /* Ẩn mọi phần nội dung tràn ra ngoài */
+                                textOverflow: 'ellipsis', /* Hiển thị dấu ba chấm (...) khi chữ tràn */
+                                whiteSpace: 'nowrap', /* Không cho xuống dòng tự động */
                                 marginTop: '2px',
                                 transition: 'all 0.2s ease'
                               }}>
@@ -1325,8 +1345,8 @@ export default function Dashboard() {
                               </span>
                               {activeData && (
                                 <span style={{
-                                  fontSize: '10px',
-                                  fontWeight: '600',
+                                  fontSize: '10px', /* Cỡ chữ 10px */
+                                  fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */
                                   color: 'var(--text-light)',
                                   marginTop: '2px'
                                 }}>
@@ -1339,7 +1359,7 @@ export default function Dashboard() {
                           {/* List of categories */}
                           <div style={{
                             flex: 1,
-                            display: 'flex',
+                            display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
                             flexDirection: 'column',
                             gap: '8px',
                             maxHeight: '230px',
@@ -1349,21 +1369,21 @@ export default function Dashboard() {
                             {processedCategoryData.map((cat, idx) => {
                               const isSelected = activeIdx === idx;
                               return (
-                                <div 
-                                  key={idx} 
+                                <div
+                                  key={idx}
                                   onMouseEnter={() => setHoveredCategory(idx)}
                                   onMouseLeave={() => setHoveredCategory(null)}
                                   onClick={() => {
                                     setSelectedCategoryIdx(idx);
                                     handleOpenCategoryTransactions(cat);
                                   }}
-                                  style={{ 
-                                    display: 'flex',
+                                  style={{
+                                    display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
                                     flexDirection: 'column',
                                     cursor: 'pointer',
                                     padding: '10px 12px',
                                     borderRadius: '16px',
-                                    background: isSelected 
+                                    background: isSelected
                                       ? (cat.category_color ? `${cat.category_color}0A` : 'var(--border-color)')
                                       : 'transparent',
                                     border: isSelected
@@ -1375,47 +1395,47 @@ export default function Dashboard() {
                                     minWidth: 0
                                   }}
                                 >
-                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                                  <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
                                     {/* Left side: Icon & Title */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                                    <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
                                       <div style={{
                                         width: '32px',
                                         height: '32px',
                                         borderRadius: '10px',
                                         background: cat.category_color ? `${cat.category_color}1A` : 'rgba(113, 142, 191, 0.1)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        fontSize: '16px',
-                                        flexShrink: 0
+                                        display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
+                                        alignItems: 'center', /* Căn các phần tử con giữa theo chiều dọc */
+                                        justifyContent: 'center', /* Căn giữa các phần tử con theo chiều ngang */
+                                        fontSize: '16px', /* Cỡ chữ 16px */
+                                        flexShrink: 0, /* Không cho phép co bóp kích thước */
                                       }}>
                                         {parseIcon(cat.category_icon) || '📁'}
                                       </div>
                                       <span style={{
-                                        fontSize: '13px',
-                                        fontWeight: '700',
-                                        color: 'var(--text-main)',
-                                        overflow: 'hidden',
-                                        textOverflow: 'ellipsis',
-                                        whiteSpace: 'nowrap',
+                                        fontSize: '13px', /* Cỡ chữ 13px */
+                                        fontWeight: '700', /* Độ đậm chữ 700 (Đậm) */
+                                        color: 'var(--text-main)', /* Màu chữ chính của theme */
+                                        overflow: 'hidden', /* Ẩn mọi phần nội dung tràn ra ngoài */
+                                        textOverflow: 'ellipsis', /* Hiển thị dấu ba chấm (...) khi chữ tràn */
+                                        whiteSpace: 'nowrap', /* Không cho xuống dòng tự động */
                                         flex: 1
                                       }}>
                                         {cat.category_name === 'uncategorized' ? 'Chưa phân loại' : cat.category_name}
                                       </span>
                                     </div>
                                     {/* Right side: Amount & Chevron */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, /* Không cho phép co bóp kích thước */ }}>
                                       <span style={{
-                                        fontSize: '13px',
-                                        fontWeight: '700',
-                                        color: 'var(--text-main)'
+                                        fontSize: '13px', /* Cỡ chữ 13px */
+                                        fontWeight: '700', /* Độ đậm chữ 700 (Đậm) */
+                                        color: 'var(--text-main)', /* Màu chữ chính của theme */
                                       }}>
                                         {formatCurrency(cat.amount)}
                                       </span>
                                       <span style={{
                                         color: isSelected ? (cat.category_color || '#718EBF') : 'var(--text-light)',
-                                        fontSize: '15px',
-                                        fontWeight: '800',
+                                        fontSize: '15px', /* Cỡ chữ 15px */
+                                        fontWeight: '800', /* Độ đậm chữ 800 (Rất đậm) */
                                         marginLeft: '4px',
                                         transition: 'color 0.2s ease'
                                       }}>
@@ -1430,7 +1450,7 @@ export default function Dashboard() {
                                     background: 'var(--border-color)',
                                     borderRadius: '3px',
                                     marginTop: '6px',
-                                    overflow: 'hidden',
+                                    overflow: 'hidden', /* Ẩn mọi phần nội dung tràn ra ngoài */
                                     position: 'relative'
                                   }}>
                                     <div style={{
@@ -1456,11 +1476,11 @@ export default function Dashboard() {
 
           <div className="row" style={{ marginTop: '24px' }}>
             <div className="col-2" style={{ flex: 2 }}>
-              <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <div className="section-header" style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                 <h2 className="section-title" style={{ margin: 0 }}>
                   {t('daily_spending_trend')}
                 </h2>
-                
+
                 {/* Visual Toggles */}
                 <div style={{ display: 'inline-flex', background: 'var(--border-color)', padding: '3px', borderRadius: '20px', gap: '2px', backdropFilter: 'blur(10px)' }}>
                   {[
@@ -1479,8 +1499,8 @@ export default function Dashboard() {
                           border: 'none',
                           padding: '6px 14px',
                           borderRadius: '16px',
-                          fontSize: '12px',
-                          fontWeight: '700',
+                          fontSize: '12px', /* Cỡ chữ 12px */
+                          fontWeight: '700', /* Độ đậm chữ 700 (Đậm) */
                           cursor: 'pointer',
                           transition: 'all 0.2s ease',
                           boxShadow: isSelected ? '0 2px 8px rgba(0,0,0,0.08)' : 'none'
@@ -1492,22 +1512,22 @@ export default function Dashboard() {
                   })}
                 </div>
               </div>
-              <div className="chart-card" style={{ 
-                padding: '24px 30px', 
-                height: '280px', 
-                position: 'relative', 
-                display: 'flex', 
-                flexDirection: 'column', 
-                justifyContent: 'center',
+              <div className="chart-card" style={{
+                padding: '24px 30px',
+                height: '280px',
+                position: 'relative',
+                display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
+                flexDirection: 'column',
+                justifyContent: 'center', /* Căn giữa các phần tử con theo chiều ngang */
                 overflow: 'visible'
               }}>
                 {!isLoggedIn || mergedTrends.length === 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '20px 0', textAlign: 'center' }}>
+                  <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ flexDirection: 'column', width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '20px 0', textAlign: 'center' }}>
                     <span style={{ fontSize: '36px' }}>📈</span>
-                    <span style={{ color: 'var(--text-main)', fontWeight: '600', fontSize: '14px' }}>
+                    <span style={{ color: 'var(--text-main)', fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */ fontSize: '14px' }}>
                       {isLoadingDailyTrends ? t('loading') : t('no_transaction_data')}
                     </span>
-                    <span style={{ color: 'var(--text-light)', fontSize: '11px', maxWidth: '300px' }}>
+                    <span style={{ color: 'var(--text-light)', fontSize: '11px', /* Cỡ chữ 11px */ maxWidth: '300px' }}>
                       {isLoadingDailyTrends ? t('syncing_chart') : t('no_spending_in_period')}
                     </span>
                   </div>
@@ -1515,23 +1535,23 @@ export default function Dashboard() {
                   (() => {
                     const processedDailyTrends: any[] = [];
                     let runningBalance = 0;
-                    
+
                     mergedTrends.forEach((trend) => {
                       const inc = Number(trend.income) || 0;
                       const exp = Number(trend.expense) || 0;
                       const net = inc - exp;
                       runningBalance += net;
-                      
+
                       processedDailyTrends.push({
                         day: trend.label.split('/')[0],
                         label: trend.label,
                         expense: exp,
                         income: inc,
                         balance: runningBalance,
-                        value: chartMode === 'expense' 
-                          ? exp 
-                          : chartMode === 'income' 
-                            ? inc 
+                        value: chartMode === 'expense'
+                          ? exp
+                          : chartMode === 'income'
+                            ? inc
                             : runningBalance
                       });
                     });
@@ -1550,7 +1570,7 @@ export default function Dashboard() {
                     const points = processedDailyTrends.map((t, idx) => ({
                       x: getX(idx),
                       y: getY(t.value)
-                    }));
+                    })); // Đóng hàm lưu cache
 
                     // Generate a smooth Catmull-Rom cubic bezier spline path
                     let dPath = '';
@@ -1560,10 +1580,10 @@ export default function Dashboard() {
                         const prev = arr[idx - 1];
                         const prevPrev = arr[idx - 2] || prev;
                         const next = arr[idx + 1] || p;
-                        
+
                         const cp1x = prev.x + (p.x - prev.x) / 3;
                         let cp1y = prev.y + (p.y - prevPrev.y) / 6;
-                        
+
                         const cp2x = p.x - (p.x - prev.x) / 3;
                         let cp2y = p.y - (next.y - prev.y) / 6;
 
@@ -1572,19 +1592,19 @@ export default function Dashboard() {
                         const ctrlMaxY = Math.max(prev.y, p.y);
                         cp1y = Math.max(ctrlMinY, Math.min(ctrlMaxY, cp1y));
                         cp2y = Math.max(ctrlMinY, Math.min(ctrlMaxY, cp2y));
-                        
+
                         return `${acc} C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p.x.toFixed(1)} ${p.y.toFixed(1)}`;
                       }, "");
-                    }
+                    } // Kết thúc kiểm tra điều kiện dữ liệu
 
-                    const dArea = points.length > 0 
+                    const dArea = points.length > 0
                       ? `${dPath} L ${points[points.length - 1].x.toFixed(1)} 170 L ${points[0].x.toFixed(1)} 170 Z`
                       : '';
 
-                    let chartColor = '#FF6B81'; 
+                    let chartColor = '#FF6B81';
                     let gradId = 'expenseGrad';
                     let glowId = 'glow';
-                    
+
                     if (chartMode === 'income') {
                       chartColor = '#10B981';
                       gradId = 'incomeGrad';
@@ -1593,7 +1613,7 @@ export default function Dashboard() {
                       chartColor = '#2D60FF';
                       gradId = 'balanceGrad';
                       glowId = 'glowBalance';
-                    }
+                    } // Kết thúc kiểm tra điều kiện dữ liệu
 
                     return (
                       <div style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -1601,30 +1621,30 @@ export default function Dashboard() {
                           <defs>
                             {/* Area Gradients */}
                             <linearGradient id="expenseGrad" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#FF6B81" stopOpacity="0.45"/>
-                              <stop offset="50%" stopColor="#FF6B81" stopOpacity="0.15"/>
-                              <stop offset="100%" stopColor="#FF6B81" stopOpacity="0.00"/>
+                              <stop offset="0%" stopColor="#FF6B81" stopOpacity="0.45" />
+                              <stop offset="50%" stopColor="#FF6B81" stopOpacity="0.15" />
+                              <stop offset="100%" stopColor="#FF6B81" stopOpacity="0.00" />
                             </linearGradient>
                             <linearGradient id="incomeGrad" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#10B981" stopOpacity="0.45"/>
-                              <stop offset="50%" stopColor="#10B981" stopOpacity="0.15"/>
-                              <stop offset="100%" stopColor="#10B981" stopOpacity="0.00"/>
+                              <stop offset="0%" stopColor="#10B981" stopOpacity="0.45" />
+                              <stop offset="50%" stopColor="#10B981" stopOpacity="0.15" />
+                              <stop offset="100%" stopColor="#10B981" stopOpacity="0.00" />
                             </linearGradient>
                             <linearGradient id="balanceGrad" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="0%" stopColor="#2D60FF" stopOpacity="0.45"/>
-                              <stop offset="50%" stopColor="#2D60FF" stopOpacity="0.15"/>
-                              <stop offset="100%" stopColor="#2D60FF" stopOpacity="0.00"/>
+                              <stop offset="0%" stopColor="#2D60FF" stopOpacity="0.45" />
+                              <stop offset="50%" stopColor="#2D60FF" stopOpacity="0.15" />
+                              <stop offset="100%" stopColor="#2D60FF" stopOpacity="0.00" />
                             </linearGradient>
-                            
+
                             {/* Glow Filters */}
                             <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                              <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#FF6B81" floodOpacity="0.3"/>
+                              <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#FF6B81" floodOpacity="0.3" />
                             </filter>
                             <filter id="glowIncome" x="-20%" y="-20%" width="140%" height="140%">
-                              <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#10B981" floodOpacity="0.3"/>
+                              <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#10B981" floodOpacity="0.3" />
                             </filter>
                             <filter id="glowBalance" x="-20%" y="-20%" width="140%" height="140%">
-                              <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#2D60FF" floodOpacity="0.3"/>
+                              <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#2D60FF" floodOpacity="0.3" />
                             </filter>
                           </defs>
 
@@ -1635,7 +1655,7 @@ export default function Dashboard() {
                             <line x1="0" y1="80" x2="900" y2="80" strokeDasharray="4 4" />
                             <line x1="0" y1="125" x2="900" y2="125" strokeDasharray="4 4" />
                             <line x1="0" y1="170" x2="900" y2="170" strokeWidth="1.5" />
-                            
+
                             {/* Vertical grid lines at label positions */}
                             {processedDailyTrends.filter((_, idx) => idx % 5 === 0 || idx === processedDailyTrends.length - 1).map((item, idx) => {
                               const x = getX(processedDailyTrends.indexOf(item));
@@ -1748,19 +1768,19 @@ export default function Dashboard() {
                             const item = processedDailyTrends[hoveredDailyPoint as number];
                             const xVal = getX(hoveredDailyPoint as number);
                             const yVal = getY(item.value);
-                            
+
                             const tooltipWidth = 150;
                             const tooltipHeight = 52;
-                            
+
                             // Center the tooltip horizontally, clamp within SVG bounds [10, 890]
                             let tx = xVal - tooltipWidth / 2;
                             if (tx < 10) tx = 10;
                             if (tx + tooltipWidth > 890) tx = 890 - tooltipWidth;
-                            
+
                             // Position above the point by default, but if too close to the top, show below
                             const showBelow = yVal < 75;
                             const ty = showBelow ? yVal + 15 : yVal - tooltipHeight - 15;
-                            
+
                             let amtStr = '';
                             if (chartMode === 'expense') {
                               amtStr = `-${formatCurrency(item.expense)}`;
@@ -1768,7 +1788,7 @@ export default function Dashboard() {
                               amtStr = `+${formatCurrency(item.income)}`;
                             } else {
                               amtStr = `${item.balance >= 0 ? '+' : ''}${formatCurrency(item.balance)}`;
-                            }
+                            } // Kết thúc kiểm tra điều kiện dữ liệu
 
                             return (
                               <g pointerEvents="none">
@@ -1828,31 +1848,31 @@ export default function Dashboard() {
               <div className="chart-card" style={{
                 padding: '20px 24px',
                 height: '280px',
-                display: 'flex',
+                display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
                 flexDirection: 'column',
-                justifyContent: 'center',
-                overflow: 'hidden'
+                justifyContent: 'center', /* Căn giữa các phần tử con theo chiều ngang */
+                overflow: 'hidden', /* Ẩn mọi phần nội dung tràn ra ngoài */
               }}>
                 {!isLoggedIn || top5Categories.length === 0 ? (
-                  <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '20px 0', textAlign: 'center' }}>
+                  <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ flexDirection: 'column', width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '20px 0', textAlign: 'center' }}>
                     <span style={{ fontSize: '36px' }}>🏆</span>
-                    <span style={{ color: 'var(--text-main)', fontWeight: '600', fontSize: '14px' }}>
+                    <span style={{ color: 'var(--text-main)', fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */ fontSize: '14px' }}>
                       {isLoadingCategory ? t('loading') : t('no_data')}
                     </span>
-                    <span style={{ color: 'var(--text-light)', fontSize: '11px', maxWidth: '200px' }}>
+                    <span style={{ color: 'var(--text-light)', fontSize: '11px', /* Cỡ chữ 11px */ maxWidth: '200px' }}>
                       {isLoadingCategory ? t('syncing_chart') : t('no_spending_in_period')}
                     </span>
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                  <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ flexDirection: 'column', gap: '8px', width: '100%' }}>
                     {top5Categories.map((cat, idx) => (
-                      <div 
+                      <div
                         key={idx}
                         onMouseEnter={() => setHoveredTopCategory(idx)}
                         onMouseLeave={() => setHoveredTopCategory(null)}
                         style={{
-                          display: 'flex',
-                          alignItems: 'center',
+                          display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
+                          alignItems: 'center', /* Căn các phần tử con giữa theo chiều dọc */
                           gap: '10px',
                           padding: '6px 8px',
                           borderRadius: '12px',
@@ -1863,58 +1883,58 @@ export default function Dashboard() {
                       >
                         {/* Rank indicator */}
                         <span style={{
-                          fontSize: '12px',
-                          fontWeight: '800',
+                          fontSize: '12px', /* Cỡ chữ 12px */
+                          fontWeight: '800', /* Độ đậm chữ 800 (Rất đậm) */
                           color: idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : idx === 2 ? '#CD7F32' : 'var(--text-light)',
                           width: '16px',
                           textAlign: 'center',
-                          flexShrink: 0
+                          flexShrink: 0, /* Không cho phép co bóp kích thước */
                         }}>
                           #{idx + 1}
                         </span>
-                        
+
                         {/* Icon badge with background tint */}
                         <div style={{
                           width: '32px',
                           height: '32px',
                           borderRadius: '10px',
                           background: cat.category_color ? `${cat.category_color}15` : 'rgba(113, 142, 191, 0.15)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '16px',
-                          flexShrink: 0
+                          display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
+                          alignItems: 'center', /* Căn các phần tử con giữa theo chiều dọc */
+                          justifyContent: 'center', /* Căn giữa các phần tử con theo chiều ngang */
+                          fontSize: '16px', /* Cỡ chữ 16px */
+                          flexShrink: 0, /* Không cho phép co bóp kích thước */
                         }}>
                           {parseIcon(cat.category_icon) || '📁'}
                         </div>
 
                         {/* Text, Progress Bar, and Amount details */}
-                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, gap: '2px' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ flex: 1, display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ flexDirection: 'column', minWidth: 0, gap: '2px' }}>
+                          <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
                             <span style={{
-                              fontSize: '12px',
-                              fontWeight: '700',
-                              color: 'var(--text-main)',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
+                              fontSize: '12px', /* Cỡ chữ 12px */
+                              fontWeight: '700', /* Độ đậm chữ 700 (Đậm) */
+                              color: 'var(--text-main)', /* Màu chữ chính của theme */
+                              overflow: 'hidden', /* Ẩn mọi phần nội dung tràn ra ngoài */
+                              textOverflow: 'ellipsis', /* Hiển thị dấu ba chấm (...) khi chữ tràn */
+                              whiteSpace: 'nowrap', /* Không cho xuống dòng tự động */
                               flex: 1
                             }}>
                               {cat.category_name === 'uncategorized' ? 'Chưa phân loại' : cat.category_name}
                             </span>
                             <span style={{
-                              fontSize: '12px',
-                              fontWeight: '700',
-                              color: 'var(--text-main)',
-                              flexShrink: 0
+                              fontSize: '12px', /* Cỡ chữ 12px */
+                              fontWeight: '700', /* Độ đậm chữ 700 (Đậm) */
+                              color: 'var(--text-main)', /* Màu chữ chính của theme */
+                              flexShrink: 0, /* Không cho phép co bóp kích thước */
                             }}>
                               {formatCurrency(cat.amount)}
                             </span>
                           </div>
-                          
+
                           {/* Progress bar and percentage */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <div style={{ flex: 1, height: '4px', background: 'var(--border-color)', borderRadius: '2px', overflow: 'hidden' }}>
+                          <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ alignItems: 'center', gap: '6px' }}>
+                            <div style={{ flex: 1, height: '4px', background: 'var(--border-color)', borderRadius: '2px', overflow: 'hidden', /* Ẩn mọi phần nội dung tràn ra ngoài */ }}>
                               <div style={{
                                 width: `${cat.percentage}%`,
                                 height: '100%',
@@ -1922,7 +1942,7 @@ export default function Dashboard() {
                                 borderRadius: '2px'
                               }} />
                             </div>
-                            <span style={{ fontSize: '9px', fontWeight: '600', color: 'var(--text-light)', width: '24px', textAlign: 'right', flexShrink: 0 }}>
+                            <span style={{ fontSize: '9px', fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */ color: 'var(--text-light)', width: '24px', textAlign: 'right', flexShrink: 0 }}>
                               {cat.percentage}%
                             </span>
                           </div>
@@ -1936,33 +1956,33 @@ export default function Dashboard() {
           </div>
 
           <div className="row">
-            <div className="col-1" style={{flex:1}}>
-              <div className="section-header" style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+            <div className="col-1" style={{ flex: 1 }}>
+              <div className="section-header" style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2 className="section-title">{t('recent_transactions')}</h2>
                 {isLoggedIn && (
-                  <Link href="/transactions" style={{fontSize:'13px', color:'#1814F3', fontWeight:'600', textDecoration:'none'}}>
+                  <Link href="/transactions" style={{ fontSize: '13px', color: '#1814F3', fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */ textDecoration: 'none' }}>
                     {t('details') || 'Chi tiết'}
                   </Link>
                 )}
               </div>
               <div className="transactions-card">
                 {!isLoggedIn || filteredRecentTransactions.length === 0 ? (
-                  <div style={{ padding: '30px 20px', textAlign: 'center', color: '#718EBF', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ padding: '30px 20px', textAlign: 'center', color: '#718EBF', display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
                     <span style={{ fontSize: '32px' }}>💸</span>
-                    <span style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '14px' }}>{t('no_transactions')}</span>
-                    <span style={{ fontSize: '12px', color: 'var(--text-light)', maxWidth: '240px' }}>{t('first_transaction_prompt')}</span>
+                    <span style={{ fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */ color: 'var(--text-main)', fontSize: '14px' }}>{t('no_transactions')}</span>
+                    <span style={{ fontSize: '12px', /* Cỡ chữ 12px */ color: 'var(--text-light)', maxWidth: '240px' }}>{t('first_transaction_prompt')}</span>
                   </div>
                 ) : (
                   filteredRecentTransactions.slice(0, 4).map((x, i) => (
                     <div className="transaction-item" key={i}>
-                      <div style={{width:'45px',height:'45px',borderRadius:'12px',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'20px',background:'var(--bg-color)',marginRight:'15px'}}>
+                      <div style={{ width: '45px', height: '45px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', /* Cỡ chữ 20px */ background: 'var(--bg-color)', marginRight: '15px' }}>
                         {parseIcon(x.category?.icon) || (x.type === 'expense' ? '💸' : '💰')}
                       </div>
                       <div className="tx-details">
                         <div className="tx-title">{x.title || x.desc || x.notes || t('other')}</div>
                         <div className="tx-date">{formatDate(x.transaction_date)}</div>
                       </div>
-                      <div className="tx-amount" style={{color: x.type === 'expense' || x.amount < 0 ? '#FE5C73' : '#16DBCC'}}>
+                      <div className="tx-amount" style={{ color: x.type === 'expense' || x.amount < 0 ? '#FE5C73' : '#16DBCC' }}>
                         {x.type === 'expense' || x.amount < 0 ? '-' : '+'}{formatCurrency(Math.abs(parseFloat(x.amount || 0)))}
                       </div>
                     </div>
@@ -1971,27 +1991,27 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="col-1" style={{flex:1}}>
-              <div className="section-header" style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
+            <div className="col-1" style={{ flex: 1 }}>
+              <div className="section-header" style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2 className="section-title">{t('budget')}</h2>
                 {isLoggedIn && budgetsList.length > 0 && (
-                  <Link href="/budget" style={{fontSize:'13px', color:'#1814F3', fontWeight:'600', textDecoration:'none'}}>
+                  <Link href="/budget" style={{ fontSize: '13px', color: '#1814F3', fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */ textDecoration: 'none' }}>
                     {t('details') || 'Chi tiết'}
                   </Link>
                 )}
               </div>
-              <div className="transactions-card" style={{height:'auto', minHeight: '150px', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '20px'}}>
+              <div className="transactions-card" style={{ height: 'auto', minHeight: '150px', display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ flexDirection: 'column', justifyContent: 'center', padding: '20px' }}>
                 {isLoadingBudget ? (
                   <div style={{ textAlign: 'center', color: '#718EBF' }}>{t('loading')}</div>
                 ) : !isLoggedIn ? (
                   <div style={{ textAlign: 'center', color: '#718EBF' }}>
-                    <p style={{marginBottom: '10px'}}>{t('please_login')}</p>
-                    <Link href="/login" style={{textDecoration:'none',color:'#fff',background:'#343C6A',padding:'6px 12px',borderRadius:'15px',fontWeight:'bold', fontSize:'13px'}}>{t('login')}</Link>
+                    <p style={{ marginBottom: '10px' }}>{t('please_login')}</p>
+                    <Link href="/login" style={{ textDecoration: 'none', color: '#fff', background: '#343C6A', padding: '6px 12px', borderRadius: '15px', fontWeight: 'bold', fontSize: '13px', /* Cỡ chữ 13px */ }}>{t('login')}</Link>
                   </div>
                 ) : budgetsList.length === 0 ? (
                   <div style={{ textAlign: 'center', color: '#718EBF' }}>
-                    <p style={{fontSize: '14px', margin: 0}}>{t('no_budget_set')}</p>
-                    <div style={{display:'flex', gap:'8px', justifyContent:'center', marginTop:'12px', flexWrap:'wrap'}}>
+                    <p style={{ fontSize: '14px', /* Cỡ chữ 14px */ margin: 0 }}>{t('no_budget_set')}</p>
+                    <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ gap: '8px', justifyContent: 'center', marginTop: '12px', flexWrap: 'wrap' }}>
                       <Link href="/budget" style={{
                         display: 'inline-block',
                         padding: '8px 16px',
@@ -1999,12 +2019,12 @@ export default function Dashboard() {
                         color: '#fff',
                         borderRadius: '10px',
                         textDecoration: 'none',
-                        fontWeight: '600',
-                        fontSize: '13px'
+                        fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */
+                        fontSize: '13px', /* Cỡ chữ 13px */
                       }}>
                         {t('set_budget')}
                       </Link>
-                      <button 
+                      <button
                         onClick={handleCopyBudgets}
                         disabled={isLoadingBudget}
                         style={{
@@ -2013,8 +2033,8 @@ export default function Dashboard() {
                           color: '#1814F3',
                           borderRadius: '10px',
                           border: '1px solid #1814F3',
-                          fontWeight: '600',
-                          fontSize: '13px',
+                          fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */
+                          fontSize: '13px', /* Cỡ chữ 13px */
                           cursor: 'pointer'
                         }}
                       >
@@ -2023,41 +2043,41 @@ export default function Dashboard() {
                     </div>
                   </div>
                 ) : (
-                  <div style={{display:'flex', flexDirection:'column', gap:'12px', width:'100%'}}>
-                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                      <span style={{fontWeight:'700', color:'var(--text-main)', fontSize:'15px'}}>
+                  <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ flexDirection: 'column', gap: '12px', width: '100%' }}>
+                    <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: '700', /* Độ đậm chữ 700 (Đậm) */ color: 'var(--text-main)', fontSize: '15px' }}>
                         {overallBudget ? t('total_monthly_budget') : (t('category_budgets') || 'Ngân sách danh mục')}
                       </span>
-                      <span style={{fontSize:'14px', fontWeight:'700', color: totalPct >= 100 ? '#FE5C73' : totalPct >= 80 ? '#FF9800' : '#16DBCC'}}>
+                      <span style={{ fontSize: '14px', fontWeight: '700', /* Độ đậm chữ 700 (Đậm) */ color: totalPct >= 100 ? '#FE5C73' : totalPct >= 80 ? '#FF9800' : '#16DBCC' }}>
                         {totalPct}%
                       </span>
                     </div>
-                    
+
                     {/* Progress Bar Container */}
-                    <div style={{width:'100%', height:'12px', background:'var(--bg-color)', borderRadius:'6px', overflow:'hidden'}}>
+                    <div style={{ width: '100%', height: '12px', background: 'var(--bg-color)', borderRadius: '6px', overflow: 'hidden', /* Ẩn mọi phần nội dung tràn ra ngoài */ }}>
                       <div style={{
                         width: `${Math.min(totalPct, 100)}%`,
                         height: '100%',
                         background: totalPct >= 100 ? '#FE5C73' : totalPct >= 80 ? '#FF9800' : '#16DBCC',
-                        borderRadius: '6px',
+                        borderRadius: '6px', /* Bo góc các cạnh 6px */
                         transition: 'width 0.6s ease-in-out'
                       }}></div>
                     </div>
-                    
-                    <div style={{display:'flex', justifyContent:'space-between', fontSize:'13px', color:'#718EBF'}}>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', /* Cỡ chữ 13px */ color: '#718EBF' }}>
                       <div>
-                        <span style={{fontWeight:'600', color:'var(--text-main)'}}>{formatCurrency(totalUsed)}</span>
+                        <span style={{ fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */ color: 'var(--text-main)' }}>{formatCurrency(totalUsed)}</span>
                         <span> / {formatCurrency(totalLimit)}</span>
                       </div>
                     </div>
 
-                    <div style={{fontSize:'12px', marginTop:'2px'}}>
+                    <div style={{ fontSize: '12px', /* Cỡ chữ 12px */ marginTop: '2px' }}>
                       {totalUsed > totalLimit ? (
-                        <span style={{color:'#FE5C73', fontWeight:'600'}}>
+                        <span style={{ color: '#FE5C73', fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */ }}>
                           🚨 {t('over_budget') || 'Vượt ngân sách!'} ({formatCurrency(totalUsed - totalLimit)})
                         </span>
                       ) : (
-                        <span style={{color:'#16DBCC', fontWeight:'600'}}>
+                        <span style={{ color: '#16DBCC', fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */ }}>
                           ✓ {t('remaining_label') || 'Còn lại:'} {formatCurrency(totalLimit - totalUsed)}
                         </span>
                       )}
@@ -2067,13 +2087,13 @@ export default function Dashboard() {
               </div>
             </div>
 
-            <div className="col-1" style={{flex:1}}>
-              <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="col-1" style={{ flex: 1 }}>
+              <div className="section-header" style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2 className="section-title">{t('wallets')}</h2>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <button 
+                <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ alignItems: 'center', gap: '8px' }}>
+                  <button
                     onClick={() => setShowWalletBalance(!showWalletBalance)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#718EBF', display: 'flex', alignItems: 'center', padding: '5px' }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#718EBF', display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ alignItems: 'center', padding: '5px' }}
                     title={showWalletBalance ? t('hide_balance') : t('show_balance')}
                   >
                     {showWalletBalance ? (
@@ -2089,19 +2109,19 @@ export default function Dashboard() {
                     )}
                   </button>
                   {isLoggedIn && (
-                    <Link href="/wallets" style={{fontSize:'13px', color:'#1814F3', fontWeight:'600', textDecoration:'none'}}>
+                    <Link href="/wallets" style={{ fontSize: '13px', color: '#1814F3', fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */ textDecoration: 'none' }}>
                       {t('details') || 'Chi tiết'}
                     </Link>
                   )}
                 </div>
               </div>
-              <div className="transactions-card" style={{height:'auto', padding: '16px'}}>
+              <div className="transactions-card" style={{ height: 'auto', padding: '16px' }}>
                 {isLoadingWallets ? (
                   <div style={{ padding: '20px', textAlign: 'center' }}>{t('loading')}</div>
                 ) : !isLoggedIn || wallets.length === 0 ? (
                   <div style={{ padding: '20px', textAlign: 'center', color: '#718EBF' }}>{t('no_wallets')}</div>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ flexDirection: 'column', gap: '10px' }}>
                     {wallets.slice(0, 3).map((w, i) => {
                       const walletTypeMap: Record<string, { icon: string; label: string; gradient: string }> = {
                         cash: { icon: '💵', label: t('cash') || 'Tiền mặt', gradient: 'linear-gradient(135deg, #16DBCC, #0BB5A7)' },
@@ -2110,20 +2130,20 @@ export default function Dashboard() {
                       };
                       const wType = walletTypeMap[w.type] || walletTypeMap['bank'];
                       const walletColor = w.color || '#396AFF';
-                      
+
                       return (
-                        <div 
+                        <div
                           key={i}
                           style={{
-                            display: 'flex',
-                            alignItems: 'center',
+                            display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
+                            alignItems: 'center', /* Căn các phần tử con giữa theo chiều dọc */
                             gap: '12px',
                             padding: '12px 14px',
                             borderRadius: '14px',
                             background: 'var(--bg-color)',
                             border: '1px solid var(--border-color)',
                             position: 'relative',
-                            overflow: 'hidden',
+                            overflow: 'hidden', /* Ẩn mọi phần nội dung tràn ra ngoài */
                             transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                             cursor: 'pointer',
                           }}
@@ -2146,65 +2166,65 @@ export default function Dashboard() {
                             background: walletColor,
                             borderRadius: '14px 0 0 14px'
                           }} />
-                          
+
                           {/* Icon */}
                           <div style={{
                             width: '42px',
                             height: '42px',
                             borderRadius: '12px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: '20px',
+                            display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
+                            alignItems: 'center', /* Căn các phần tử con giữa theo chiều dọc */
+                            justifyContent: 'center', /* Căn giữa các phần tử con theo chiều ngang */
+                            fontSize: '20px', /* Cỡ chữ 20px */
                             background: `${walletColor}15`,
-                            flexShrink: 0
+                            flexShrink: 0, /* Không cho phép co bóp kích thước */
                           }}>
-                            {parseIcon(w.icon) || wType.icon}
+                            {parseIcon(w.icon) || wType.icon} {/* Hiển thị emoji biểu tượng của ví */}
                           </div>
-                          
+
                           {/* Info */}
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{
-                              fontWeight: '700',
-                              fontSize: '13px',
-                              color: 'var(--text-main)',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
+                              fontWeight: '700', /* Độ đậm chữ 700 (Đậm) */
+                              fontSize: '13px', /* Cỡ chữ 13px */
+                              color: 'var(--text-main)', /* Màu chữ chính của theme */
+                              overflow: 'hidden', /* Ẩn mọi phần nội dung tràn ra ngoài */
+                              textOverflow: 'ellipsis', /* Hiển thị dấu ba chấm (...) khi chữ tràn */
+                              whiteSpace: 'nowrap', /* Không cho xuống dòng tự động */
                             }}>
-                              {w.name || t('main_account')}
+                              {w.name || t('main_account')} {/* Hiển thị tên ví, mặc định là Tài khoản chính */}
                             </div>
                             <div style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '6px',
-                              marginTop: '3px'
+                              display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
+                              alignItems: 'center', /* Căn các phần tử con giữa theo chiều dọc */
+                              gap: '6px', /* Khoảng cách giãn giữa các con là 6px */
+                              marginTop: '3px', /* Khoảng cách lề ngoài phía trên 3px */
                             }}>
                               <span style={{
-                                fontSize: '10px',
-                                fontWeight: '600',
-                                color: walletColor,
+                                fontSize: '10px', /* Cỡ chữ 10px */
+                                fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */
+                                color: walletColor, /* Màu chủ đạo của loại ví */
                                 background: `${walletColor}15`,
-                                padding: '1px 6px',
-                                borderRadius: '6px',
-                                textTransform: 'uppercase',
+                                padding: '1px 6px', /* Khoảng cách đệm trong 1px dọc và 6px ngang */
+                                borderRadius: '6px', /* Bo góc các cạnh 6px */
+                                textTransform: 'uppercase', /* Chuyển thành chữ IN HOA */
                                 letterSpacing: '0.3px'
                               }}>
-                                {wType.label}
+                                {wType.label} {/* Hiển thị nhãn phân loại ví (ví dụ: ngân hàng, tiền mặt) */}
                               </span>
 
                             </div>
                           </div>
-                          
+
                           {/* Balance */}
                           <div style={{
-                            fontWeight: '800',
-                            fontSize: '13px',
-                            color: 'var(--text-main)',
-                            flexShrink: 0,
-                            textAlign: 'right'
+                            fontWeight: '800', /* Độ đậm chữ 800 (Rất đậm) */
+                            fontSize: '13px', /* Cỡ chữ 13px */
+                            color: 'var(--text-main)', /* Màu chữ chính của theme */
+                            flexShrink: 0, /* Không cho phép co bóp kích thước */
+                            textAlign: 'right', /* Căn chữ sang lề phải */
                           }}>
-                            {showWalletBalance ? formatCurrency(parseFloat(w.available_balance)) : '••••••'}
+                            {showWalletBalance ? formatCurrency(parseFloat(w.available_balance)) : '••••••'} {/* Hiển thị số tiền số dư ví hoặc che đi bằng dấu chấm */}
                           </div>
                         </div>
                       );
@@ -2229,8 +2249,8 @@ export default function Dashboard() {
                     {timePeriod === 'custom'
                       ? `${activeStartDate} - ${activeEndDate}`
                       : timePeriod === 'week' ? 'Tuần này'
-                      : timePeriod === 'month' ? 'Tháng này'
-                      : timePeriod === 'quarter' ? 'Quý này' : 'Năm nay'}
+                        : timePeriod === 'month' ? 'Tháng này'
+                          : timePeriod === 'quarter' ? 'Quý này' : 'Năm nay'}
                     {selectedWalletId && ` • ${wallets.find(w => w.id === selectedWalletId)?.name || 'Ví của tôi'}`}
                   </div>
                 </div>
@@ -2239,14 +2259,14 @@ export default function Dashboard() {
                 &times;
               </button>
             </div>
-            
+
             <div className="dashboard-modal-body">
               {/* Category Info Banner */}
               <div className="dashboard-modal-category-card">
                 <div className="dashboard-modal-category-title-area">
-                  <div 
+                  <div
                     className="dashboard-modal-category-icon-box"
-                    style={{ 
+                    style={{
                       background: transactionModalCategory.category_color ? `${transactionModalCategory.category_color}1A` : 'rgba(113, 142, 191, 0.1)',
                       color: transactionModalCategory.category_color || '#718EBF'
                     }}
@@ -2265,7 +2285,7 @@ export default function Dashboard() {
 
               {/* Transactions List */}
               {isLoadingModalTransactions ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 0', gap: '12px' }}>
+                <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 0', gap: '12px' }}>
                   <div className="spinner" style={{
                     width: '32px',
                     height: '32px',
@@ -2274,15 +2294,15 @@ export default function Dashboard() {
                     borderTopColor: 'var(--active-blue)',
                     animation: 'spin 1s linear infinite'
                   }} />
-                  <span style={{ fontSize: '13px', color: 'var(--text-light)', fontWeight: '600' }}>
+                  <span style={{ fontSize: '13px', color: 'var(--text-light)', fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */ }}>
                     Đang tải danh sách giao dịch...
                   </span>
                 </div>
               ) : modalTransactions.length === 0 ? (
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 0', gap: '8px', textAlign: 'center' }}>
+                <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 0', gap: '8px', textAlign: 'center' }}>
                   <span style={{ fontSize: '40px' }}>💸</span>
-                  <span style={{ fontWeight: '700', fontSize: '14px', color: 'var(--text-main)' }}>Không tìm thấy giao dịch nào</span>
-                  <span style={{ fontSize: '11px', color: 'var(--text-light)', maxWidth: '240px' }}>
+                  <span style={{ fontWeight: '700', /* Độ đậm chữ 700 (Đậm) */ fontSize: '14px', color: 'var(--text-main)' }}>Không tìm thấy giao dịch nào</span>
+                  <span style={{ fontSize: '11px', /* Cỡ chữ 11px */ color: 'var(--text-light)', maxWidth: '240px' }}>
                     Không có giao dịch ghi chép chi tiêu nào thuộc danh mục này trong khoảng thời gian đã chọn.
                   </span>
                 </div>
@@ -2294,7 +2314,7 @@ export default function Dashboard() {
                     const monthStr = `T${txDate.getMonth() + 1}`;
                     const timeStr = txDate.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
                     const walletName = wallets.find(w => w.id === tx.wallet_id)?.name || 'Tài khoản chính';
-                    
+
                     return (
                       <div key={tx.id} className="dashboard-modal-tx-item">
                         <div className="dashboard-modal-tx-info">
@@ -2333,4 +2353,4 @@ export default function Dashboard() {
       )}
     </div>
   );
-}
+} // Kết thúc kiểm tra điều kiện dữ liệu
