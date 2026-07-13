@@ -167,6 +167,8 @@ export default function SavingsGoalDetailPage() {
   // Frontend-only auto daily deposit states
   const [localAutoSaveEnabled, setLocalAutoSaveEnabled] = useState(false);
   const [localAutoSaveAmount, setLocalAutoSaveAmount] = useState(10000);
+  const [showAutoSaveModal, setShowAutoSaveModal] = useState(false);
+  const [autoSaveInputAmount, setAutoSaveInputAmount] = useState('10000');
 
   // Fetch goal details
   const fetchGoalDetails = async () => {
@@ -511,29 +513,39 @@ export default function SavingsGoalDetailPage() {
         return;
       }
       
-      const amtStr = prompt("Nhập số tiền muốn tự động nạp mỗi ngày (VND):", String(localAutoSaveAmount));
-      if (amtStr === null) return;
-      
-      const amt = parseFloat(amtStr);
-      if (isNaN(amt) || amt < 1000) {
-        alert("Số tiền tối thiểu tự động nạp hàng ngày là 1.000 đ!");
-        return;
-      }
-      
-      setLocalAutoSaveEnabled(true);
-      setLocalAutoSaveAmount(amt);
-      
-      const config = {
-        enabled: true,
-        amount: amt,
-        last_run: '',
-        source_wallet_id: sourceWId
-      };
-      localStorage.setItem(`local_autosave_${goal.id}`, JSON.stringify(config));
-      alert(`Đã bật tự động tích lũy hàng ngày với số tiền ${formatVND(amt)}!`);
-      
-      triggerAutoSaveCheck(goal.id, config);
+      setAutoSaveInputAmount(String(localAutoSaveAmount));
+      setShowAutoSaveModal(true);
     }
+  };
+
+  // Handle submission of the custom Auto-Save modal
+  const handleAutoSaveModalSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!goal) return;
+    
+    const amt = parseFloat(autoSaveInputAmount);
+    if (isNaN(amt) || amt < 1000) {
+      alert("Số tiền tối thiểu tự động nạp hàng ngày là 1.000 đ!");
+      return;
+    }
+    
+    const sourceWId = goal.source_wallet_id;
+    if (!sourceWId) return;
+
+    setLocalAutoSaveEnabled(true);
+    setLocalAutoSaveAmount(amt);
+    
+    const config = {
+      enabled: true,
+      amount: amt,
+      last_run: '',
+      source_wallet_id: sourceWId
+    };
+    localStorage.setItem(`local_autosave_${goal.id}`, JSON.stringify(config));
+    alert(`Đã bật tự động tích lũy hàng ngày với số tiền ${formatVND(amt)}!`);
+    
+    triggerAutoSaveCheck(goal.id, config);
+    setShowAutoSaveModal(false);
   };
 
   const getSmartTip = (goalName: string) => {
@@ -1073,6 +1085,61 @@ export default function SavingsGoalDetailPage() {
                   disabled={isSubmittingTx}
                 >
                   {isSubmittingTx ? 'Đang giao dịch...' : 'Xác nhận'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Auto-Save Configuration Modal */}
+      {showAutoSaveModal && (
+        <div className="modal-overlay" onClick={() => setShowAutoSaveModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close-btn" onClick={() => setShowAutoSaveModal(false)}>&times;</button>
+            <div className="modal-title-left" style={{ marginBottom: '20px' }}>
+              <h3>Cấu hình Tự động nạp hàng ngày</h3>
+            </div>
+
+            <form onSubmit={handleAutoSaveModalSubmit}>
+              <div className="form-group-wrapper" style={{ gap: '16px', marginBottom: '24px' }}>
+                <div className="form-field">
+                  <label className="form-label" style={{ fontSize: '13px' }}>Số tiền trích nạp mỗi ngày (VND)</label>
+                  <input
+                    type="number"
+                    className="form-input-text"
+                    placeholder="Nhập số tiền..."
+                    value={autoSaveInputAmount}
+                    onChange={(e) => setAutoSaveInputAmount(e.target.value)}
+                    required
+                    min="1000"
+                  />
+                  {autoSaveInputAmount && (
+                    <div className="form-helper" style={{ marginTop: '4px', fontSize: '11px' }}>
+                      Bằng chữ: {formatVND(Number(autoSaveInputAmount))}
+                    </div>
+                  )}
+                  <div style={{ fontSize: '12px', color: 'var(--text-light)', marginTop: '8px', lineHeight: '1.4' }}>
+                    💡 Số tiền này sẽ tự động trích từ ví <strong>{goal?.source_wallet?.name || 'Liên kết'}</strong> của bạn vào lúc bắt đầu ngày mới để tích lũy cho mục tiêu này.
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <button
+                  type="button"
+                  className="action-btn-delete"
+                  style={{ flex: 1, padding: '14px', borderRadius: '12px', fontSize: '14px', background: 'var(--border-color)', color: 'var(--text-main)' }}
+                  onClick={() => setShowAutoSaveModal(false)}
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  className="btn-submit-wallet"
+                  style={{ flex: 2, padding: '14px', borderRadius: '12px', fontSize: '14px', background: '#10B981', boxShadow: 'none' }}
+                >
+                  Lưu cấu hình
                 </button>
               </div>
             </form>

@@ -1,6 +1,6 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { walletApi, authApi, categoryApi, transactionApi, notificationApi } from '../lib/api';
+import { walletApi, authApi, categoryApi, transactionApi, notificationApi, savingsApi } from '../lib/api';
 import { useToast } from './ToastContext';
 import { requestAndRegisterNotificationPermission, setupFCMForegroundListener } from '../lib/firebaseNotification';
 
@@ -214,6 +214,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       fetchTransactions();
       fetchUnreadNotificationsCount();
       requestAndRegisterNotificationPermission();
+      checkGlobalAutoSave();
 
       // Đăng ký FCM Foreground Listener để cập nhật realtime khi nhận push notification
       fcmCleanupRef.current = setupFCMForegroundListener((payload) => {
@@ -356,6 +357,103 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const isFrequencyDue = (lastRun: string | null, frequency: string): boolean => {
+    if (!lastRun) return true;
+    const lastRunDate = new Date(lastRun);
+    const today = new Date();
+    
+    lastRunDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+    
+    const diffTime = today.getTime() - lastRunDate.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (frequency === 'daily') {
+      return diffDays >= 1;
+    }
+    if (frequency === 'weekly') {
+      return diffDays >= 7;
+    }
+    if (frequency === 'monthly') {
+      return diffDays >= 30;
+    }
+    return false;
+  };
+
+  const checkGlobalAutoSave = async () => {
+    if (!localStorage.getItem('access_token')) return;
+    try {
+      const response = await savingsApi.getAll();
+      if (response.status === 'success') {
+        const goals = response.data || [];
+        const todayStr = new Date().toISOString().split('T')[0];
+        let hasRunAny = false;
+
+        for (const goal of goals) {
+          const currentAmount = parseFloat(goal.current_amount || '0');
+          const targetAmount = parseFloat(goal.target_amount || '0');
+          if (goal.status === 'completed' || currentAmount >= targetAmount) {
+            continue;
+          }
+
+          let config: any = null;
+          let frequency = 'daily';
+
+          if (goal.auto_save_frequency && goal.source_wallet_id && parseFloat(goal.auto_save_amount) > 0) {
+            frequency = goal.auto_save_frequency;
+            config = {
+              enabled: true,
+              amount: parseFloat(goal.auto_save_amount),
+              source_wallet_id: goal.source_wallet_id,
+            };
+          } else {
+            const stored = localStorage.getItem(`local_autosave_${goal.id}`);
+            if (stored) {
+              try {
+                config = JSON.parse(stored);
+                frequency = 'daily';
+              } catch (e) {}
+            }
+          }
+
+          if (config && config.enabled && config.source_wallet_id && config.amount > 0) {
+            const lastRunKey = `global_autosave_lastrun_${goal.id}`;
+            const lastRun = localStorage.getItem(lastRunKey) || config.last_run;
+            
+            if (isFrequencyDue(lastRun, frequency)) {
+              console.log(`[GlobalAutoSave] Running daily auto-save for goal ${goal.id}: ${config.amount} VND`);
+              try {
+                const res = await savingsApi.deposit(goal.id, {
+                  amount: config.amount,
+                  source_wallet_id: config.source_wallet_id,
+                  notes: 'Trích nạp hàng ngày tự động (Auto-Save)'
+                });
+                if (res.status === 'success') {
+                  localStorage.setItem(lastRunKey, todayStr);
+                  if (localStorage.getItem(`local_autosave_${goal.id}`)) {
+                    config.last_run = todayStr;
+                    localStorage.setItem(`local_autosave_${goal.id}`, JSON.stringify(config));
+                  }
+                  hasRunAny = true;
+                  console.log(`[GlobalAutoSave] Auto-save executed for goal ${goal.name}`);
+                }
+              } catch (err) {
+                console.error(`[GlobalAutoSave] Failed for goal ${goal.id}:`, err);
+              }
+            }
+          }
+        }
+        
+        if (hasRunAny) {
+          fetchWallets();
+          fetchTransactions();
+        }
+      }
+    } catch (e) {
+      console.error('[GlobalAutoSave] Error during global auto-save check:', e);
+    }
+  };
+
   const createWallet = async (data: any) => {
     await walletApi.create(data);
     await fetchWallets();
@@ -444,6 +542,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     fetchCategories();
     fetchUnreadNotificationsCount();
     requestAndRegisterNotificationPermission();
+    checkGlobalAutoSave();
 
     // Đăng ký FCM foreground listener cho user mới login
     fcmCleanupRef.current = setupFCMForegroundListener((payload) => {
