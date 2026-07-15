@@ -352,6 +352,9 @@ export const aiApi = {
   }),
   deleteConversation: (id: string) => apiFetch(`/ai-conversations/${id}`, {
     method: 'DELETE'
+  }),
+  getCashflowDigest: () => apiFetch('/ai-digest', {
+    method: 'POST'
   })
 };
 
