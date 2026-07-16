@@ -108,8 +108,8 @@ const parseNotesAndTitle = (title: string, notes: string | null, payee: any): { 
   }
 
   const trimmedNotes = notes.trim();
-  if (trimmedNotes === 'Recurring transaction automatically created from rule.' || 
-      trimmedNotes === 'Recurring transaction automatically created from rule') {
+  if (trimmedNotes === 'Recurring transaction automatically created from rule.' ||
+    trimmedNotes === 'Recurring transaction automatically created from rule') {
     return {
       displayTitle: cleanedFallbackTitle,
       displayNotes: ''
@@ -122,15 +122,15 @@ const parseNotesAndTitle = (title: string, notes: string | null, payee: any): { 
     const extractedTitle = match[1].trim();
     const remainingNotes = match[2].trim();
     const trimmedRemaining = remainingNotes.trim();
-    
-    if (trimmedRemaining === 'Recurring transaction automatically created from rule.' || 
-        trimmedRemaining === 'Recurring transaction automatically created from rule') {
+
+    if (trimmedRemaining === 'Recurring transaction automatically created from rule.' ||
+      trimmedRemaining === 'Recurring transaction automatically created from rule') {
       return {
         displayTitle: extractedTitle || cleanedFallbackTitle,
         displayNotes: ''
       };
     }
-    
+
     return {
       displayTitle: extractedTitle || cleanedFallbackTitle,
       displayNotes: remainingNotes
@@ -354,15 +354,15 @@ export default function Transactions() {
     if (lower.includes('thành công') || lower.includes('success') || lower.includes('ok') || lower.includes('hoàn thành')) {
       toast.success(msg);
     } else if (
-      lower.includes('lỗi') || lower.includes('error') || lower.includes('thất bại') || lower.includes('fail') || 
-      lower.includes('không hợp lệ') || lower.includes('không tồn tại') || lower.includes('không đủ') || 
+      lower.includes('lỗi') || lower.includes('error') || lower.includes('thất bại') || lower.includes('fail') ||
+      lower.includes('không hợp lệ') || lower.includes('không tồn tại') || lower.includes('không đủ') ||
       lower.includes('không thể') || lower.includes('không khớp') || lower.includes('sai') || lower.includes('chưa đủ')
     ) {
       toast.error(msg);
     } else if (
-      lower.includes('vui lòng') || lower.includes('yêu cầu') || lower.includes('không được') || 
-      lower.includes('phải') || lower.includes('chỉ hỗ trợ') || lower.includes('cảnh báo') || 
-      lower.includes('lưu ý') || lower.includes('chưa') || lower.includes('cần') || 
+      lower.includes('vui lòng') || lower.includes('yêu cầu') || lower.includes('không được') ||
+      lower.includes('phải') || lower.includes('chỉ hỗ trợ') || lower.includes('cảnh báo') ||
+      lower.includes('lưu ý') || lower.includes('chưa') || lower.includes('cần') ||
       lower.includes('bắt buộc') || lower.includes('nhắc nhở')
     ) {
       toast.warning(msg);
@@ -832,7 +832,7 @@ export default function Transactions() {
   const [recurringHistoryList, setRecurringHistoryList] = useState<any[]>([]);
   const [hasLoadedHistory, setHasLoadedHistory] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-  
+
   const [savingsTransactionsList, setSavingsTransactionsList] = useState<any[]>([]);
   const [hasLoadedSavings, setHasLoadedSavings] = useState(false);
   const [isLoadingSavings, setIsLoadingSavings] = useState(false);
@@ -923,7 +923,7 @@ export default function Transactions() {
                   const parsed = JSON.parse(cached);
                   if (Array.isArray(parsed)) tx = parsed.find((t: any) => String(t.id) === txId);
                 }
-              } catch(e) {}
+              } catch (e) { }
             }
             if (tx) {
               if (tx.is_internal_transfer) {
@@ -931,19 +931,19 @@ export default function Transactions() {
               } else {
                 setViewingTx(tx); setIsDetailModalOpen(true);
               }
-              setIsDeepLinkResolved(true); 
+              setIsDeepLinkResolved(true);
               setTimeout(() => router.replace('/transactions', { scroll: false }), 50);
               return;
             }
             const transfer = internalTransfers?.find((t: any) => String(t.id) === txId);
             if (transfer) {
-              setViewingTransferTx(transfer); setIsTransferDetailModalOpen(true); setIsDeepLinkResolved(true); 
+              setViewingTransferTx(transfer); setIsTransferDetailModalOpen(true); setIsDeepLinkResolved(true);
               setTimeout(() => router.replace('/transactions', { scroll: false }), 50);
               return;
             }
             const rule = recurringTransactions?.find((t: any) => String(t.id) === txId);
             if (rule) {
-              setViewingRuleTx(rule); setIsRuleDetailModalOpen(true); setIsDeepLinkResolved(true); 
+              setViewingRuleTx(rule); setIsRuleDetailModalOpen(true); setIsDeepLinkResolved(true);
               setTimeout(() => router.replace('/transactions', { scroll: false }), 50);
               return;
             }
@@ -993,23 +993,23 @@ export default function Transactions() {
                   const parsed = JSON.parse(cached);
                   if (Array.isArray(parsed)) tx = parsed.find(matchTx);
                 }
-              } catch(e) {}
+              } catch (e) { }
             }
-            
+
             if (tx) {
               if (tx.is_internal_transfer) {
                 setViewingTransferTx(tx); setIsTransferDetailModalOpen(true);
               } else {
                 setViewingTx(tx); setIsDetailModalOpen(true);
               }
-              setIsDeepLinkResolved(true); 
+              setIsDeepLinkResolved(true);
               setTimeout(() => router.replace('/transactions', { scroll: false }), 50);
               return;
             }
-            
+
             const rule = recurringTransactions?.find(matchTx);
             if (rule) {
-              setViewingRuleTx(rule); setIsRuleDetailModalOpen(true); setIsDeepLinkResolved(true); 
+              setViewingRuleTx(rule); setIsRuleDetailModalOpen(true); setIsDeepLinkResolved(true);
               setTimeout(() => router.replace('/transactions', { scroll: false }), 50);
               return;
             }
@@ -1506,8 +1506,8 @@ export default function Transactions() {
       transactionApi.getAll({ per_page: 500 })
         .then(res => {
           const data = res.data?.data || res.data || [];
-          setRecurringHistoryList(data.filter((tx: any) => 
-            tx.source_type === 'recurring' || 
+          setRecurringHistoryList(data.filter((tx: any) =>
+            tx.source_type === 'recurring' ||
             (tx.source_type === 'transfer' && (tx.notes?.includes('Recurring transaction automatically created from rule') || tx.notes?.includes('Giao dịch định kỳ tự động tạo từ quy tắc')))
           ));
           setHasLoadedHistory(true);
@@ -1524,8 +1524,8 @@ export default function Transactions() {
       transactionApi.getAll({ per_page: 500 })
         .then(res => {
           const data = res.data?.data || res.data || [];
-          setSavingsTransactionsList(data.filter((tx: any) => 
-            tx.title?.startsWith('Tích lũy heo đất:') || 
+          setSavingsTransactionsList(data.filter((tx: any) =>
+            tx.title?.startsWith('Tích lũy heo đất:') ||
             tx.title?.startsWith('Nhận từ heo đất:') ||
             tx.notes?.includes('Tích lũy heo đất') ||
             tx.notes?.includes('Rút tiền heo đất')
@@ -2240,7 +2240,7 @@ export default function Transactions() {
       filtered = filtered.filter((tx: any) => tx.type === 'income' || tx.title?.startsWith('Nhận từ heo đất:'));
     }
     if (debouncedSearch) {
-      filtered = filtered.filter((tx: any) => 
+      filtered = filtered.filter((tx: any) =>
         tx.title.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
         (tx.notes && tx.notes.toLowerCase().includes(debouncedSearch.toLowerCase()))
       );
@@ -2408,15 +2408,15 @@ export default function Transactions() {
               {isExporting ? 'Đang tạo...' : 'In sao kê'}
             </button>
 
-            <input 
-              type="file" 
+            <input
+              type="file"
               id="hidden-import-file"
               accept=".csv, .xls, .xlsx, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
               style={{ display: 'none' }}
               onChange={async (e) => {
                 const originalFile = e.target.files?.[0];
                 if (!originalFile) return;
-                
+
                 setIsImporting(true);
                 try {
                   if (originalFile.name.endsWith('.xls') || originalFile.name.endsWith('.xlsx')) {
@@ -2425,236 +2425,236 @@ export default function Transactions() {
                     const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
                     const firstSheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[firstSheetName];
-                    let rows = XLSX.utils.sheet_to_json(worksheet, {header: 1, raw: true});
-                    
+                    let rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: true });
+
                     if (rows.length > 0) {
                       let headerRowIdx = -1;
                       let dateIdx = -1, timeIdx = -1, categoryIdx = -1, titleIdx = -1;
                       let amountIdx = -1, typeIdx = -1, walletIdx = -1, notesIdx = -1;
                       let debitIdx = -1, creditIdx = -1;
-                      
+
                       for (let i = 0; i < Math.min(rows.length, 50); i++) {
-                         let row = rows[i] as any[];
-                         if (!row || row.length === 0) continue;
-                         
-                         const isMatch = (h: any, keywords: string[]) => {
-                             if (typeof h !== 'string') return false;
-                             const str = h.toLowerCase().normalize('NFC').replace(/\s+/g, ' ');
-                             return keywords.some(k => str.includes(k));
-                         };
-                         
-                         let dIdx = row.findIndex(h => isMatch(h, ['ngày', 'date']));
-                         let aIdx = row.findIndex(h => isMatch(h, ['số tiền', 'amount', 'tiền']));
-                         let dbIdx = row.findIndex(h => isMatch(h, ['ghi nợ', 'phát sinh nợ', 'debit']));
-                         let crIdx = row.findIndex(h => isMatch(h, ['ghi có', 'phát sinh có', 'credit']));
-                         let tIdx = row.findIndex(h => isMatch(h, ['tiêu đề', 'nội dung', 'diễn giải', 'chi tiết', 'mô tả', 'title', 'description']));
-                         
-                         if (dIdx !== -1 && (aIdx !== -1 || dbIdx !== -1 || crIdx !== -1 || tIdx !== -1)) {
-                             headerRowIdx = i;
-                             dateIdx = dIdx;
-                             amountIdx = aIdx;
-                             debitIdx = dbIdx;
-                             creditIdx = crIdx;
-                             titleIdx = tIdx;
-                             timeIdx = row.findIndex(h => isMatch(h, ['giờ', 'thời gian', 'time']));
-                             categoryIdx = row.findIndex(h => isMatch(h, ['danh mục', 'category']));
-                             typeIdx = row.findIndex(h => isMatch(h, ['loại', 'type']));
-                             walletIdx = row.findIndex(h => isMatch(h, ['ví', 'tài khoản', 'wallet', 'account']));
-                             notesIdx = row.findIndex(h => isMatch(h, ['ghi chú', 'note']));
-                             break;
-                         }
+                        let row = rows[i] as any[];
+                        if (!row || row.length === 0) continue;
+
+                        const isMatch = (h: any, keywords: string[]) => {
+                          if (typeof h !== 'string') return false;
+                          const str = h.toLowerCase().normalize('NFC').replace(/\s+/g, ' ');
+                          return keywords.some(k => str.includes(k));
+                        };
+
+                        let dIdx = row.findIndex(h => isMatch(h, ['ngày', 'date']));
+                        let aIdx = row.findIndex(h => isMatch(h, ['số tiền', 'amount', 'tiền']));
+                        let dbIdx = row.findIndex(h => isMatch(h, ['ghi nợ', 'phát sinh nợ', 'debit']));
+                        let crIdx = row.findIndex(h => isMatch(h, ['ghi có', 'phát sinh có', 'credit']));
+                        let tIdx = row.findIndex(h => isMatch(h, ['tiêu đề', 'nội dung', 'diễn giải', 'chi tiết', 'mô tả', 'title', 'description']));
+
+                        if (dIdx !== -1 && (aIdx !== -1 || dbIdx !== -1 || crIdx !== -1 || tIdx !== -1)) {
+                          headerRowIdx = i;
+                          dateIdx = dIdx;
+                          amountIdx = aIdx;
+                          debitIdx = dbIdx;
+                          creditIdx = crIdx;
+                          titleIdx = tIdx;
+                          timeIdx = row.findIndex(h => isMatch(h, ['giờ', 'thời gian', 'time']));
+                          categoryIdx = row.findIndex(h => isMatch(h, ['danh mục', 'category']));
+                          typeIdx = row.findIndex(h => isMatch(h, ['loại', 'type']));
+                          walletIdx = row.findIndex(h => isMatch(h, ['ví', 'tài khoản', 'wallet', 'account']));
+                          notesIdx = row.findIndex(h => isMatch(h, ['ghi chú', 'note']));
+                          break;
+                        }
                       }
 
                       if (headerRowIdx !== -1) {
-                          let successCount = 0;
-                          let errorMessages = [];
-                          
-                          for (let i = headerRowIdx + 1; i < rows.length; i++) {
-                              if (!rows[i] || (rows[i] as any[]).length === 0) continue;
-                              let r = rows[i] as any[];
-                              
-                              let dateVal = '';
-                              if (dateIdx !== -1 && r[dateIdx] !== undefined) {
-                                  let rawDate = r[dateIdx];
-                                  if (rawDate instanceof Date) {
-                                      dateVal = `${rawDate.getFullYear()}-${String(rawDate.getMonth()+1).padStart(2, '0')}-${String(rawDate.getDate()).padStart(2, '0')}`;
-                                  } else {
-                                      let dStr = String(rawDate).trim();
-                                      if (dStr.includes('/')) {
-                                          let parts = dStr.split('/');
-                                          if (parts.length === 3) {
-                                              let year = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
-                                              dateVal = `${year}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-                                          }
-                                      } else if (dStr.includes('-')) {
-                                          let parts = dStr.split('-');
-                                          if (parts.length === 3 && parts[2].length === 4) {
-                                              dateVal = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-                                          } else {
-                                              dateVal = dStr;
-                                          }
-                                      } else {
-                                          dateVal = dStr;
-                                      }
-                                  }
-                              }
-                              
-                              let rawTime: any = timeIdx !== -1 && r[timeIdx] ? r[timeIdx] : '00:00:00';
-                              let timeVal = '00:00:00';
-                              if (rawTime instanceof Date) {
-                                  timeVal = `${String(rawTime.getHours()).padStart(2, '0')}:${String(rawTime.getMinutes()).padStart(2, '0')}:00`;
+                        let successCount = 0;
+                        let errorMessages = [];
+
+                        for (let i = headerRowIdx + 1; i < rows.length; i++) {
+                          if (!rows[i] || (rows[i] as any[]).length === 0) continue;
+                          let r = rows[i] as any[];
+
+                          let dateVal = '';
+                          if (dateIdx !== -1 && r[dateIdx] !== undefined) {
+                            let rawDate = r[dateIdx];
+                            if (rawDate instanceof Date) {
+                              dateVal = `${rawDate.getFullYear()}-${String(rawDate.getMonth() + 1).padStart(2, '0')}-${String(rawDate.getDate()).padStart(2, '0')}`;
+                            } else {
+                              let dStr = String(rawDate).trim();
+                              if (dStr.includes('/')) {
+                                let parts = dStr.split('/');
+                                if (parts.length === 3) {
+                                  let year = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
+                                  dateVal = `${year}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                                }
+                              } else if (dStr.includes('-')) {
+                                let parts = dStr.split('-');
+                                if (parts.length === 3 && parts[2].length === 4) {
+                                  dateVal = `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+                                } else {
+                                  dateVal = dStr;
+                                }
                               } else {
-                                  timeVal = String(rawTime);
+                                dateVal = dStr;
                               }
-                              let finalDate = '';
-                              if (dateVal && timeVal) {
-                                  const localD = new Date(`${dateVal}T${timeVal}`);
-                                  if (!isNaN(localD.getTime())) {
-                                      finalDate = localD.toISOString();
-                                  } else {
-                                      finalDate = `${dateVal} ${timeVal}`.trim();
-                                  }
-                              }
-                              let rawType = typeIdx !== -1 && r[typeIdx] ? String(r[typeIdx]).normalize('NFC').trim().toLowerCase() : '';
-                              let finalType = 'expense';
-                              let amountVal = '0';
-                              
-                              if (amountIdx !== -1) {
-                                  let rawAmt = String(r[amountIdx] || '').trim();
-                                  if (rawAmt.startsWith('-')) {
-                                      finalType = 'expense';
-                                      rawAmt = rawAmt.replace('-', '');
-                                  } else {
-                                      const cleanTypeStr = rawType.replace(/[\s\u200B-\u200D\uFEFF]/g, '');
-                                      if (['thunhập', 'income', 'thu'].includes(cleanTypeStr) || cleanTypeStr.includes('thu')) {
-                                          finalType = 'income';
-                                      }
-                                  }
-                                  
-                                  let cleanNum = rawAmt;
-                                  if (cleanNum.includes('.') && cleanNum.includes(',')) {
-                                      const lastDot = cleanNum.lastIndexOf('.');
-                                      const lastComma = cleanNum.lastIndexOf(',');
-                                      if (lastComma > lastDot) {
-                                          cleanNum = cleanNum.replace(/\./g, '').replace(',', '.');
-                                      } else {
-                                          cleanNum = cleanNum.replace(/,/g, '');
-                                      }
-                                  } else if (cleanNum.includes(',')) {
-                                      if (/,([0-9]{3})+$/.test(cleanNum)) {
-                                          cleanNum = cleanNum.replace(/,/g, '');
-                                      } else {
-                                          cleanNum = cleanNum.replace(',', '.');
-                                      }
-                                  } else if (cleanNum.includes('.')) {
-                                      if (/\.([0-9]{3})+$/.test(cleanNum)) {
-                                          cleanNum = cleanNum.replace(/\./g, '');
-                                      }
-                                  }
-                                  cleanNum = cleanNum.replace(/[^0-9.-]/g, '');
-                                  amountVal = cleanNum || '0';
-                              } else if (debitIdx !== -1 || creditIdx !== -1) {
-                                  let debitVal = debitIdx !== -1 && r[debitIdx] ? String(r[debitIdx]).replace(/[^0-9]/g, '') : '';
-                                  let creditVal = creditIdx !== -1 && r[creditIdx] ? String(r[creditIdx]).replace(/[^0-9]/g, '') : '';
-                                  if (Number(debitVal) > 0) {
-                                      finalType = 'expense';
-                                      amountVal = debitVal;
-                                  } else if (Number(creditVal) > 0) {
-                                      finalType = 'income';
-                                      amountVal = creditVal;
-                                  } else {
-                                      continue;
-                                  }
-                              }
-                              
-                              let walletVal = walletIdx !== -1 && r[walletIdx] ? String(r[walletIdx]) : (wallets.length > 0 ? wallets[0].name : '');
-                              let categoryVal = categoryIdx !== -1 && r[categoryIdx] ? String(r[categoryIdx]) : '';
-                              let titleVal = titleIdx !== -1 && r[titleIdx] ? String(r[titleIdx]) : (categoryVal || 'Giao dịch import');
-                              let notesVal = notesIdx !== -1 && r[notesIdx] ? String(r[notesIdx]) : '';
-                              
-                              if (!finalDate || !walletVal || amountVal === '0') continue;
-                              
-                              const cleanStr = (s: string) => s.replace(/[\s\u200B-\u200D\uFEFF]/g, '').toLowerCase().normalize('NFC');
-                              const walletValClean = cleanStr(walletVal);
-                              
-                              let targetWallet = wallets.find(w => cleanStr(w.name) === walletValClean);
-                              if (!targetWallet) {
-                                  if (wallets.length > 0) {
-                                      targetWallet = wallets[0]; // Fallback to the first wallet if not found (useful for cross-account imports)
-                                  } else {
-                                      errorMessages.push(`Dòng ${i+1}: Bạn chưa tạo ví nào trong tài khoản này!`);
-                                      continue;
-                                  }
-                              }
-                              
-                              const categoryValClean = cleanStr(categoryVal);
-                              const targetCategory = categoryValClean ? categories.find(c => cleanStr(c.name) === categoryValClean) : null;
-                              
-                              const createData = new FormData();
-                              createData.append('transaction_date', finalDate);
-                              createData.append('type', finalType);
-                              createData.append('amount', amountVal);
-                              createData.append('wallet_id', targetWallet.id);
-                              
-                              // If no category in Excel, we must bypass AI classification.
-                              // Backend's autoClassifyCategory returns null if title & notes are empty.
-                              // We send '0' because it passes any 'required' string validation, but PHP's empty('0') evaluates to true!
-                              createData.append('title', targetCategory ? titleVal : '0');
-                              createData.append('source_type', 'import');
-                              if (targetCategory) createData.append('category_id', targetCategory.id);
-                              if (targetCategory && notesVal) createData.append('notes', notesVal);
-                              
-                              try {
-                                  const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://exp-mgmt-dev.onrender.com/api';
-                                  const token = localStorage.getItem('access_token');
-                                  
-                                  const createRes = await fetch(`${API_BASE_URL}/transactions`, {
-                                      method: 'POST',
-                                      headers: {
-                                          'Accept': 'application/json',
-                                          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-                                      },
-                                      body: createData
-                                  });
-                                  
-                                  const createDataRes = await createRes.json();
-                                  if (!createRes.ok) throw new Error(createDataRes.message || 'Lỗi khi tạo giao dịch');
-                                  
-                                  // If we bypassed AI, we must now update the title/notes back to their original intended values
-                                  if (!targetCategory && createDataRes.data && createDataRes.data.id) {
-                                      const updateData = new FormData();
-                                      updateData.append('title', titleVal || 'Giao dịch import');
-                                      if (notesVal) updateData.append('notes', notesVal);
-                                      await fetch(`${API_BASE_URL}/transactions/${createDataRes.data.id}`, {
-                                          method: 'POST',
-                                          headers: {
-                                              'Accept': 'application/json',
-                                              ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-                                          },
-                                          body: updateData
-                                      });
-                                  }
-                                  
-                                  successCount++;
-                              } catch (err: any) {
-                                  errorMessages.push(`Dòng ${i+1}: ${err.message}`);
-                              }
+                            }
                           }
-                          
-                          setIsImporting(false);
-                          e.target.value = '';
-                          
-                          if (errorMessages.length > 0) {
-                              alert(`Nhập thành công ${successCount} giao dịch. Lỗi: ${errorMessages.slice(0, 3).join(', ')}${errorMessages.length > 3 ? '...' : ''}`);
+
+                          let rawTime: any = timeIdx !== -1 && r[timeIdx] ? r[timeIdx] : '00:00:00';
+                          let timeVal = '00:00:00';
+                          if (rawTime instanceof Date) {
+                            timeVal = `${String(rawTime.getHours()).padStart(2, '0')}:${String(rawTime.getMinutes()).padStart(2, '0')}:00`;
                           } else {
-                              alert(`Nhập thành công ${successCount} giao dịch!`);
+                            timeVal = String(rawTime);
                           }
-                          return;
+                          let finalDate = '';
+                          if (dateVal && timeVal) {
+                            const localD = new Date(`${dateVal}T${timeVal}`);
+                            if (!isNaN(localD.getTime())) {
+                              finalDate = localD.toISOString();
+                            } else {
+                              finalDate = `${dateVal} ${timeVal}`.trim();
+                            }
+                          }
+                          let rawType = typeIdx !== -1 && r[typeIdx] ? String(r[typeIdx]).normalize('NFC').trim().toLowerCase() : '';
+                          let finalType = 'expense';
+                          let amountVal = '0';
+
+                          if (amountIdx !== -1) {
+                            let rawAmt = String(r[amountIdx] || '').trim();
+                            if (rawAmt.startsWith('-')) {
+                              finalType = 'expense';
+                              rawAmt = rawAmt.replace('-', '');
+                            } else {
+                              const cleanTypeStr = rawType.replace(/[\s\u200B-\u200D\uFEFF]/g, '');
+                              if (['thunhập', 'income', 'thu'].includes(cleanTypeStr) || cleanTypeStr.includes('thu')) {
+                                finalType = 'income';
+                              }
+                            }
+
+                            let cleanNum = rawAmt;
+                            if (cleanNum.includes('.') && cleanNum.includes(',')) {
+                              const lastDot = cleanNum.lastIndexOf('.');
+                              const lastComma = cleanNum.lastIndexOf(',');
+                              if (lastComma > lastDot) {
+                                cleanNum = cleanNum.replace(/\./g, '').replace(',', '.');
+                              } else {
+                                cleanNum = cleanNum.replace(/,/g, '');
+                              }
+                            } else if (cleanNum.includes(',')) {
+                              if (/,([0-9]{3})+$/.test(cleanNum)) {
+                                cleanNum = cleanNum.replace(/,/g, '');
+                              } else {
+                                cleanNum = cleanNum.replace(',', '.');
+                              }
+                            } else if (cleanNum.includes('.')) {
+                              if (/\.([0-9]{3})+$/.test(cleanNum)) {
+                                cleanNum = cleanNum.replace(/\./g, '');
+                              }
+                            }
+                            cleanNum = cleanNum.replace(/[^0-9.-]/g, '');
+                            amountVal = cleanNum || '0';
+                          } else if (debitIdx !== -1 || creditIdx !== -1) {
+                            let debitVal = debitIdx !== -1 && r[debitIdx] ? String(r[debitIdx]).replace(/[^0-9]/g, '') : '';
+                            let creditVal = creditIdx !== -1 && r[creditIdx] ? String(r[creditIdx]).replace(/[^0-9]/g, '') : '';
+                            if (Number(debitVal) > 0) {
+                              finalType = 'expense';
+                              amountVal = debitVal;
+                            } else if (Number(creditVal) > 0) {
+                              finalType = 'income';
+                              amountVal = creditVal;
+                            } else {
+                              continue;
+                            }
+                          }
+
+                          let walletVal = walletIdx !== -1 && r[walletIdx] ? String(r[walletIdx]) : (wallets.length > 0 ? wallets[0].name : '');
+                          let categoryVal = categoryIdx !== -1 && r[categoryIdx] ? String(r[categoryIdx]) : '';
+                          let titleVal = titleIdx !== -1 && r[titleIdx] ? String(r[titleIdx]) : (categoryVal || 'Giao dịch import');
+                          let notesVal = notesIdx !== -1 && r[notesIdx] ? String(r[notesIdx]) : '';
+
+                          if (!finalDate || !walletVal || amountVal === '0') continue;
+
+                          const cleanStr = (s: string) => s.replace(/[\s\u200B-\u200D\uFEFF]/g, '').toLowerCase().normalize('NFC');
+                          const walletValClean = cleanStr(walletVal);
+
+                          let targetWallet = wallets.find(w => cleanStr(w.name) === walletValClean);
+                          if (!targetWallet) {
+                            if (wallets.length > 0) {
+                              targetWallet = wallets[0]; // Fallback to the first wallet if not found (useful for cross-account imports)
+                            } else {
+                              errorMessages.push(`Dòng ${i + 1}: Bạn chưa tạo ví nào trong tài khoản này!`);
+                              continue;
+                            }
+                          }
+
+                          const categoryValClean = cleanStr(categoryVal);
+                          const targetCategory = categoryValClean ? categories.find(c => cleanStr(c.name) === categoryValClean) : null;
+
+                          const createData = new FormData();
+                          createData.append('transaction_date', finalDate);
+                          createData.append('type', finalType);
+                          createData.append('amount', amountVal);
+                          createData.append('wallet_id', targetWallet.id);
+
+                          // If no category in Excel, we must bypass AI classification.
+                          // Backend's autoClassifyCategory returns null if title & notes are empty.
+                          // We send '0' because it passes any 'required' string validation, but PHP's empty('0') evaluates to true!
+                          createData.append('title', targetCategory ? titleVal : '0');
+                          createData.append('source_type', 'import');
+                          if (targetCategory) createData.append('category_id', targetCategory.id);
+                          if (targetCategory && notesVal) createData.append('notes', notesVal);
+
+                          try {
+                            const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://exp-mgmt-dev.onrender.com/api';
+                            const token = localStorage.getItem('access_token');
+
+                            const createRes = await fetch(`${API_BASE_URL}/transactions`, {
+                              method: 'POST',
+                              headers: {
+                                'Accept': 'application/json',
+                                ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                              },
+                              body: createData
+                            });
+
+                            const createDataRes = await createRes.json();
+                            if (!createRes.ok) throw new Error(createDataRes.message || 'Lỗi khi tạo giao dịch');
+
+                            // If we bypassed AI, we must now update the title/notes back to their original intended values
+                            if (!targetCategory && createDataRes.data && createDataRes.data.id) {
+                              const updateData = new FormData();
+                              updateData.append('title', titleVal || 'Giao dịch import');
+                              if (notesVal) updateData.append('notes', notesVal);
+                              await fetch(`${API_BASE_URL}/transactions/${createDataRes.data.id}`, {
+                                method: 'POST',
+                                headers: {
+                                  'Accept': 'application/json',
+                                  ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+                                },
+                                body: updateData
+                              });
+                            }
+
+                            successCount++;
+                          } catch (err: any) {
+                            errorMessages.push(`Dòng ${i + 1}: ${err.message}`);
+                          }
+                        }
+
+                        setIsImporting(false);
+                        e.target.value = '';
+
+                        if (errorMessages.length > 0) {
+                          alert(`Nhập thành công ${successCount} giao dịch. Lỗi: ${errorMessages.slice(0, 3).join(', ')}${errorMessages.length > 3 ? '...' : ''}`);
+                        } else {
+                          alert(`Nhập thành công ${successCount} giao dịch!`);
+                        }
+                        return;
                       } else {
-                          setIsImporting(false);
-                          e.target.value = '';
-                          alert('Không tìm thấy dòng tiêu đề (Ngày, Số tiền, Nội dung,...) trong file Excel của bạn.');
-                          return;
+                        setIsImporting(false);
+                        e.target.value = '';
+                        alert('Không tìm thấy dòng tiêu đề (Ngày, Số tiền, Nội dung,...) trong file Excel của bạn.');
+                        return;
                       }
                     }
                   }
@@ -2665,7 +2665,7 @@ export default function Transactions() {
                   formData.append('file', uploadFile, uploadFileName);
                   const token = localStorage.getItem('access_token');
                   const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://exp-mgmt-dev.onrender.com/api';
-                  
+
                   const res = await fetch(`${API_BASE_URL}/transactions/import`, {
                     method: 'POST',
                     headers: {
@@ -2674,10 +2674,10 @@ export default function Transactions() {
                     },
                     body: formData
                   });
-                  
+
                   const data = await res.json();
                   if (!res.ok) throw new Error(data.message || 'Lỗi khi nhập file');
-                  
+
                   toast.success('Đã tải file lên thành công, hệ thống đang xử lý!');
                   setTimeout(() => {
                     fetchTransactions();
@@ -3190,7 +3190,7 @@ export default function Transactions() {
                               <span style={{ fontWeight: 700, color: 'var(--text-main)' }}>{parseNotesAndTitle(tx.title || tx.description || tx.name, tx.notes, tx.payee).displayTitle}</span>
                             </div>
                           </td>
-                           <td style={{ minWidth: '150px' }}>
+                          <td style={{ minWidth: '150px' }}>
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                               {(() => {
                                 const getRulePayeeName = () => {

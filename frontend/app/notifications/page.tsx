@@ -380,6 +380,17 @@ export default function Notifications() {
 
     // -- Tốiưu hóa điều hướng (Navigation Optimization) --
     
+    // 0. AI Spending / Habit Alerts -> Điều hướng sang trang ví tiền mặt
+    if (
+      typeStr.includes('ai_spending_warning') || 
+      typeStr.includes('ai_habit') || 
+      titleLower.includes('chi tiêu từ ai') || 
+      titleLower.includes('trợ lý ai')
+    ) {
+      router.push('/wallets');
+      return;
+    }
+    
     // 1. Weekly Summary Notification
     if (typeStr.includes('WeeklySummaryNotification') || typeStr === 'weekly_summary') {
       router.push('/reports');
