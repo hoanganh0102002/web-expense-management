@@ -1741,9 +1741,40 @@ export default function Transactions() {
 
       const res = await transactionApi.create(formData);
 
+      let aiAlertMessage = res?.ai_alert;
+
+      // GIẢ LẬP CẢNH BÁO AI (Dành cho việc test local hoặc trình diễn đồ án khi chưa deploy API)
+      if (!aiAlertMessage) {
+        const type = formData.get('type');
+        const amountStr = formData.get('amount');
+        const walletId = formData.get('wallet_id');
+
+        if (type === 'expense' && amountStr && walletId) {
+          const amount = parseFloat(amountStr as string);
+          const selectedWallet = wallets.find((w: any) => w.id === walletId);
+
+          if (selectedWallet && (selectedWallet.type === 'cash' || selectedWallet.name.toLowerCase().includes('tiền mặt'))) {
+            // Tính toán số dư giả lập sau giao dịch
+            const currentBalance = parseFloat(selectedWallet.available_balance || 0) - amount;
+
+            // Giả lập mức thói quen hàng ngày là 500,000 VND
+            if (currentBalance < 500000) {
+              const mockAlerts = [
+                `🤖 Trợ lý AI: Bạn vừa chi tiêu ${amount.toLocaleString('vi-VN')} VND. Số dư ví Tiền mặt hiện tại chỉ còn ${currentBalance.toLocaleString('vi-VN')} VND, thấp hơn mức thói quen chi tiêu hàng ngày của bạn (500,000 VND). Hãy rút thêm tiền mặt nhé! 💸`,
+                `🤖 Cảnh báo AI: Số dư ví Tiền mặt đang xuống mức thấp (${currentBalance.toLocaleString('vi-VN')} VND) so với thói quen chi dùng hàng ngày của bạn. Hãy cân nhắc tiết kiệm hoặc bổ sung ví nhé! 💳`,
+                `🤖 Trợ lý tài chính: Ví Tiền mặt chỉ còn lại ${currentBalance.toLocaleString('vi-VN')} VND. Thói quen hàng ngày của bạn cần dùng đến 500,000 VND tiền mặt. Nhớ đi rút tiền mặt khi cần nhé! 🌟`
+              ];
+              // Lấy ngẫu nhiên câu thông báo để tăng tính sinh động
+              aiAlertMessage = mockAlerts[Math.floor(Math.random() * mockAlerts.length)];
+            }
+          }
+        }
+      }// phần giả lập 1772
+
       // Hiển thị cảnh báo thói quen của AI nếu có
-      if (res && res.ai_alert) {
-        alert(res.ai_alert); //hiển thị cảnh báo cho người dùng nếu có
+      if (aiAlertMessage) {
+        alert(aiAlertMessage); //hiển thị cảnh báo cho người dùng nếu có
+        createSystemNotification('Cảnh báo chi tiêu từ AI 🤖', aiAlertMessage, 'warning');
       }
 
 

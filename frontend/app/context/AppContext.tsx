@@ -357,6 +357,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
     if (aiAlertMessage) {
       toast.warning(aiAlertMessage);
+      createSystemNotification('Cảnh báo chi tiêu từ AI 🤖', aiAlertMessage, 'warning');
     }
   };
 
