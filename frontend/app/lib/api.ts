@@ -340,7 +340,7 @@ export const reportApi = {
 
 // --- AI APIs ---
 export const aiApi = {
-  chat: (prompt: string, conversationId?: string | null) => apiFetch('/ai-chat', {
+  chat: (prompt: string, conversationId?: string | null) => apiFetch('/ai-chat', {//
     method: 'POST',
     body: JSON.stringify({ prompt, conversation_id: conversationId || undefined })
   }),
@@ -350,13 +350,13 @@ export const aiApi = {
     method: 'PUT',
     body: JSON.stringify({ title })
   }),
-  deleteConversation: (id: string) => apiFetch(`/ai-conversations/${id}`, {
+  deleteConversation: (id: string) => apiFetch(`/ai-conversations/${id}`, {// 
     method: 'DELETE'
-  }),
+  }),//
   getCashflowDigest: () => apiFetch('/ai-digest', {
     method: 'POST'
   })
-};
+}; //API AI mới
 
 // --- SAVINGS APIs ---
 export const savingsApi = {

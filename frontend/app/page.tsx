@@ -1248,450 +1248,10 @@ export default function Dashboard() {
             </div>
           )}
 
+          {/* Row 1: Biến động số dư & Thu chi */}
           <div className="row">
-            <div className="col-2" style={{ flex: 1.8 }}>
-              <div className="section-header"><h2 className="section-title">{t('income_vs_expense')}</h2></div>
-              <div className="chart-card">
-                <div className="bar-chart-mock" style={{ height: '100%', display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ flexDirection: 'column' }}>
-                  <div className="bar-legend">
-                    <span><div className="dot diposit"></div> {t('income')}</span>
-                    <span><div className="dot withdraw" style={{ background: '#FF6B81' }}></div> {t('spending')}</span>
-                  </div>
-                  <div className="bars-container" style={{
-                    position: 'relative',
-                    display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
-                    gap: mergedTrends.length > 15 ? (mergedTrends.length > 25 ? '2px' : '6px') : '24px',
-                    alignItems: 'flex-end',
-                    justifyContent: 'space-around',
-                    height: '200px',
-                    paddingBottom: '15px',
-                    paddingTop: '20px',
-                    borderBottom: '1px solid var(--border-color)',
-                    width: '100%',
-                    overflow: 'visible'
-                  }}>
-                    {/* Horizontal Gridlines */}
-                    <div style={{ position: 'absolute', inset: 0, display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ flexDirection: 'column', justifyContent: 'space-between', pointerEvents: 'none', zIndex: 0 }}>
-                      <div style={{ borderTop: '1px dashed var(--border-color)', width: '100%', height: '0', opacity: 0.8 }}></div>
-                      <div style={{ borderTop: '1px dashed var(--border-color)', width: '100%', height: '0', opacity: 0.4 }}></div>
-                      <div style={{ borderTop: '1px dashed var(--border-color)', width: '100%', height: '0', opacity: 0.4 }}></div>
-                      <div style={{ borderTop: '1px dashed var(--border-color)', width: '100%', height: '0', opacity: 0.2 }}></div>
-                    </div>
-
-                    {!isLoggedIn || mergedTrends.length === 0 ? (
-                      <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', zIndex: 1 }}>
-                        <p style={{ color: '#718EBF' }}>{isLoadingTrends ? t('loading') : t('no_transaction_data')}</p>
-                      </div>
-                    ) : (
-                      (() => {
-                        const maxVal = Math.max(...mergedTrends.map(t => Math.max(t.income, t.expense)), 1000);
-                        const colWidth = mergedTrends.length > 15 ? (mergedTrends.length > 25 ? '6px' : '10px') : '16px';
-                        const colGap = mergedTrends.length > 15 ? (mergedTrends.length > 25 ? '2px' : '4px') : '6px';
-                        const tooltipPrefix = trendsGroupBy === 'day' ? (t('day_label') || 'Ngày') : (t('month_label_prefix') || 'Tháng');
-
-                        return mergedTrends.map((trend, idx) => {
-                          const incomeHeight = `${Math.max((trend.income / maxVal) * 100, 2)}%`;
-                          const expenseHeight = `${Math.max((trend.expense / maxVal) * 100, 2)}%`;
-                          const showLabel = mergedTrends.length <= 12 || idx % Math.ceil(mergedTrends.length / 6) === 0 || idx === mergedTrends.length - 1;
-
-                          return (
-                            <div key={idx} style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ flexDirection: 'column', alignItems: 'center', flex: 1, height: '100%', justifyContent: 'flex-end', zIndex: 1, position: 'relative' }}>
-
-                              {/* Custom Floating Tooltip */}
-                              {hoveredBar.idx === idx && hoveredBar.type !== null && (
-                                <div style={{
-                                  position: 'absolute',
-                                  bottom: '165px',
-                                  background: 'rgba(15, 23, 42, 0.95)',
-                                  color: '#fff',
-                                  padding: '8px 12px',
-                                  borderRadius: '8px',
-                                  fontSize: '11px', /* Cỡ chữ 11px */
-                                  fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */
-                                  boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.3)',
-                                  whiteSpace: 'nowrap', /* Không cho xuống dòng tự động */
-                                  zIndex: 10,
-                                  pointerEvents: 'none',
-                                  backdropFilter: 'blur(4px)',
-                                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                                  display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
-                                  flexDirection: 'column',
-                                  gap: '2px',
-                                  alignItems: 'center', /* Căn các phần tử con giữa theo chiều dọc */
-                                }}>
-                                  <span style={{ fontSize: '9px', opacity: 0.7, textTransform: 'uppercase', /* Chuyển thành chữ IN HOA */ }}>{tooltipPrefix} {trend.label}</span>
-                                  <span style={{ color: hoveredBar.type === 'income' ? '#16DBCC' : '#FF6B81' }}>
-                                    {hoveredBar.type === 'income' ? `+ ${formatCurrency(trend.income)}` : `- ${formatCurrency(trend.expense)}`}
-                                  </span>
-                                </div>
-                              )}
-
-                              <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ alignItems: 'flex-end', gap: colGap, height: '130px', width: '100%', justifyContent: 'center' }}>
-                                {/* Income Column */}
-                                <div
-                                  onMouseEnter={() => setHoveredBar({ idx, type: 'income' })}
-                                  onMouseLeave={() => setHoveredBar({ idx, type: null })}
-                                  style={{
-                                    width: colWidth,
-                                    height: incomeHeight,
-                                    background: 'linear-gradient(180deg, #16DBCC 0%, #0BB5A7 100%)',
-                                    borderRadius: '8px 8px 0 0',
-                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                    cursor: 'pointer',
-                                    boxShadow: hoveredBar.idx === idx && hoveredBar.type === 'income' ? '0 10px 20px rgba(22, 219, 204, 0.4)' : '0 4px 10px rgba(22, 219, 204, 0.1)',
-                                    transform: hoveredBar.idx === idx && hoveredBar.type === 'income' ? 'scaleY(1.05) scaleX(1.1)' : 'scale(1)',
-                                    filter: hoveredBar.idx === idx && hoveredBar.type === 'income' ? 'brightness(1.1)' : 'none'
-                                  }}
-                                />
-                                {/* Expense Column */}
-                                <div
-                                  onMouseEnter={() => setHoveredBar({ idx, type: 'expense' })}
-                                  onMouseLeave={() => setHoveredBar({ idx, type: null })}
-                                  style={{
-                                    width: colWidth,
-                                    height: expenseHeight,
-                                    background: 'linear-gradient(180deg, #FF6B81 0%, #FE5C73 100%)',
-                                    borderRadius: '8px 8px 0 0',
-                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                    cursor: 'pointer',
-                                    boxShadow: hoveredBar.idx === idx && hoveredBar.type === 'expense' ? '0 10px 20px rgba(254, 92, 115, 0.4)' : '0 4px 10px rgba(254, 92, 115, 0.1)',
-                                    transform: hoveredBar.idx === idx && hoveredBar.type === 'expense' ? 'scaleY(1.05) scaleX(1.1)' : 'scale(1)',
-                                    filter: hoveredBar.idx === idx && hoveredBar.type === 'expense' ? 'brightness(1.1)' : 'none'
-                                  }}
-                                />
-                              </div>
-                              {showLabel && (
-                                <span style={{
-                                  position: 'absolute',
-                                  bottom: '-28px',
-                                  left: '50%',
-                                  transform: 'translateX(-50%)',
-                                  fontSize: '9px',
-                                  color: 'var(--text-light)',
-                                  fontWeight: '700', /* Độ đậm chữ 700 (Đậm) */
-                                  background: 'var(--border-color)',
-                                  padding: '2px 6px',
-                                  borderRadius: '10px',
-                                  textTransform: 'uppercase', /* Chuyển thành chữ IN HOA */
-                                  letterSpacing: '0.5px',
-                                  whiteSpace: 'nowrap', /* Không cho xuống dòng tự động */
-                                  zIndex: 2
-                                }}>
-                                  {trend.label}
-                                </span>
-                              )}
-                            </div>
-                          );
-                        });
-                      })()
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="col-1" style={{ flex: 1.2 }}>
-              <div className="section-header" style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ justifyContent: 'space-between', alignItems: 'center' }}>
-                <h2 className="section-title">{t('expense_allocation')}</h2>
-                {isLoggedIn && categoryData.length > 0 && (
-                  <div style={{
-                    display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
-                    background: 'var(--bg-color)',
-                    padding: '3px',
-                    borderRadius: '20px',
-                    border: '1px solid var(--border-color)',
-                    alignItems: 'center', /* Căn các phần tử con giữa theo chiều dọc */
-                  }}>
-                    <button
-                      onClick={() => setAllocationType('parent')}
-                      style={{
-                        padding: '6px 14px',
-                        borderRadius: '16px',
-                        border: 'none',
-                        fontSize: '11px', /* Cỡ chữ 11px */
-                        fontWeight: '700', /* Độ đậm chữ 700 (Đậm) */
-                        cursor: 'pointer',
-                        background: allocationType === 'parent' ? 'var(--card-bg)' : 'transparent',
-                        color: allocationType === 'parent' ? 'var(--text-main)' : 'var(--text-light)',
-                        boxShadow: allocationType === 'parent' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
-                        transition: 'all 0.2s ease',
-                        outline: 'none'
-                      }}
-                    >
-                      {t('parent') || 'Cha'}
-                    </button>
-                    <button
-                      onClick={() => setAllocationType('child')}
-                      style={{
-                        padding: '6px 14px',
-                        borderRadius: '16px',
-                        border: 'none',
-                        fontSize: '11px', /* Cỡ chữ 11px */
-                        fontWeight: '700', /* Độ đậm chữ 700 (Đậm) */
-                        cursor: 'pointer',
-                        background: allocationType === 'child' ? 'var(--card-bg)' : 'transparent',
-                        color: allocationType === 'child' ? 'var(--text-main)' : 'var(--text-light)',
-                        boxShadow: allocationType === 'child' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
-                        transition: 'all 0.2s ease',
-                        outline: 'none'
-                      }}
-                    >
-                      {t('child') || 'Con'}
-                    </button>
-                  </div>
-                )}
-              </div>
-              <div className="chart-card" style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ flexDirection: 'row', gap: '30px', alignItems: 'center', padding: '24px 30px', minHeight: '260px' }}>
-                {!isLoggedIn || categoryData.length === 0 ? (
-                  <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ flexDirection: 'column', width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '20px 0', textAlign: 'center' }}>
-                    <span style={{ fontSize: '36px' }}>📊</span>
-                    <span style={{ color: 'var(--text-main)', fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */ fontSize: '14px' }}>
-                      {isLoadingCategory ? t('loading') : t('no_data')}
-                    </span>
-                    <span style={{ color: 'var(--text-light)', fontSize: '11px', /* Cỡ chữ 11px */ maxWidth: '200px' }}>
-                      {isLoadingCategory ? t('syncing_chart') : t('no_spending_in_period')}
-                    </span>
-                  </div>
-                ) : (
-                  <>
-                    {(() => {
-                      const activeIdx = hoveredCategory !== null ? hoveredCategory : selectedCategoryIdx;
-                      const activeData = processedCategoryData[activeIdx] || null;
-
-                      return (
-                        <>
-                          <div style={{
-                            position: 'relative',
-                            width: '160px',
-                            height: '160px',
-                            flexShrink: 0, /* Không cho phép co bóp kích thước */
-                            display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
-                            alignItems: 'center', /* Căn các phần tử con giữa theo chiều dọc */
-                            justifyContent: 'center', /* Căn giữa các phần tử con theo chiều ngang */
-                          }}>
-                            <svg viewBox="0 0 100 100" style={{ width: '160px', height: '160px', transform: 'rotate(-90deg)', overflow: 'visible' }}>
-                              {/* Background track circle */}
-                              <circle
-                                cx="50"
-                                cy="50"
-                                r="38"
-                                fill="transparent"
-                                stroke="var(--border-color)"
-                                strokeWidth="8"
-                                opacity="0.15"
-                              />
-                              {/* Segments */}
-                              {(() => {
-                                let accumulatedFraction = 0;
-                                return processedCategoryData.map((cat, idx) => {
-                                  const isSelected = activeIdx === idx;
-                                  const r = isSelected ? 41 : 38;
-                                  const strokeWidth = isSelected ? 12 : 8;
-                                  const c = 2 * Math.PI * r;
-                                  const segmentLength = (cat.percentage / 100) * c;
-                                  const strokeDashArray = `${segmentLength} ${c}`;
-                                  const strokeDashOffset = - (accumulatedFraction * c);
-                                  accumulatedFraction += (cat.percentage / 100);
-
-                                  return (
-                                    <circle
-                                      key={idx}
-                                      cx="50"
-                                      cy="50"
-                                      r={r}
-                                      fill="transparent"
-                                      stroke={cat.category_color || '#718EBF'}
-                                      strokeWidth={strokeWidth}
-                                      strokeDasharray={strokeDashArray}
-                                      strokeDashoffset={strokeDashOffset}
-                                      opacity={activeIdx === null || isSelected ? 1 : 0.4}
-                                      style={{
-                                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                        cursor: 'pointer',
-                                      }}
-                                      onMouseEnter={() => setHoveredCategory(idx)}
-                                      onMouseLeave={() => setHoveredCategory(null)}
-                                      onClick={() => setSelectedCategoryIdx(idx)}
-                                    />
-                                  );
-                                });
-                              })()}
-                            </svg>
-
-                            {/* Center text overlay */}
-                            <div style={{
-                              position: 'absolute',
-                              left: '50%',
-                              top: '50%',
-                              transform: 'translate(-50%, -50%)',
-                              display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
-                              flexDirection: 'column',
-                              alignItems: 'center', /* Căn các phần tử con giữa theo chiều dọc */
-                              justifyContent: 'center', /* Căn giữa các phần tử con theo chiều ngang */
-                              pointerEvents: 'none',
-                              textAlign: 'center',
-                              width: '95px',
-                            }}>
-                              <span style={{
-                                fontSize: '10px', /* Cỡ chữ 10px */
-                                color: activeData ? activeData.category_color || 'var(--text-light)' : 'var(--text-light)',
-                                textTransform: 'uppercase', /* Chuyển thành chữ IN HOA */
-                                letterSpacing: '0.5px',
-                                fontWeight: '700', /* Độ đậm chữ 700 (Đậm) */
-                                overflow: 'hidden', /* Ẩn mọi phần nội dung tràn ra ngoài */
-                                textOverflow: 'ellipsis', /* Hiển thị dấu ba chấm (...) khi chữ tràn */
-                                whiteSpace: 'nowrap', /* Không cho xuống dòng tự động */
-                                width: '100%',
-                                transition: 'color 0.2s ease'
-                              }}>
-                                {activeData ? (activeData.category_name === 'uncategorized' ? 'Chưa phân loại' : activeData.category_name) : t('spending')}
-                              </span>
-                              <span style={{
-                                fontSize: '13px', /* Cỡ chữ 13px */
-                                fontWeight: '800', /* Độ đậm chữ 800 (Rất đậm) */
-                                color: 'var(--text-main)', /* Màu chữ chính của theme */
-                                width: '100%',
-                                overflow: 'hidden', /* Ẩn mọi phần nội dung tràn ra ngoài */
-                                textOverflow: 'ellipsis', /* Hiển thị dấu ba chấm (...) khi chữ tràn */
-                                whiteSpace: 'nowrap', /* Không cho xuống dòng tự động */
-                                marginTop: '2px',
-                                transition: 'all 0.2s ease'
-                              }}>
-                                {formatCurrency(activeData ? activeData.amount : totalCategoryExpense)}
-                              </span>
-                              {activeData && (
-                                <span style={{
-                                  fontSize: '10px', /* Cỡ chữ 10px */
-                                  fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */
-                                  color: 'var(--text-light)',
-                                  marginTop: '2px'
-                                }}>
-                                  {activeData.percentage}%
-                                </span>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* List of categories */}
-                          <div style={{
-                            flex: 1,
-                            display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
-                            flexDirection: 'column',
-                            gap: '8px',
-                            maxHeight: '230px',
-                            overflowY: 'auto',
-                            paddingRight: '6px'
-                          }}>
-                            {processedCategoryData.map((cat, idx) => {
-                              const isSelected = activeIdx === idx;
-                              return (
-                                <div
-                                  key={idx}
-                                  onMouseEnter={() => setHoveredCategory(idx)}
-                                  onMouseLeave={() => setHoveredCategory(null)}
-                                  onClick={() => {
-                                    setSelectedCategoryIdx(idx);
-                                    handleOpenCategoryTransactions(cat);
-                                  }}
-                                  style={{
-                                    display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
-                                    flexDirection: 'column',
-                                    cursor: 'pointer',
-                                    padding: '10px 12px',
-                                    borderRadius: '16px',
-                                    background: isSelected
-                                      ? (cat.category_color ? `${cat.category_color}0A` : 'var(--border-color)')
-                                      : 'transparent',
-                                    border: isSelected
-                                      ? `1.5px solid ${cat.category_color || '#718EBF'}`
-                                      : '1.5px solid transparent',
-                                    boxShadow: isSelected ? '0 4px 12px rgba(0, 0, 0, 0.03)' : 'none',
-                                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                                    transform: isSelected ? 'translateX(2px)' : 'none',
-                                    minWidth: 0
-                                  }}
-                                >
-                                  <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
-                                    {/* Left side: Icon & Title */}
-                                    <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
-                                      <div style={{
-                                        width: '32px',
-                                        height: '32px',
-                                        borderRadius: '10px',
-                                        background: cat.category_color ? `${cat.category_color}1A` : 'rgba(113, 142, 191, 0.1)',
-                                        display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
-                                        alignItems: 'center', /* Căn các phần tử con giữa theo chiều dọc */
-                                        justifyContent: 'center', /* Căn giữa các phần tử con theo chiều ngang */
-                                        fontSize: '16px', /* Cỡ chữ 16px */
-                                        flexShrink: 0, /* Không cho phép co bóp kích thước */
-                                      }}>
-                                        {parseIcon(cat.category_icon) || '📁'}
-                                      </div>
-                                      <span style={{
-                                        fontSize: '13px', /* Cỡ chữ 13px */
-                                        fontWeight: '700', /* Độ đậm chữ 700 (Đậm) */
-                                        color: 'var(--text-main)', /* Màu chữ chính của theme */
-                                        overflow: 'hidden', /* Ẩn mọi phần nội dung tràn ra ngoài */
-                                        textOverflow: 'ellipsis', /* Hiển thị dấu ba chấm (...) khi chữ tràn */
-                                        whiteSpace: 'nowrap', /* Không cho xuống dòng tự động */
-                                        flex: 1
-                                      }}>
-                                        {cat.category_name === 'uncategorized' ? 'Chưa phân loại' : cat.category_name}
-                                      </span>
-                                    </div>
-                                    {/* Right side: Amount & Chevron */}
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0, /* Không cho phép co bóp kích thước */ }}>
-                                      <span style={{
-                                        fontSize: '13px', /* Cỡ chữ 13px */
-                                        fontWeight: '700', /* Độ đậm chữ 700 (Đậm) */
-                                        color: 'var(--text-main)', /* Màu chữ chính của theme */
-                                      }}>
-                                        {formatCurrency(cat.amount)}
-                                      </span>
-                                      <span style={{
-                                        color: isSelected ? (cat.category_color || '#718EBF') : 'var(--text-light)',
-                                        fontSize: '15px', /* Cỡ chữ 15px */
-                                        fontWeight: '800', /* Độ đậm chữ 800 (Rất đậm) */
-                                        marginLeft: '4px',
-                                        transition: 'color 0.2s ease'
-                                      }}>
-                                        ›
-                                      </span>
-                                    </div>
-                                  </div>
-                                  {/* Bottom: Progress Bar */}
-                                  <div style={{
-                                    width: '100%',
-                                    height: isSelected ? '6px' : '4px',
-                                    background: 'var(--border-color)',
-                                    borderRadius: '3px',
-                                    marginTop: '6px',
-                                    overflow: 'hidden', /* Ẩn mọi phần nội dung tràn ra ngoài */
-                                    position: 'relative'
-                                  }}>
-                                    <div style={{
-                                      width: `${cat.percentage}%`,
-                                      height: '100%',
-                                      background: cat.category_color || '#718EBF',
-                                      borderRadius: '3px',
-                                      transition: 'width 0.4s ease-in-out'
-                                    }} />
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="row" style={{ marginTop: '24px' }}>
-            <div className="col-2" style={{ flex: 2 }}>
-              <div className="section-header" style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+            <div className="col-1" style={{ flex: 1 }}>
+              <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
                 <h2 className="section-title" style={{ margin: 0 }}>
                   {t('daily_spending_trend')}
                 </h2>
@@ -1729,7 +1289,7 @@ export default function Dashboard() {
               </div>
               <div className="chart-card" style={{
                 padding: '24px 30px',
-                height: '280px',
+                height: '300px',
                 position: 'relative',
                 display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
                 flexDirection: 'column',
@@ -1785,9 +1345,8 @@ export default function Dashboard() {
                     const points = processedDailyTrends.map((t, idx) => ({
                       x: getX(idx),
                       y: getY(t.value)
-                    })); // Đóng hàm lưu cache
+                    }));
 
-                    // Generate a smooth Catmull-Rom cubic bezier spline path
                     let dPath = '';
                     if (points.length > 0) {
                       dPath = points.reduce((acc, p, idx, arr) => {
@@ -1800,9 +1359,8 @@ export default function Dashboard() {
                         let cp1y = prev.y + (p.y - prevPrev.y) / 6;
 
                         const cp2x = p.x - (p.x - prev.x) / 3;
-                        let cp2y = p.y - (next.y - prev.y) / 6;
+                        let cp2y = p.y + (next.y - prev.y) / 6;
 
-                        // Clamp control points Y to avoid overshoot outside local min/max values
                         const ctrlMinY = Math.min(prev.y, p.y);
                         const ctrlMaxY = Math.max(prev.y, p.y);
                         cp1y = Math.max(ctrlMinY, Math.min(ctrlMaxY, cp1y));
@@ -1810,7 +1368,7 @@ export default function Dashboard() {
 
                         return `${acc} C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p.x.toFixed(1)} ${p.y.toFixed(1)}`;
                       }, "");
-                    } // Kết thúc kiểm tra điều kiện dữ liệu
+                    }
 
                     const dArea = points.length > 0
                       ? `${dPath} L ${points[points.length - 1].x.toFixed(1)} 170 L ${points[0].x.toFixed(1)} 170 Z`
@@ -1828,13 +1386,12 @@ export default function Dashboard() {
                       chartColor = '#2D60FF';
                       gradId = 'balanceGrad';
                       glowId = 'glowBalance';
-                    } // Kết thúc kiểm tra điều kiện dữ liệu
+                    }
 
                     return (
                       <div style={{ position: 'relative', width: '100%', height: '100%' }}>
                         <svg viewBox="0 0 900 210" style={{ width: '100%', height: '100%', overflow: 'visible' }}>
                           <defs>
-                            {/* Area Gradients */}
                             <linearGradient id="expenseGrad" x1="0" y1="0" x2="0" y2="1">
                               <stop offset="0%" stopColor="#FF6B81" stopOpacity="0.45" />
                               <stop offset="50%" stopColor="#FF6B81" stopOpacity="0.15" />
@@ -1851,7 +1408,6 @@ export default function Dashboard() {
                               <stop offset="100%" stopColor="#2D60FF" stopOpacity="0.00" />
                             </linearGradient>
 
-                            {/* Glow Filters */}
                             <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
                               <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#FF6B81" floodOpacity="0.3" />
                             </filter>
@@ -1863,15 +1419,12 @@ export default function Dashboard() {
                             </filter>
                           </defs>
 
-                          {/* Grid lines */}
                           <g stroke="var(--border-color)" strokeWidth="1" opacity="0.8">
-                            {/* Horizontal Lines */}
                             <line x1="0" y1="35" x2="900" y2="35" strokeDasharray="4 4" />
                             <line x1="0" y1="80" x2="900" y2="80" strokeDasharray="4 4" />
                             <line x1="0" y1="125" x2="900" y2="125" strokeDasharray="4 4" />
                             <line x1="0" y1="170" x2="900" y2="170" strokeWidth="1.5" />
 
-                            {/* Vertical grid lines at label positions */}
                             {processedDailyTrends.filter((_, idx) => idx % 5 === 0 || idx === processedDailyTrends.length - 1).map((item, idx) => {
                               const x = getX(processedDailyTrends.indexOf(item));
                               return (
@@ -1888,13 +1441,9 @@ export default function Dashboard() {
                             })}
                           </g>
 
-                          {/* Area under the path */}
                           <path d={dArea} fill={`url(#${gradId})`} />
-
-                          {/* The line itself with glow */}
                           <path d={dPath} fill="none" stroke={chartColor} strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" filter={`url(#${glowId})`} />
 
-                          {/* Tiny dots on days with transactions */}
                           {chartMode !== 'balance' && processedDailyTrends.map((t, idx) => {
                             if (t.value === 0) return null;
                             return (
@@ -1912,7 +1461,6 @@ export default function Dashboard() {
                             );
                           })}
 
-                          {/* Interaction helper line */}
                           {hoveredDailyPoint !== null && (
                             <line
                               x1={getX(hoveredDailyPoint as number)}
@@ -1927,7 +1475,6 @@ export default function Dashboard() {
                             />
                           )}
 
-                          {/* Glowing dot for hovered day */}
                           {hoveredDailyPoint !== null && (
                             <circle
                               cx={getX(hoveredDailyPoint as number)}
@@ -1941,7 +1488,6 @@ export default function Dashboard() {
                             />
                           )}
 
-                          {/* Invisible hover grid columns */}
                           {processedDailyTrends.map((_, idx) => (
                             <rect
                               key={idx}
@@ -1956,7 +1502,6 @@ export default function Dashboard() {
                             />
                           ))}
 
-                          {/* X-axis labels with smart textAnchors */}
                           {processedDailyTrends.filter((_, idx) => idx % 5 === 0 || idx === processedDailyTrends.length - 1).map((item, idx) => {
                             const actualIdx = processedDailyTrends.indexOf(item);
                             const x = getX(actualIdx);
@@ -1978,7 +1523,6 @@ export default function Dashboard() {
                             );
                           })}
 
-                          {/* Floating Tooltip inside SVG */}
                           {hoveredDailyPoint !== null && (() => {
                             const item = processedDailyTrends[hoveredDailyPoint as number];
                             const xVal = getX(hoveredDailyPoint as number);
@@ -1987,12 +1531,10 @@ export default function Dashboard() {
                             const tooltipWidth = 150;
                             const tooltipHeight = 52;
 
-                            // Center the tooltip horizontally, clamp within SVG bounds [10, 890]
                             let tx = xVal - tooltipWidth / 2;
                             if (tx < 10) tx = 10;
                             if (tx + tooltipWidth > 890) tx = 890 - tooltipWidth;
 
-                            // Position above the point by default, but if too close to the top, show below
                             const showBelow = yVal < 75;
                             const ty = showBelow ? yVal + 15 : yVal - tooltipHeight - 15;
 
@@ -2003,11 +1545,10 @@ export default function Dashboard() {
                               amtStr = `+${formatCurrency(item.income)}`;
                             } else {
                               amtStr = `${item.balance >= 0 ? '+' : ''}${formatCurrency(item.balance)}`;
-                            } // Kết thúc kiểm tra điều kiện dữ liệu
+                            }
 
                             return (
                               <g pointerEvents="none">
-                                {/* Tooltip Shadow Overlay */}
                                 <rect
                                   x={tx}
                                   y={ty}
@@ -2021,7 +1562,6 @@ export default function Dashboard() {
                                   strokeWidth="1.2"
                                   style={{ filter: 'drop-shadow(0px 6px 16px rgba(0,0,0,0.35))' }}
                                 />
-                                {/* Tooltip text: Date */}
                                 <text
                                   x={tx + tooltipWidth / 2}
                                   y={ty + 20}
@@ -2032,7 +1572,6 @@ export default function Dashboard() {
                                 >
                                   {trendsGroupBy === 'day' ? `${t('day_label')} ${item.label}` : `${t('month_label_prefix')} ${item.label}`}
                                 </text>
-                                {/* Tooltip text: Amount */}
                                 <text
                                   x={tx + tooltipWidth / 2}
                                   y={ty + 38}
@@ -2053,6 +1592,301 @@ export default function Dashboard() {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* Hàng 2: Phân bổ chi tiêu & Top 5 danh mục */}
+          <div className="row" style={{ marginTop: '24px' }}>
+            <div className="col-1" style={{ flex: 1 }}>
+              <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <h2 className="section-title">{t('expense_allocation')}</h2>
+                {isLoggedIn && categoryData.length > 0 && (
+                  <div style={{
+                    display: 'flex',
+                    background: 'var(--bg-color)',
+                    padding: '3px',
+                    borderRadius: '20px',
+                    border: '1px solid var(--border-color)',
+                    alignItems: 'center',
+                  }}>
+                    <button
+                      onClick={() => setAllocationType('parent')}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '16px',
+                        border: 'none',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        background: allocationType === 'parent' ? 'var(--card-bg)' : 'transparent',
+                        color: allocationType === 'parent' ? 'var(--text-main)' : 'var(--text-light)',
+                        boxShadow: allocationType === 'parent' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                        transition: 'all 0.2s ease',
+                        outline: 'none'
+                      }}
+                    >
+                      {t('parent') || 'Cha'}
+                    </button>
+                    <button
+                      onClick={() => setAllocationType('child')}
+                      style={{
+                        padding: '6px 14px',
+                        borderRadius: '16px',
+                        border: 'none',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        background: allocationType === 'child' ? 'var(--card-bg)' : 'transparent',
+                        color: allocationType === 'child' ? 'var(--text-main)' : 'var(--text-light)',
+                        boxShadow: allocationType === 'child' ? '0 2px 6px rgba(0,0,0,0.06)' : 'none',
+                        transition: 'all 0.2s ease',
+                        outline: 'none'
+                      }}
+                    >
+                      {t('child') || 'Con'}
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="chart-card" style={{ display: 'flex', flexDirection: 'row', gap: '30px', alignItems: 'center', padding: '24px 30px', height: '280px' }}>
+                {!isLoggedIn || categoryData.length === 0 ? (
+                  <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '20px 0', textAlign: 'center' }}>
+                    <span style={{ fontSize: '36px' }}>📊</span>
+                    <span style={{ color: 'var(--text-main)', fontWeight: '600', fontSize: '14px' }}>
+                      {isLoadingCategory ? t('loading') : t('no_data')}
+                    </span>
+                    <span style={{ color: 'var(--text-light)', fontSize: '11px', maxWidth: '200px' }}>
+                      {isLoadingCategory ? t('syncing_chart') : t('no_spending_in_period')}
+                    </span>
+                  </div>
+                ) : (
+                  <>
+                    {(() => {
+                      const activeIdx = hoveredCategory !== null ? hoveredCategory : selectedCategoryIdx;
+                      const activeData = processedCategoryData[activeIdx] || null;
+
+                      return (
+                        <>
+                          <div style={{
+                            position: 'relative',
+                            width: '160px',
+                            height: '160px',
+                            flexShrink: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}>
+                            <svg viewBox="0 0 100 100" style={{ width: '160px', height: '160px', transform: 'rotate(-90deg)', overflow: 'visible' }}>
+                              <circle
+                                cx="50"
+                                cy="50"
+                                r="38"
+                                fill="transparent"
+                                stroke="var(--border-color)"
+                                strokeWidth="8"
+                                opacity="0.15"
+                              />
+                              {(() => {
+                                let accumulatedFraction = 0;
+                                return processedCategoryData.map((cat, idx) => {
+                                  const isSelected = activeIdx === idx;
+                                  const r = isSelected ? 41 : 38;
+                                  const strokeWidth = isSelected ? 12 : 8;
+                                  const c = 2 * Math.PI * r;
+                                  const segmentLength = (cat.percentage / 100) * c;
+                                  const strokeDashArray = `${segmentLength} ${c}`;
+                                  const strokeDashOffset = - (accumulatedFraction * c);
+                                  accumulatedFraction += (cat.percentage / 100);
+
+                                  return (
+                                    <circle
+                                      key={idx}
+                                      cx="50"
+                                      cy="50"
+                                      r={r}
+                                      fill="transparent"
+                                      stroke={cat.category_color || '#718EBF'}
+                                      strokeWidth={strokeWidth}
+                                      strokeDasharray={strokeDashArray}
+                                      strokeDashoffset={strokeDashOffset}
+                                      opacity={activeIdx === null || isSelected ? 1 : 0.4}
+                                      style={{
+                                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                        cursor: 'pointer',
+                                      }}
+                                      onMouseEnter={() => setHoveredCategory(idx)}
+                                      onMouseLeave={() => setHoveredCategory(null)}
+                                      onClick={() => setSelectedCategoryIdx(idx)}
+                                    />
+                                  );
+                                });
+                              })()}
+                            </svg>
+
+                            <div style={{
+                              position: 'absolute',
+                              left: '50%',
+                              top: '50%',
+                              transform: 'translate(-50%, -50%)',
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              pointerEvents: 'none',
+                              textAlign: 'center',
+                              width: '95px',
+                            }}>
+                              <span style={{
+                                fontSize: '10px',
+                                color: activeData ? activeData.category_color || 'var(--text-light)' : 'var(--text-light)',
+                                textTransform: 'uppercase',
+                                letterSpacing: '0.5px',
+                                fontWeight: '700',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                width: '100%',
+                                transition: 'color 0.2s ease'
+                              }}>
+                                {activeData ? (activeData.category_name === 'uncategorized' ? 'Chưa phân loại' : activeData.category_name) : t('spending')}
+                              </span>
+                              <span style={{
+                                fontSize: '13px',
+                                fontWeight: '800',
+                                color: 'var(--text-main)',
+                                width: '100%',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                                marginTop: '2px',
+                                transition: 'all 0.2s ease'
+                              }}>
+                                {formatCurrency(activeData ? activeData.amount : totalCategoryExpense)}
+                              </span>
+                              {activeData && (
+                                <span style={{
+                                  fontSize: '10px',
+                                  fontWeight: '600',
+                                  color: 'var(--text-light)',
+                                  marginTop: '2px'
+                                }}>
+                                  {activeData.percentage}%
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div style={{
+                            flex: 1,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '8px',
+                            maxHeight: '230px',
+                            overflowY: 'auto',
+                            paddingRight: '6px'
+                          }}>
+                            {processedCategoryData.map((cat, idx) => {
+                              const isSelected = activeIdx === idx;
+                              return (
+                                <div
+                                  key={idx}
+                                  onMouseEnter={() => setHoveredCategory(idx)}
+                                  onMouseLeave={() => setHoveredCategory(null)}
+                                  onClick={() => {
+                                    setSelectedCategoryIdx(idx);
+                                    handleOpenCategoryTransactions(cat);
+                                  }}
+                                  style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    cursor: 'pointer',
+                                    padding: '10px 12px',
+                                    borderRadius: '16px',
+                                    background: isSelected
+                                      ? (cat.category_color ? `${cat.category_color}0A` : 'var(--border-color)')
+                                      : 'transparent',
+                                    border: isSelected
+                                      ? `1.5px solid ${cat.category_color || '#718EBF'}`
+                                      : '1.5px solid transparent',
+                                    boxShadow: isSelected ? '0 4px 12px rgba(0, 0, 0, 0.03)' : 'none',
+                                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    transform: isSelected ? 'translateX(2px)' : 'none',
+                                    minWidth: 0
+                                  }}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                                      <div style={{
+                                        width: '32px',
+                                        height: '32px',
+                                        borderRadius: '10px',
+                                        background: cat.category_color ? `${cat.category_color}1A` : 'rgba(113, 142, 191, 0.1)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        fontSize: '16px',
+                                        flexShrink: 0,
+                                      }}>
+                                        {parseIcon(cat.category_icon) || '📁'}
+                                      </div>
+                                      <span style={{
+                                        fontSize: '13px',
+                                        fontWeight: '700',
+                                        color: 'var(--text-main)',
+                                        overflow: 'hidden',
+                                        textOverflow: 'ellipsis',
+                                        whiteSpace: 'nowrap',
+                                        flex: 1
+                                      }}>
+                                        {cat.category_name === 'uncategorized' ? 'Chưa phân loại' : cat.category_name}
+                                      </span>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                                      <span style={{
+                                        fontSize: '13px',
+                                        fontWeight: '700',
+                                        color: 'var(--text-main)',
+                                      }}>
+                                        {formatCurrency(cat.amount)}
+                                      </span>
+                                      <span style={{
+                                        color: isSelected ? (cat.category_color || '#718EBF') : 'var(--text-light)',
+                                        fontSize: '15px',
+                                        fontWeight: '800',
+                                        marginLeft: '4px',
+                                        transition: 'color 0.2s ease'
+                                      }}>
+                                        ›
+                                      </span>
+                                    </div>
+                                  </div>
+                                  <div style={{
+                                    width: '100%',
+                                    height: isSelected ? '6px' : '4px',
+                                    background: 'var(--border-color)',
+                                    borderRadius: '3px',
+                                    marginTop: '6px',
+                                    overflow: 'hidden',
+                                    position: 'relative'
+                                  }}>
+                                    <div style={{
+                                      width: `${cat.percentage}%`,
+                                      height: '100%',
+                                      background: cat.category_color || '#718EBF',
+                                      borderRadius: '3px',
+                                      transition: 'width 0.4s ease-in-out'
+                                    }} />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </>
+                )}
+              </div>
+            </div>
 
             <div className="col-1" style={{ flex: 1 }}>
               <div className="section-header">
@@ -2063,31 +1897,31 @@ export default function Dashboard() {
               <div className="chart-card" style={{
                 padding: '20px 24px',
                 height: '280px',
-                display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
+                display: 'flex',
                 flexDirection: 'column',
-                justifyContent: 'center', /* Căn giữa các phần tử con theo chiều ngang */
-                overflow: 'hidden', /* Ẩn mọi phần nội dung tràn ra ngoài */
+                justifyContent: 'center',
+                overflow: 'hidden',
               }}>
                 {!isLoggedIn || top5Categories.length === 0 ? (
-                  <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ flexDirection: 'column', width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '20px 0', textAlign: 'center' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center', gap: '8px', padding: '20px 0', textAlign: 'center' }}>
                     <span style={{ fontSize: '36px' }}>🏆</span>
-                    <span style={{ color: 'var(--text-main)', fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */ fontSize: '14px' }}>
+                    <span style={{ color: 'var(--text-main)', fontWeight: '600', fontSize: '14px' }}>
                       {isLoadingCategory ? t('loading') : t('no_data')}
                     </span>
-                    <span style={{ color: 'var(--text-light)', fontSize: '11px', /* Cỡ chữ 11px */ maxWidth: '200px' }}>
+                    <span style={{ color: 'var(--text-light)', fontSize: '11px', maxWidth: '200px' }}>
                       {isLoadingCategory ? t('syncing_chart') : t('no_spending_in_period')}
                     </span>
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ flexDirection: 'column', gap: '8px', width: '100%' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
                     {top5Categories.map((cat, idx) => (
                       <div
                         key={idx}
                         onMouseEnter={() => setHoveredTopCategory(idx)}
                         onMouseLeave={() => setHoveredTopCategory(null)}
                         style={{
-                          display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
-                          alignItems: 'center', /* Căn các phần tử con giữa theo chiều dọc */
+                          display: 'flex',
+                          alignItems: 'center',
                           gap: '10px',
                           padding: '6px 8px',
                           borderRadius: '12px',
@@ -2096,60 +1930,56 @@ export default function Dashboard() {
                           transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                         }}
                       >
-                        {/* Rank indicator */}
                         <span style={{
-                          fontSize: '12px', /* Cỡ chữ 12px */
-                          fontWeight: '800', /* Độ đậm chữ 800 (Rất đậm) */
+                          fontSize: '12px',
+                          fontWeight: '800',
                           color: idx === 0 ? '#FFD700' : idx === 1 ? '#C0C0C0' : idx === 2 ? '#CD7F32' : 'var(--text-light)',
                           width: '16px',
                           textAlign: 'center',
-                          flexShrink: 0, /* Không cho phép co bóp kích thước */
+                          flexShrink: 0,
                         }}>
                           #{idx + 1}
                         </span>
 
-                        {/* Icon badge with background tint */}
                         <div style={{
                           width: '32px',
                           height: '32px',
                           borderRadius: '10px',
                           background: cat.category_color ? `${cat.category_color}15` : 'rgba(113, 142, 191, 0.15)',
-                          display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
-                          alignItems: 'center', /* Căn các phần tử con giữa theo chiều dọc */
-                          justifyContent: 'center', /* Căn giữa các phần tử con theo chiều ngang */
-                          fontSize: '16px', /* Cỡ chữ 16px */
-                          flexShrink: 0, /* Không cho phép co bóp kích thước */
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '16px',
+                          flexShrink: 0,
                         }}>
                           {parseIcon(cat.category_icon) || '📁'}
                         </div>
 
-                        {/* Text, Progress Bar, and Amount details */}
-                        <div style={{ flex: 1, display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ flexDirection: 'column', minWidth: 0, gap: '2px' }}>
-                          <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, gap: '2px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px' }}>
                             <span style={{
-                              fontSize: '12px', /* Cỡ chữ 12px */
-                              fontWeight: '700', /* Độ đậm chữ 700 (Đậm) */
-                              color: 'var(--text-main)', /* Màu chữ chính của theme */
-                              overflow: 'hidden', /* Ẩn mọi phần nội dung tràn ra ngoài */
-                              textOverflow: 'ellipsis', /* Hiển thị dấu ba chấm (...) khi chữ tràn */
-                              whiteSpace: 'nowrap', /* Không cho xuống dòng tự động */
+                              fontSize: '12px',
+                              fontWeight: '700',
+                              color: 'var(--text-main)',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
                               flex: 1
                             }}>
                               {cat.category_name === 'uncategorized' ? 'Chưa phân loại' : cat.category_name}
                             </span>
                             <span style={{
-                              fontSize: '12px', /* Cỡ chữ 12px */
-                              fontWeight: '700', /* Độ đậm chữ 700 (Đậm) */
-                              color: 'var(--text-main)', /* Màu chữ chính của theme */
-                              flexShrink: 0, /* Không cho phép co bóp kích thước */
+                              fontSize: '12px',
+                              fontWeight: '700',
+                              color: 'var(--text-main)',
+                              flexShrink: 0,
                             }}>
                               {formatCurrency(cat.amount)}
                             </span>
                           </div>
 
-                          {/* Progress bar and percentage */}
-                          <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ alignItems: 'center', gap: '6px' }}>
-                            <div style={{ flex: 1, height: '4px', background: 'var(--border-color)', borderRadius: '2px', overflow: 'hidden', /* Ẩn mọi phần nội dung tràn ra ngoài */ }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <div style={{ flex: 1, height: '4px', background: 'var(--border-color)', borderRadius: '2px', overflow: 'hidden' }}>
                               <div style={{
                                 width: `${cat.percentage}%`,
                                 height: '100%',
@@ -2157,7 +1987,7 @@ export default function Dashboard() {
                                 borderRadius: '2px'
                               }} />
                             </div>
-                            <span style={{ fontSize: '9px', fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */ color: 'var(--text-light)', width: '24px', textAlign: 'right', flexShrink: 0 }}>
+                            <span style={{ fontSize: '9px', fontWeight: '600', color: 'var(--text-light)', width: '24px', textAlign: 'right', flexShrink: 0 }}>
                               {cat.percentage}%
                             </span>
                           </div>
@@ -2170,63 +2000,100 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="row">
+          {/* Hàng 3: 3 cột đối xứng bằng nhau (Giao dịch gần đây + Ngân sách + Ví của tôi) */}
+          <div className="row" style={{ marginTop: '24px' }}>
             <div className="col-1" style={{ flex: 1 }}>
-              <div className="section-header" style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2 className="section-title">{t('recent_transactions')}</h2>
                 {isLoggedIn && (
-                  <Link href="/transactions" style={{ fontSize: '13px', color: '#1814F3', fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */ textDecoration: 'none' }}>
+                  <Link href="/transactions" style={{ fontSize: '13px', color: '#1814F3', fontWeight: '600', textDecoration: 'none' }}>
                     {t('details') || 'Chi tiết'}
                   </Link>
                 )}
               </div>
-              <div className="transactions-card">
+              <div className="transactions-card" style={{ height: 'auto', minHeight: '280px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start', padding: '16px' }}>
                 {!isLoggedIn || filteredRecentTransactions.length === 0 ? (
-                  <div style={{ padding: '30px 20px', textAlign: 'center', color: '#718EBF', display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                  <div style={{ padding: '30px 20px', textAlign: 'center', color: '#718EBF', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', flex: 1, justifyContent: 'center' }}>
                     <span style={{ fontSize: '32px' }}>💸</span>
-                    <span style={{ fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */ color: 'var(--text-main)', fontSize: '14px' }}>{t('no_transactions')}</span>
-                    <span style={{ fontSize: '12px', /* Cỡ chữ 12px */ color: 'var(--text-light)', maxWidth: '240px' }}>{t('first_transaction_prompt')}</span>
+                    <span style={{ fontWeight: '600', color: 'var(--text-main)', fontSize: '14px' }}>{t('no_transactions')}</span>
+                    <span style={{ fontSize: '12px', color: 'var(--text-light)', maxWidth: '240px' }}>{t('first_transaction_prompt')}</span>
                   </div>
                 ) : (
-                  filteredRecentTransactions.slice(0, 4).map((x, i) => (
-                    <div className="transaction-item" key={i}>
-                      <div style={{ width: '45px', height: '45px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px', /* Cỡ chữ 20px */ background: 'var(--bg-color)', marginRight: '15px' }}>
-                        {parseIcon(x.category?.icon) || (x.type === 'expense' ? '💸' : '💰')}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    {filteredRecentTransactions.slice(0, 4).map((x, i) => (
+                      <div
+                        key={i}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '10px 12px',
+                          borderBottom: i === filteredRecentTransactions.slice(0, 4).length - 1 ? 'none' : '1px solid var(--border-color)',
+                          background: 'var(--card-bg)',
+                          borderRadius: '8px',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0, flex: 1 }}>
+                          <div style={{
+                            width: '32px',
+                            height: '32px',
+                            borderRadius: '50%',
+                            background: x.type === 'expense' ? 'rgba(254, 92, 115, 0.1)' : 'rgba(22, 219, 204, 0.1)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            fontSize: '14px',
+                            flexShrink: 0
+                          }}>
+                            {x.type === 'expense' ? '💸' : '💰'}
+                          </div>
+                          <div style={{ minWidth: 0, flex: 1 }}>
+                            <div style={{
+                              fontWeight: '600',
+                              fontSize: '12px',
+                              color: 'var(--text-main)',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap'
+                            }}>
+                              {x.title || x.desc || x.notes || t('other')}
+                            </div>
+                            <div style={{ fontSize: '9px', color: 'var(--text-light)', marginTop: '2px' }}>
+                              {formatDate(x.transaction_date)} • {x.category?.name || 'Không có danh mục'}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="tx-amount" style={{ color: x.type === 'expense' || x.amount < 0 ? '#FE5C73' : '#16DBCC', fontSize: '12px', fontWeight: '700' }}>
+                          {x.type === 'expense' || x.amount < 0 ? '-' : '+'}{formatCurrency(Math.abs(parseFloat(x.amount || 0)))}
+                        </div>
                       </div>
-                      <div className="tx-details">
-                        <div className="tx-title">{x.title || x.desc || x.notes || t('other')}</div>
-                        <div className="tx-date">{formatDate(x.transaction_date)}</div>
-                      </div>
-                      <div className="tx-amount" style={{ color: x.type === 'expense' || x.amount < 0 ? '#FE5C73' : '#16DBCC' }}>
-                        {x.type === 'expense' || x.amount < 0 ? '-' : '+'}{formatCurrency(Math.abs(parseFloat(x.amount || 0)))}
-                      </div>
-                    </div>
-                  ))
+                    ))}
+                  </div>
                 )}
               </div>
             </div>
 
             <div className="col-1" style={{ flex: 1 }}>
-              <div className="section-header" style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2 className="section-title">{t('budget')}</h2>
                 {isLoggedIn && budgetsList.length > 0 && (
-                  <Link href="/budget" style={{ fontSize: '13px', color: '#1814F3', fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */ textDecoration: 'none' }}>
+                  <Link href="/budget" style={{ fontSize: '13px', color: '#1814F3', fontWeight: '600', textDecoration: 'none' }}>
                     {t('details') || 'Chi tiết'}
                   </Link>
                 )}
               </div>
-              <div className="transactions-card" style={{ height: 'auto', minHeight: '150px', display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ flexDirection: 'column', justifyContent: 'center', padding: '20px' }}>
+              <div className="transactions-card" style={{ height: 'auto', minHeight: '280px', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '20px' }}>
                 {isLoadingBudget ? (
                   <div style={{ textAlign: 'center', color: '#718EBF' }}>{t('loading')}</div>
                 ) : !isLoggedIn ? (
                   <div style={{ textAlign: 'center', color: '#718EBF' }}>
                     <p style={{ marginBottom: '10px' }}>{t('please_login')}</p>
-                    <Link href="/login" style={{ textDecoration: 'none', color: '#fff', background: '#343C6A', padding: '6px 12px', borderRadius: '15px', fontWeight: 'bold', fontSize: '13px', /* Cỡ chữ 13px */ }}>{t('login')}</Link>
+                    <Link href="/login" style={{ textDecoration: 'none', color: '#fff', background: '#343C6A', padding: '6px 12px', borderRadius: '15px', fontWeight: 'bold', fontSize: '13px' }}>{t('login')}</Link>
                   </div>
                 ) : budgetsList.length === 0 ? (
                   <div style={{ textAlign: 'center', color: '#718EBF' }}>
-                    <p style={{ fontSize: '14px', /* Cỡ chữ 14px */ margin: 0 }}>{t('no_budget_set')}</p>
-                    <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ gap: '8px', justifyContent: 'center', marginTop: '12px', flexWrap: 'wrap' }}>
+                    <p style={{ fontSize: '14px', margin: 0 }}>{t('no_budget_set')}</p>
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginTop: '12px', flexWrap: 'wrap' }}>
                       <Link href="/budget" style={{
                         display: 'inline-block',
                         padding: '8px 16px',
@@ -2234,8 +2101,8 @@ export default function Dashboard() {
                         color: '#fff',
                         borderRadius: '10px',
                         textDecoration: 'none',
-                        fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */
-                        fontSize: '13px', /* Cỡ chữ 13px */
+                        fontWeight: '600',
+                        fontSize: '13px',
                       }}>
                         {t('set_budget')}
                       </Link>
@@ -2248,8 +2115,8 @@ export default function Dashboard() {
                           color: '#1814F3',
                           borderRadius: '10px',
                           border: '1px solid #1814F3',
-                          fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */
-                          fontSize: '13px', /* Cỡ chữ 13px */
+                          fontWeight: '600',
+                          fontSize: '13px',
                           cursor: 'pointer'
                         }}
                       >
@@ -2258,41 +2125,40 @@ export default function Dashboard() {
                     </div>
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ flexDirection: 'column', gap: '12px', width: '100%' }}>
-                    <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ justifyContent: 'space-between', alignItems: 'center' }}>
-                      <span style={{ fontWeight: '700', /* Độ đậm chữ 700 (Đậm) */ color: 'var(--text-main)', fontSize: '15px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', width: '100%' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ fontWeight: '700', color: 'var(--text-main)', fontSize: '15px' }}>
                         {overallBudget ? t('total_monthly_budget') : (t('category_budgets') || 'Ngân sách danh mục')}
                       </span>
-                      <span style={{ fontSize: '14px', fontWeight: '700', /* Độ đậm chữ 700 (Đậm) */ color: totalPct >= 100 ? '#FE5C73' : totalPct >= 80 ? '#FF9800' : '#16DBCC' }}>
+                      <span style={{ fontSize: '14px', fontWeight: '700', color: totalPct >= 100 ? '#FE5C73' : totalPct >= 80 ? '#FF9800' : '#16DBCC' }}>
                         {totalPct}%
                       </span>
                     </div>
 
-                    {/* Progress Bar Container */}
-                    <div style={{ width: '100%', height: '12px', background: 'var(--bg-color)', borderRadius: '6px', overflow: 'hidden', /* Ẩn mọi phần nội dung tràn ra ngoài */ }}>
+                    <div style={{ width: '100%', height: '12px', background: 'var(--bg-color)', borderRadius: '6px', overflow: 'hidden' }}>
                       <div style={{
                         width: `${Math.min(totalPct, 100)}%`,
                         height: '100%',
                         background: totalPct >= 100 ? '#FE5C73' : totalPct >= 80 ? '#FF9800' : '#16DBCC',
-                        borderRadius: '6px', /* Bo góc các cạnh 6px */
+                        borderRadius: '6px',
                         transition: 'width 0.6s ease-in-out'
                       }}></div>
                     </div>
 
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', /* Cỡ chữ 13px */ color: '#718EBF' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#718EBF' }}>
                       <div>
-                        <span style={{ fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */ color: 'var(--text-main)' }}>{formatCurrency(totalUsed)}</span>
+                        <span style={{ fontWeight: '600', color: 'var(--text-main)' }}>{formatCurrency(totalUsed)}</span>
                         <span> / {formatCurrency(totalLimit)}</span>
                       </div>
                     </div>
 
-                    <div style={{ fontSize: '12px', /* Cỡ chữ 12px */ marginTop: '2px' }}>
+                    <div style={{ fontSize: '12px', marginTop: '2px' }}>
                       {totalUsed > totalLimit ? (
-                        <span style={{ color: '#FE5C73', fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */ }}>
+                        <span style={{ color: '#FE5C73', fontWeight: '600' }}>
                           🚨 {t('over_budget') || 'Vượt ngân sách!'} ({formatCurrency(totalUsed - totalLimit)})
                         </span>
                       ) : (
-                        <span style={{ color: '#16DBCC', fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */ }}>
+                        <span style={{ color: '#16DBCC', fontWeight: '600' }}>
                           ✓ {t('remaining_label') || 'Còn lại:'} {formatCurrency(totalLimit - totalUsed)}
                         </span>
                       )}
@@ -2303,12 +2169,12 @@ export default function Dashboard() {
             </div>
 
             <div className="col-1" style={{ flex: 1 }}>
-              <div className="section-header" style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ justifyContent: 'space-between', alignItems: 'center' }}>
+              <div className="section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2 className="section-title">{t('wallets')}</h2>
-                <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <button
                     onClick={() => setShowWalletBalance(!showWalletBalance)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#718EBF', display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ alignItems: 'center', padding: '5px' }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#718EBF', display: 'flex', alignItems: 'center', padding: '5px' }}
                     title={showWalletBalance ? t('hide_balance') : t('show_balance')}
                   >
                     {showWalletBalance ? (
@@ -2324,19 +2190,19 @@ export default function Dashboard() {
                     )}
                   </button>
                   {isLoggedIn && (
-                    <Link href="/wallets" style={{ fontSize: '13px', color: '#1814F3', fontWeight: '600', /* Độ đậm chữ 600 (Vừa) */ textDecoration: 'none' }}>
+                    <Link href="/wallets" style={{ fontSize: '13px', color: '#1814F3', fontWeight: '600', textDecoration: 'none' }}>
                       {t('details') || 'Chi tiết'}
                     </Link>
                   )}
                 </div>
               </div>
-              <div className="transactions-card" style={{ height: 'auto', padding: '16px' }}>
+              <div className="transactions-card" style={{ height: 'auto', minHeight: '280px', padding: '16px', display: 'flex', flexDirection: 'column', justifyContent: 'flex-start' }}>
                 {isLoadingWallets ? (
                   <div style={{ padding: '20px', textAlign: 'center' }}>{t('loading')}</div>
                 ) : !isLoggedIn || wallets.length === 0 ? (
                   <div style={{ padding: '20px', textAlign: 'center', color: '#718EBF' }}>{t('no_wallets')}</div>
                 ) : (
-                  <div style={{ display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */ flexDirection: 'column', gap: '10px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                     {wallets.slice(0, 3).map((w, i) => {
                       const walletTypeMap: Record<string, { icon: string; label: string; gradient: string }> = {
                         cash: { icon: '💵', label: t('cash') || 'Tiền mặt', gradient: 'linear-gradient(135deg, #16DBCC, #0BB5A7)' },
@@ -2350,8 +2216,8 @@ export default function Dashboard() {
                         <div
                           key={i}
                           style={{
-                            display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
-                            alignItems: 'center', /* Căn các phần tử con giữa theo chiều dọc */
+                            display: 'flex',
+                            alignItems: 'center',
                             gap: '12px',
                             padding: '12px 14px',
                             borderRadius: '14px',

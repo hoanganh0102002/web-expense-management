@@ -1739,7 +1739,12 @@ export default function Transactions() {
         });
       }
 
-      await transactionApi.create(formData);
+      const res = await transactionApi.create(formData);
+
+      // Hiển thị cảnh báo thói quen của AI nếu có
+      if (res && res.ai_alert) {
+        alert(res.ai_alert); //hiển thị cảnh báo cho người dùng nếu có
+      }
 
 
 

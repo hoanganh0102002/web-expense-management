@@ -99,6 +99,35 @@ export default function Categories() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Kiểm tra trùng tên danh mục ở client-side
+    const nameToCheck = formData.name.trim().toLowerCase();//lower() chuyển sang chữ thường, trim() loại bỏ khoảng trắng ở đầu và cuối chuỗi
+    if (!nameToCheck) return;// nếu không có tên danh mục
+
+    const hasDuplicate = categories
+      .filter((c: any) => c.type === activeTab)// lọc các danh mục cùng loại với tab hiện tại
+      .some((parent: any) => {// kiểm tra xem có danh mục nào trùng nhau không
+        const isEditingThisParent = editingCategory && editingCategory.id === parent.id;// là danh mục đang chỉnh sửa
+        if (!isEditingThisParent && parent.name.trim().toLowerCase() === nameToCheck) {// nếu không phải danh mục đang chỉnh sửa và tên danh mục trùng nhau
+          return true;
+        }
+
+        const children = parent.children || [];// lấy danh sách danh mục con
+        return children.some((child: any) => {// kiểm tra xem có danh mục con nào trùng nhau không
+          const isEditingThisChild = editingCategory && editingCategory.id === child.id;// là danh mục con đang chỉnh sửa
+          return !isEditingThisChild && child.name.trim().toLowerCase() === nameToCheck;// nếu không phải danh mục con đang chỉnh sửa và tên danh mục con trùng nhau
+        });
+      });
+
+    if (hasDuplicate) {// nếu có trùng tên danh mục
+      toast.error(
+        language === 'vi'
+          ? "Tên danh mục này đã tồn tại, vui lòng chọn tên khác!"
+          : "This category name already exists, please choose a different name!"
+      );
+      return;
+    }
+
     try {
       if (editingCategory) {
         await updateCategory(editingCategory.id, formData);

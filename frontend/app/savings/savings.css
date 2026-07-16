@@ -24,18 +24,19 @@
 .savings-container {
   padding: 32px 40px;
 }
-
+/* Tạo lưới hiển thị các mục tiêu tiết kiệm */
 .savings-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));/*repeat(auto-fill, minmax(360px, 1fr))*/
+  /*giúp hệ thống tự động tính toán số cột trên màn hình, Nếu màn hình rộng, nó sẽ tự động xếp 2, 3, 4 cột*/
+  /*nếu màn hình điện thoại nhỏ, nó sẽ tự co lại thành 1 cột duy nhất mà không bị vỡ giao diện (Responsive hoàn toàn).*/
+  gap: 24px; /*đổi khoản cách giữa các thẻ tiết kiệm */
   margin-bottom: 24px;
 }
-
 /* Saving Card */
 .saving-card {
   background: var(--card-bg);
-  border-radius: 24px;
+  border-radius: 24px;/*Muốn đổi độ bo góc của thẻ tiết kiệm (12px....)*/
   padding: 24px;
   border: 1px solid var(--border-color);
   box-shadow: 0 8px 24px rgba(0,0,0,0.02);
@@ -126,10 +127,11 @@
   overflow: hidden;
 }
 
-.saving-progress-fill {
+.saving-progress-fill {/*Đổi màu thanh tiến trình*/
   height: 100%;
   border-radius: 4px;
   background: linear-gradient(90deg, #3B82F6 0%, #10B981 100%);
+   /*Đổi màu thanh tiến trình*/
   transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
