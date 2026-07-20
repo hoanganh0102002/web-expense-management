@@ -8,6 +8,8 @@ import { useLanguage } from '../lib/translations';
 import { useToast } from '../context/ToastContext';
 import { reportApi, transactionApi, budgetApi } from '../lib/api';
 import './reports.css';
+import FinancialWeather from '../components/FinancialWeather';
+import StoryCardGenerator from '../components/StoryCardGenerator';
 
 
 const parseIcon = (iconName: string) => {
@@ -537,6 +539,7 @@ export default function Reports() {
   
   // Momo UI States
   const [viewMode, setViewMode] = useState<'allocation' | 'trend'>('allocation');
+  const [isStoryOpen, setIsStoryOpen] = useState(false);
   const [reportType, setReportType] = useState<'expense' | 'income'>('expense');
   const [topCategories, setTopCategories] = useState<any[]>([]);
   const [isLoadingTopCategories, setIsLoadingTopCategories] = useState(false);
@@ -2594,9 +2597,37 @@ export default function Reports() {
                   </div>
                 </div>
               ) : (
-                <div className="momo-stats-card">
+                <>
+                  <FinancialWeather currentSummary={currentSummary} budgetMap={budgetMap} />
+                  <div className="momo-stats-card">
                 <div className="momo-stats-header">
                   <h2 className="momo-stats-title">Tình hình thu chi</h2>
+                  
+                  {/* Spotify Wrapped Share Button */}
+                  <button 
+                    onClick={() => setIsStoryOpen(true)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      background: 'linear-gradient(135deg, #1814F3 0%, #6366F1 100%)',
+                      color: '#FFFFFF',
+                      border: 'none',
+                      padding: '8px 16px',
+                      borderRadius: '12px',
+                      fontWeight: '700',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 12px rgba(24, 20, 243, 0.2)',
+                      marginLeft: '15px',
+                      marginRight: 'auto',
+                      transition: 'all 0.2s'
+                    }}
+                    title="Tạo ảnh Spotify Wrapped chia sẻ lên MXH"
+                  >
+                    🎨 Tạo ảnh Story
+                  </button>
+
                   <div className="momo-view-toggle">
                     <button 
                       className={`momo-view-btn ${viewMode === 'allocation' ? 'active' : ''}`}
@@ -3059,7 +3090,8 @@ export default function Reports() {
                   )}
                 </div>
               </div>
-            )}
+                </>
+              )}
 
             {/* FINANCIAL INSIGHTS & SUGGESTIONS */}
               {isLoadingInsights && (
@@ -4550,6 +4582,20 @@ export default function Reports() {
                 </div>
               </div>
             </div>
+          )}
+
+          {/* Monthly Wrapped Story Card Modal */}
+          {isStoryOpen && (
+            <StoryCardGenerator
+              isOpen={isStoryOpen}
+              onClose={() => setIsStoryOpen(false)}
+              month={new Date(startDate).getMonth() + 1}
+              year={new Date(startDate).getFullYear()}
+              userName={userData?.profile?.full_name || userData?.full_name || 'Khách'}
+              totalIncome={currentSummary.income}
+              totalExpense={currentSummary.expense}
+              topCategories={topCategories}
+            />
           )}
         </div>
       </main>

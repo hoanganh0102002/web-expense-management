@@ -175,6 +175,14 @@ export const authApi = {
     method: 'DELETE',
     body: JSON.stringify({ device_token: deviceToken })
   }),
+  getActivityLogs: (params?: { page?: number; search?: string; group?: string }) => {
+    const query = new URLSearchParams();
+    if (params?.page) query.append('page', params.page.toString());
+    if (params?.search) query.append('search', params.search);
+    if (params?.group) query.append('group', params.group);
+    const queryString = query.toString();
+    return apiFetch(`/activity-logs${queryString ? `?${queryString}` : ''}`);
+  },
 };
 
 // --- WALLET APIs ---

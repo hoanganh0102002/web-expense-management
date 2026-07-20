@@ -40,6 +40,177 @@ export default function Settings() {
   const [activeSessions, setActiveSessions] = useState<SessionItem[]>([]);
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
 
+  // State for Activity Logs (Nhật ký hệ thống)
+  const [activityLogs, setActivityLogs] = useState<any[]>([]);
+  const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+  const [logPage, setLogPage] = useState(1);
+  const [logSearch, setLogSearch] = useState('');
+  const [logGroup, setLogGroup] = useState('');
+  const [logTotal, setLogTotal] = useState(0);
+  const [logLastPage, setLogLastPage] = useState(1);
+
+  const fetchActivityLogs = async (page = 1, search = '', group = '') => {
+    setIsLoadingLogs(true);
+    try {
+      const res = await authApi.getActivityLogs({ page, search, group });
+      if (res.data) {
+        setActivityLogs(res.data.data || []);
+        setLogTotal(res.data.total || 0);
+        setLogLastPage(res.data.last_page || 1);
+        setLogPage(res.data.current_page || page);
+      }
+    } catch (error) {
+      console.error("Lỗi lấy danh sách nhật ký hoạt động:", error);
+    } finally {
+      setIsLoadingLogs(false);
+    }
+  };
+
+  const parseUserAgent = (userAgent: string) => {
+    if (!userAgent) return 'Không xác định';
+    const ua = userAgent.toLowerCase();
+    let browser = 'Trình duyệt';
+    let os = 'HĐH';
+
+    if (ua.includes('chrome')) browser = 'Chrome';
+    else if (ua.includes('firefox')) browser = 'Firefox';
+    else if (ua.includes('safari')) browser = 'Safari';
+    else if (ua.includes('edge')) browser = 'Edge';
+    else if (ua.includes('opera')) browser = 'Opera';
+
+    if (ua.includes('windows')) os = 'Windows';
+    else if (ua.includes('macintosh') || ua.includes('mac os')) os = 'macOS';
+    else if (ua.includes('linux')) os = 'Linux';
+    else if (ua.includes('iphone') || ua.includes('ipad')) os = 'iOS';
+    else if (ua.includes('android')) os = 'Android';
+
+    return `${browser} on ${os}`;
+  };
+
+  const getActionTitle = (action: string) => {
+    const act = action.toLowerCase();
+    switch (act) {
+      case 'auth.login':
+        return 'ĐĂNG NHẬP';
+      case 'auth.logout':
+        return 'ĐĂNG XUẤT';
+      case 'auth.logout_all':
+        return 'ĐĂNG XUẤT TẤT CẢ';
+      case 'auth.change_password':
+        return 'ĐỔI MẬT KHẨU';
+      case 'auth.link_social':
+        return 'LIÊN KẾT MẠNG XÃ HỘI';
+      case 'user.update_avatar':
+        return 'CẬP NHẬT ẢNH ĐẠI DIỆN';
+      case 'user.update_profile':
+        return 'CẬP NHẬT THÔNG TIN HỒ SƠ';
+      case 'wallet.create':
+        return 'TẠO VÍ MỚI';
+      case 'wallet.update':
+        return 'CẬP NHẬT VÍ';
+      case 'wallet.delete':
+        return 'XÓA VÍ';
+      case 'wallet.set_default':
+        return 'ĐẶT VÍ MẶC ĐỊNH';
+      case 'transaction.create':
+        return 'THÊM GIAO DỊCH';
+      case 'transaction.update':
+        return 'CẬP NHẬT GIAO DỊCH';
+      case 'transaction.delete':
+        return 'XÓA GIAO DỊCH';
+      case 'transaction.import':
+        return 'NHẬP GIAO DỊCH';
+      case 'budget.create':
+        return 'THIẾT LẬP NGÂN SÁCH';
+      case 'budget.update':
+        return 'CẬP NHẬT NGÂN SÁCH';
+      case 'budget.delete':
+        return 'XÓA NGÂN SÁCH';
+      case 'savings.create':
+        return 'TẠO TIẾT KIỆM';
+      case 'savings.deposit':
+        return 'TÍCH LŨY TIẾT KIỆM';
+      case 'savings.withdraw':
+        return 'RÚT TIỀN TIẾT KIỆM';
+      case 'savings.delete':
+        return 'XÓA MỤC TIÊU TIẾT KIỆM';
+      case 'category.create':
+        return 'TẠO DANH MỤC';
+      case 'category.update':
+        return 'CẬP NHẬT DANH MỤC';
+      case 'category.delete':
+        return 'XÓA DANH MỤC';
+      default:
+        const parts = act.split('.');
+        const grp = parts[0] || '';
+        const method = parts[1] || '';
+        
+        let grpName = grp.toUpperCase();
+        if (grp === 'auth') grpName = 'BẢO MẬT';
+        else if (grp === 'user') grpName = 'HỒ SƠ';
+        else if (grp === 'wallet') grpName = 'VÍ';
+        else if (grp === 'transaction') grpName = 'GIAO DỊCH';
+        else if (grp === 'budget') grpName = 'NGÂN SÁCH';
+        else if (grp === 'savings') grpName = 'TIẾT KIỆM';
+        else if (grp === 'category') grpName = 'DANH MỤC';
+
+        let methodName = method.toUpperCase();
+        if (method === 'create') methodName = 'TẠO MỚI';
+        else if (method === 'update') methodName = 'CẬP NHẬT';
+        else if (method === 'delete') methodName = 'XÓA';
+        
+        return `${grpName} - ${methodName}`;
+    }
+  };
+
+  const getActivityIcon = (action: string) => {
+    const [category] = action.split('.');
+    switch (category) {
+      case 'auth':
+        return (
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(99, 102, 241, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6366F1' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          </div>
+        );
+      case 'wallet':
+        return (
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10B981' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="12" y1="10" x2="12" y2="10"/></svg>
+          </div>
+        );
+      case 'transaction':
+        return (
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(59, 130, 246, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#3B82F6' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+          </div>
+        );
+      case 'budget':
+        return (
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(245, 158, 11, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#F59E0B' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+          </div>
+        );
+      case 'savings':
+        return (
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(236, 72, 153, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#EC4899' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 21a9 9 0 100-18 9 9 0 000 18z"/><path d="M12 7v5l3 3"/></svg>
+          </div>
+        );
+      case 'category':
+        return (
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(139, 92, 246, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#8B5CF6' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+          </div>
+        );
+      default:
+        return (
+          <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(107, 114, 128, 0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#6B7280' }}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+          </div>
+        );
+    }
+  };
+
   const fetchSessions = async () => {
     setIsLoadingSessions(true);
     try {
@@ -60,7 +231,12 @@ export default function Settings() {
         fetchSessions();
       }, 0);
     }
-  }, [activeTab, isLoggedIn]);
+    if (activeTab === 'activity' && isLoggedIn) {
+      setTimeout(() => {
+        fetchActivityLogs(logPage, logSearch, logGroup);
+      }, 0);
+    }
+  }, [activeTab, logPage, logGroup, isLoggedIn]);
 
   const handleRevokeSession = async (sessionId: string) => {
     if (!window.confirm("Bạn có chắc chắn muốn đăng xuất thiết bị này?")) return;
@@ -303,6 +479,9 @@ export default function Settings() {
                   ) },
                   { k: 'security', l: t('security'), icon: (
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                  ) },
+                  { k: 'activity', l: 'Nhật ký hoạt động', icon: (
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '8px' }}><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                   ) },
                 ].map(tab => {
                   const isActive = activeTab === tab.k;
@@ -986,6 +1165,234 @@ export default function Settings() {
                     </div>
                   </div>
                 </div>
+              </div>
+            )}
+            {activeTab === 'activity' && (
+              <div style={{ width: '100%' }}>
+                <h3 style={{ color: 'var(--text-main)', marginBottom: '25px', fontSize: '20px', fontWeight: '800' }}>Nhật ký hoạt động hệ thống</h3>
+                
+                {/* Search and Filters */}
+                <div style={{ 
+                  display: 'flex', 
+                  gap: '15px', 
+                  marginBottom: '30px', 
+                  flexWrap: 'wrap',
+                  alignItems: 'center'
+                }}>
+                  {/* Search Input */}
+                  <div className="input-wrapper-premium" style={{ flex: 1, minWidth: '250px' }}>
+                    <div className="input-icon-left">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    </div>
+                    <input 
+                      type="text" 
+                      placeholder="Tìm kiếm hành động hoặc chi tiết..." 
+                      value={logSearch}
+                      onChange={(e) => setLogSearch(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          setLogPage(1);
+                          fetchActivityLogs(1, logSearch, logGroup);
+                        }
+                      }}
+                      className="settings-input-premium"
+                    />
+                  </div>
+
+                  {/* Group Select */}
+                  <div className="input-wrapper-premium select-wrapper" style={{ width: '220px' }}>
+                    <div className="input-icon-left">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+                    </div>
+                    <select 
+                      value={logGroup}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setLogGroup(val);
+                        setLogPage(1);
+                        fetchActivityLogs(1, logSearch, val);
+                      }}
+                      className="settings-input-premium"
+                    >
+                      <option value="">Tất cả phân nhóm</option>
+                      <option value="auth">Đăng nhập & Bảo mật</option>
+                      <option value="wallet">Ví & Chuyển tiền</option>
+                      <option value="transaction">Giao dịch thu chi</option>
+                      <option value="budget">Ngân sách hạn mức</option>
+                      <option value="savings">Tích lũy heo đất</option>
+                      <option value="category">Danh mục chi tiêu</option>
+                    </select>
+                  </div>
+
+                  {/* Filter Button */}
+                  <button 
+                    onClick={() => {
+                      setLogPage(1);
+                      fetchActivityLogs(1, logSearch, logGroup);
+                    }}
+                    className="btn-premium-gradient"
+                    style={{ height: '48px', padding: '0 24px', borderRadius: '14px', whiteSpace: 'nowrap' }}
+                  >
+                    Lọc dữ liệu
+                  </button>
+                </div>
+
+                {isLoadingLogs ? (
+                  <div style={{ padding: '40px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" style={{ animation: 'spin 1s linear infinite', marginBottom: '15px' }}><circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25"/><path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/></svg>
+                    <div>Đang lấy dữ liệu nhật ký hệ thống...</div>
+                  </div>
+                ) : activityLogs.length === 0 ? (
+                  <div style={{ 
+                    padding: '60px 20px', 
+                    textAlign: 'center', 
+                    background: 'var(--card-bg)', 
+                    borderRadius: '24px',
+                    border: '1px solid var(--border-color)',
+                    color: 'var(--text-muted)'
+                  }}>
+                    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ marginBottom: '15px', opacity: 0.5 }}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                    <div style={{ fontSize: '16px', fontWeight: '600' }}>Không tìm thấy nhật ký hoạt động nào</div>
+                    <p style={{ fontSize: '13px', marginTop: '5px' }}>Thử thay đổi từ khóa hoặc bộ lọc phân nhóm của bạn.</p>
+                  </div>
+                ) : (
+                  <div>
+                    {/* Timeline Wrapper */}
+                    <div style={{ 
+                      position: 'relative', 
+                      paddingLeft: '35px', 
+                      margin: '20px 0 40px 10px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '24px'
+                    }}>
+                      {/* Vertical line decor */}
+                      <div style={{ 
+                        position: 'absolute', 
+                        left: '0px', 
+                        top: '15px', 
+                        bottom: '15px', 
+                        width: '2px', 
+                        background: 'linear-gradient(to bottom, #6366F1 0%, rgba(99, 102, 241, 0.05) 100%)',
+                        borderRadius: '1px'
+                      }}></div>
+
+                      {activityLogs.map((log) => (
+                        <div key={log.id} style={{ position: 'relative', display: 'flex', gap: '20px' }}>
+                          {/* Dot on line */}
+                          <div style={{ 
+                            position: 'absolute', 
+                            left: '-35px', 
+                            top: '4px',
+                            zIndex: 2,
+                            transform: 'translateX(-50%)'
+                          }}>
+                            {getActivityIcon(log.action)}
+                          </div>
+
+                          {/* Log Content Card */}
+                          <div className="activity-card-premium" style={{ 
+                            flex: 1, 
+                            background: 'var(--card-bg)', 
+                            border: '1px solid var(--border-color)', 
+                            borderRadius: '18px', 
+                            padding: '18px 24px',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                            gap: '15px',
+                            boxShadow: '0 4px 20px rgba(0,0,0,0.01)',
+                            transition: 'all 0.2s ease-in-out'
+                          }}>
+                            <div style={{ flex: 1, minWidth: '250px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                                <span style={{ 
+                                  fontWeight: '800', 
+                                  color: 'var(--text-main)', 
+                                  fontSize: '15px' 
+                                }}>
+                                  {getActionTitle(log.action)}
+                                </span>
+                              </div>
+                              <p style={{ 
+                                margin: 0, 
+                                color: 'var(--text-main)', 
+                                fontSize: '14.5px',
+                                lineHeight: '1.5',
+                                fontWeight: '500'
+                              }}>
+                                {log.description}
+                              </p>
+                              <div style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '15px', 
+                                marginTop: '10px',
+                                fontSize: '12px',
+                                color: 'var(--text-muted)'
+                              }}>
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  🖥️ {parseUserAgent(log.user_agent)}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Time Badge */}
+                            <div style={{ textAlign: 'right' }}>
+                              <span style={{ 
+                                fontSize: '13px', 
+                                fontWeight: '700', 
+                                color: '#6366F1',
+                                background: 'rgba(99, 102, 241, 0.08)',
+                                padding: '6px 14px',
+                                borderRadius: '12px',
+                                display: 'inline-block'
+                              }}>
+                                {new Date(log.created_at).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' })}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Pagination */}
+                    {logLastPage > 1 && (
+                      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px', marginTop: '30px' }}>
+                        <button 
+                          onClick={() => {
+                            if (logPage > 1) {
+                              setLogPage(logPage - 1);
+                              fetchActivityLogs(logPage - 1, logSearch, logGroup);
+                            }
+                          }}
+                          disabled={logPage === 1}
+                          className="btn-premium-outline"
+                          style={{ minWidth: '100px', opacity: logPage === 1 ? 0.5 : 1 }}
+                        >
+                          Trước
+                        </button>
+                        <span style={{ fontWeight: '700', color: 'var(--text-main)' }}>
+                          Trang {logPage} / {logLastPage}
+                        </span>
+                        <button 
+                          onClick={() => {
+                            if (logPage < logLastPage) {
+                              setLogPage(logPage + 1);
+                              fetchActivityLogs(logPage + 1, logSearch, logGroup);
+                            }
+                          }}
+                          disabled={logPage === logLastPage}
+                          className="btn-premium-outline"
+                          style={{ minWidth: '100px', opacity: logPage === logLastPage ? 0.5 : 1 }}
+                        >
+                          Sau
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
             </div>

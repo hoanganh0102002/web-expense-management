@@ -4,6 +4,9 @@ import { useRouter } from 'next/navigation';
 import { useAppContext } from '../context/AppContext';
 import { useLanguage } from '../lib/translations';
 import { useAIChat } from '../context/AIChatContext';
+import VoiceTransactionModal from './VoiceTransactionModal';
+import CommandPalette from './CommandPalette';
+import { useEffect } from 'react';
 
 export default function Sidebar({ activeItem }: { activeItem: string }) {
   const { isLoggedIn, logout, hasUnreadNotifications } = useAppContext();
@@ -11,12 +14,114 @@ export default function Sidebar({ activeItem }: { activeItem: string }) {
   const router = useRouter();
   const { isOpen, setIsOpen } = useAIChat();
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState(false);
+  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(() => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('sidebar_collapsed') === 'true';
     }
     return false;
   });
+
+  // Listen for Ctrl+K global keyboard shortcut
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsCommandPaletteOpen(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Listen for direct keyboard shortcuts when not typing in input fields
+  useEffect(() => {
+    let lastKey = '';
+    let keyTimeout: NodeJS.Timeout;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      if (
+        activeEl && 
+        (activeEl.tagName === 'INPUT' || 
+         activeEl.tagName === 'TEXTAREA' || 
+         activeEl.tagName === 'SELECT' || 
+         activeEl.getAttribute('contenteditable') === 'true')
+      ) {
+        return;
+      }
+
+      const key = e.key.toLowerCase();
+
+      if (key === 'v') {
+        e.preventDefault();
+        setIsVoiceModalOpen(true);
+        return;
+      }
+
+      if (key === 't') {
+        e.preventDefault();
+        const currentTheme = localStorage.getItem('theme') || 'dark';
+        const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', nextTheme);
+        localStorage.setItem('theme', nextTheme);
+        window.dispatchEvent(new Event('storage'));
+        return;
+      }
+
+      if (lastKey === 'g') {
+        clearTimeout(keyTimeout);
+        lastKey = '';
+
+        if (key === 'd') {
+          e.preventDefault();
+          router.push('/');
+          return;
+        }
+        if (key === 'r') {
+          e.preventDefault();
+          router.push('/reports');
+          return;
+        }
+        if (key === 'w') {
+          e.preventDefault();
+          router.push('/wallets');
+          return;
+        }
+        if (key === 'b') {
+          e.preventDefault();
+          router.push('/budget');
+          return;
+        }
+        if (key === 's') {
+          e.preventDefault();
+          router.push('/settings');
+          return;
+        }
+      }
+
+      if (key === 'g') {
+        lastKey = 'g';
+        keyTimeout = setTimeout(() => {
+          lastKey = '';
+        }, 1000);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      clearTimeout(keyTimeout);
+    };
+  }, [router]);
+
+  // Listen for custom voice trigger event from command palette
+  useEffect(() => {
+    const handleOpenVoice = () => setIsVoiceModalOpen(true);
+    window.addEventListener('open-voice-transaction', handleOpenVoice);
+    return () => window.removeEventListener('open-voice-transaction', handleOpenVoice);
+  }, []);
 
   const toggleCollapse = () => {
     const newValue = !isCollapsed;
@@ -159,16 +264,105 @@ export default function Sidebar({ activeItem }: { activeItem: string }) {
         </ul>
 
         {isLoggedIn && (
-          <div className="sidebar-footer" style={{ padding: '20px 35px', marginTop: 'auto', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-            <button className="logout-btn" onClick={handleLogout}>
+          <div className="sidebar-footer" style={{ 
+            padding: isCollapsed ? '20px 0' : '20px 35px', 
+            marginTop: 'auto', 
+            borderTop: '1px solid rgba(255,255,255,0.1)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '15px',
+            alignItems: isCollapsed ? 'center' : 'stretch'
+          }}>
+            {!isCollapsed && (
+              <div 
+                onClick={() => setIsCommandPaletteOpen(true)}
+                style={{
+                  fontSize: '11px',
+                  color: 'var(--text-muted)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  background: 'var(--bg-color)',
+                  border: '1px solid var(--border-color)',
+                  padding: '6px 12px',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  fontWeight: '600',
+                  transition: 'all 0.2s'
+                }}
+                onMouseEnter={e => e.currentTarget.style.borderColor = '#1814F3'}
+                onMouseLeave={e => e.currentTarget.style.borderColor = 'var(--border-color)'}
+              >
+                <span>⌨️ Bảng lệnh</span>
+                <kbd style={{
+                  fontSize: '10px',
+                  fontWeight: '800',
+                  background: 'var(--card-bg)',
+                  border: '1px solid var(--border-color)',
+                  padding: '1px 5px',
+                  borderRadius: '4px'
+                }}>Ctrl+K</kbd>
+              </div>
+            )}
+
+            <button className="logout-btn" onClick={handleLogout} style={{ justifyContent: isCollapsed ? 'center' : 'flex-start' }}>
               <span className="logout-icon">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
               </span>
-              <span className="logout-text">{t('logout')}</span>
+              <span className="logout-text" style={{ display: isCollapsed ? 'none' : 'inline' }}>{t('logout')}</span>
             </button>
           </div>
         )}
       </aside>
+
+      {/* Floating Action Microphone Button (Global on all pages) */}
+      {isLoggedIn && (
+        <>
+          <button 
+            onClick={() => setIsVoiceModalOpen(true)}
+            style={{
+              position: 'fixed',
+              bottom: '24px',
+              right: '24px',
+              width: '52px',
+              height: '52px',
+              borderRadius: '50%',
+              background: 'linear-gradient(135deg, #1814F3 0%, #60A5FA 100%)',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '22px',
+              color: '#fff',
+              boxShadow: '0 4px 15px rgba(24, 20, 243, 0.3)',
+              zIndex: 998,
+              transition: 'all 0.2s ease-out'
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.transform = 'scale(1.08) translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 6px 20px rgba(24, 20, 243, 0.4)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.transform = 'scale(1) translateY(0)';
+              e.currentTarget.style.boxShadow = '0 4px 15px rgba(24, 20, 243, 0.3)';
+            }}
+            title="Ghi sổ nhanh bằng giọng nói"
+          >
+            🎙️
+          </button>
+          
+          <VoiceTransactionModal 
+            isOpen={isVoiceModalOpen} 
+            onClose={() => setIsVoiceModalOpen(false)} 
+          />
+          
+          <CommandPalette 
+            isOpen={isCommandPaletteOpen}
+            onClose={() => setIsCommandPaletteOpen(false)}
+          />
+        </>
+      )}
     </>
   );
 }

@@ -8,6 +8,7 @@ import { useLanguage } from './lib/translations'; // Nhập thư viện đa ngô
 import { budgetApi, reportApi, transactionApi, aiApi } from './lib/api'; // Các hàm API gọi lên server lấy ngân sách, báo cáo, giao dịch
 import { getThisMonthRange } from './lib/dateHelpers'; // Hàm lấy ngày bắt đầu và kết thúc của tháng hiện tại
 import { useAIChat } from './context/AIChatContext';
+import MorningBriefingModal from './components/MorningBriefingModal';
 
   // Hàm nhận diện và trả về biểu tượng emoji tương ứng với tên icon từ database
   const parseIcon = (iconName: string) => { // Hàm tìm và trả về emoji tương ứng với tên icon từ DB
@@ -90,6 +91,7 @@ export default function Dashboard() {
   const { setIsOpen: setChatOpen, sendMessage: sendChatMessage, startNewChat } = useAIChat();
   const [aiDigest, setAiDigest] = useState<{ summary: string; insight: string | null; suggested_questions: string[] } | null>(null);
   const [isLoadingDigest, setIsLoadingDigest] = useState(false);
+  const [isBriefingOpen, setIsBriefingOpen] = useState(false);
   const { t, tCategory } = useLanguage(); // Hook hỗ trợ dịch đa ngôn ngữ cho giao diện
   const [showWalletBalance, setShowWalletBalance] = useState(true); // State quản lý việc ẩn hoặc hiện số dư ví
   const [selectedWalletId, setSelectedWalletId] = useState<string>(''); // State lưu ID của ví đang được chọn để lọc dữ liệu
@@ -223,6 +225,9 @@ export default function Dashboard() {
   const now = useMemo(() => new Date(), []);
   const currentMonth = now.getMonth() + 1;
   const currentYear = now.getFullYear();
+  const todayDay = now.getDate();
+  const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+  const timePct = Math.round((todayDay / daysInMonth) * 100);
 
   // Load cache for budgets list when component mounts or month changes
   //Đọc từ localStorage để tải nhanh và ghi đè khi gọi API xong.
@@ -931,6 +936,47 @@ export default function Dashboard() {
           </div>
         </nav>
         <div className="content-area">
+          {/* AI Morning Briefing Banner */}
+          {isLoggedIn && (
+            <div 
+              onClick={() => setIsBriefingOpen(true)}
+              style={{
+                background: 'linear-gradient(135deg, rgba(24, 20, 243, 0.05) 0%, rgba(22, 219, 204, 0.05) 100%)',
+                border: '1px solid rgba(24, 20, 243, 0.12)',
+                borderRadius: '16px',
+                padding: '16px 20px',
+                marginBottom: '16px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                cursor: 'pointer',
+                boxShadow: '0 4px 15px rgba(24, 20, 243, 0.02)',
+                transition: 'all 0.25s ease-out'
+              }}
+              onMouseEnter={e => {
+                e.currentTarget.style.transform = 'translateY(-1px)';
+                e.currentTarget.style.boxShadow = '0 6px 18px rgba(24, 20, 243, 0.06)';
+              }}
+              onMouseLeave={e => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 4px 15px rgba(24, 20, 243, 0.02)';
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <span style={{ fontSize: '24px' }}>☀️</span>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '15px', fontWeight: '800', color: '#1814F3' }}>
+                    Bản tin tài chính sáng nay đã sẵn sàng!
+                  </h4>
+                  <p style={{ margin: '2px 0 0', fontSize: '12.5px', color: 'var(--text-light)', fontWeight: '600' }}>
+                    Xem nhanh nhận xét dòng tiền thông minh từ trợ lý AI của sếp.
+                  </p>
+                </div>
+              </div>
+              <span style={{ fontSize: '18px', color: '#1814F3', fontWeight: 'bold' }}>👉</span>
+            </div>
+          )}
+
           {/* Time Filter Bar */}
           <div style={{
             display: 'flex', /* Hiển thị dạng hộp Flexbox linh hoạt */
@@ -2135,14 +2181,35 @@ export default function Dashboard() {
                       </span>
                     </div>
 
-                    <div style={{ width: '100%', height: '12px', background: 'var(--bg-color)', borderRadius: '6px', overflow: 'hidden' }}>
+                    <div style={{ 
+                      width: '100%', 
+                      height: '12px', 
+                      background: 'var(--bg-color)', 
+                      borderRadius: '6px', 
+                      position: 'relative',
+                      marginBottom: '8px'
+                    }}>
                       <div style={{
                         width: `${Math.min(totalPct, 100)}%`,
                         height: '100%',
-                        background: totalPct >= 100 ? '#FE5C73' : totalPct >= 80 ? '#FF9800' : '#16DBCC',
+                        background: totalPct >= 100 ? '#FE5C73' : totalPct >= timePct + 15 ? '#FF9800' : '#16DBCC',
                         borderRadius: '6px',
                         transition: 'width 0.6s ease-in-out'
                       }}></div>
+                      
+                      {/* Time Marker Line */}
+                      <div 
+                        style={{
+                          position: 'absolute',
+                          top: '0',
+                          left: `${timePct}%`,
+                          width: '0',
+                          height: '100%',
+                          borderLeft: '1.5px dashed rgba(24, 20, 243, 0.45)',
+                          zIndex: 2
+                        }}
+                        title={`Mốc thời gian hiện tại: ngày ${todayDay}/${daysInMonth} (${timePct}%)`}
+                      />
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', color: '#718EBF' }}>
@@ -2157,9 +2224,13 @@ export default function Dashboard() {
                         <span style={{ color: '#FE5C73', fontWeight: '600' }}>
                           🚨 {t('over_budget') || 'Vượt ngân sách!'} ({formatCurrency(totalUsed - totalLimit)})
                         </span>
+                      ) : totalPct > timePct + 15 ? (
+                        <span style={{ color: '#FF9800', fontWeight: '600' }}>
+                          ⚠️ Sếp tiêu nhanh hơn thời gian trôi! Đã dùng {totalPct}% ngân sách (Thời gian trôi: {timePct}%)
+                        </span>
                       ) : (
                         <span style={{ color: '#16DBCC', fontWeight: '600' }}>
-                          ✓ {t('remaining_label') || 'Còn lại:'} {formatCurrency(totalLimit - totalUsed)}
+                          ✓ {t('remaining_label') || 'Còn lại:'} {formatCurrency(totalLimit - totalUsed)} (Thời gian trôi: {timePct}%)
                         </span>
                       )}
                     </div>
@@ -2432,6 +2503,13 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+      <MorningBriefingModal
+        isOpen={isBriefingOpen}
+        onClose={() => setIsBriefingOpen(false)}
+        aiDigest={aiDigest}
+        isLoadingDigest={isLoadingDigest}
+        fetchAiDigest={fetchAiDigest}
+      />
     </div>
   );
 } // Kết thúc kiểm tra điều kiện dữ liệu
