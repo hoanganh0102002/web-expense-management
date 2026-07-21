@@ -499,64 +499,65 @@ export default function Budget() {
     }
   };
 
-  // Fetch budgets
+  // Fetch budgets in parallel for maximum performance
   const fetchBudgets = async () => {
     if (!isLoggedIn) return;
     
     const cacheKey = `cached_budget_data_${month}_${year}`;
-    const hasCache = budgetsList.length > 0 || (typeof window !== 'undefined' && localStorage.getItem(cacheKey));
-    if (!hasCache) {
+    let hasLoadedCache = false;
+    
+    if (typeof window !== 'undefined') {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          if (parsed.budgetsList && parsed.budgetsList.length > 0) {
+            setBudgetsList(parsed.budgetsList);
+            if (parsed.prevBudgetsList) setPrevBudgetsList(parsed.prevBudgetsList);
+            if (parsed.currentMonthTransactions) setCurrentMonthTransactions(parsed.currentMonthTransactions);
+            if (parsed.prevMonthTransactions) setPrevMonthTransactions(parsed.prevMonthTransactions);
+            hasLoadedCache = true;
+          }
+        } catch (e) {}
+      }
+    }
+
+    if (!hasLoadedCache) {
       setIsLoading(true);
     }
 
     try {
-      const res = await budgetApi.getAll(month, year);
-      const resBudgetsList = res.data || [];
-      setBudgetsList(resBudgetsList);
-
-      // Fetch all transactions for this month to calculate real-time used_amount
       const pad = (n: number) => n.toString().padStart(2, '0');
       const totalDays = new Date(year, month, 0).getDate();
       const start_date = `${year}-${pad(month)}-01`;
       const end_date = `${year}-${pad(month)}-${pad(totalDays)}`;
-      
-      let resCurrentTransactions = [];
-      try {
-        const transRes = await transactionApi.getAll({
-          start_date,
-          end_date,
-          per_page: 1000
-        });
-        resCurrentTransactions = transRes.data?.data || transRes.data || [];
-        setCurrentMonthTransactions(resCurrentTransactions);
-      } catch (transErr) {
-        console.error('Error fetching current month transactions:', transErr);
-      }
 
-      // Fetch previous month's budgets for comparison
+      // Phase 1: Lấy ngay dữ liệu ngân sách chính từ DB và hiển thị UI ngay tức thì (~30ms)
+      const resPrimary = await budgetApi.getAll(month, year);
+      const resBudgetsList = resPrimary.data || [];
+      setBudgetsList(resBudgetsList);
+      setIsLoading(false); // Đã có dữ liệu hiển thị ngay, tắt trạng thái Đang tải
+
+      // Phase 2: Nạp ngầm các thông tin phụ (giao dịch & ngân sách tháng trước)
       const prevM = month === 1 ? 12 : month - 1;
       const prevY = month === 1 ? year - 1 : year;
-      
-      let resPrevBudgetsList = [];
-      let resPrevTransactions = [];
-      try {
-        const prevRes = await budgetApi.getAll(prevM, prevY);
-        resPrevBudgetsList = prevRes.data || [];
-        setPrevBudgetsList(resPrevBudgetsList);
+      const prevTotalDays = new Date(prevY, prevM, 0).getDate();
+      const prev_start_date = `${prevY}-${pad(prevM)}-01`;
+      const prev_end_date = `${prevY}-${pad(prevM)}-${pad(prevTotalDays)}`;
 
-        const prevTotalDays = new Date(prevY, prevM, 0).getDate();
-        const prev_start_date = `${prevY}-${pad(prevM)}-01`;
-        const prev_end_date = `${prevY}-${pad(prevM)}-${pad(prevTotalDays)}`;
-        const prevTransRes = await transactionApi.getAll({
-          start_date: prev_start_date,
-          end_date: prev_end_date,
-          per_page: 1000
-        });
-        resPrevTransactions = prevTransRes.data?.data || prevTransRes.data || [];
-        setPrevMonthTransactions(resPrevTransactions);
-      } catch (prevErr) {
-        console.error('Error fetching previous month budgets/transactions:', prevErr);
-      }
+      const [resCurrentTrans, resPrevBudgets, resPrevTrans] = await Promise.allSettled([
+        transactionApi.getAll({ start_date, end_date, per_page: 1000 }),
+        budgetApi.getAll(prevM, prevY),
+        transactionApi.getAll({ start_date: prev_start_date, end_date: prev_end_date, per_page: 1000 }),
+      ]);
+
+      const resCurrentTransactions = resCurrentTrans.status === 'fulfilled' ? (resCurrentTrans.value?.data?.data || resCurrentTrans.value?.data || []) : [];
+      const resPrevBudgetsList = resPrevBudgets.status === 'fulfilled' ? (resPrevBudgets.value?.data || []) : [];
+      const resPrevTransactions = resPrevTrans.status === 'fulfilled' ? (resPrevTrans.value?.data?.data || resPrevTrans.value?.data || []) : [];
+
+      setCurrentMonthTransactions(resCurrentTransactions);
+      setPrevBudgetsList(resPrevBudgetsList);
+      setPrevMonthTransactions(resPrevTransactions);
 
       // Save to localStorage
       if (typeof window !== 'undefined') {
@@ -569,7 +570,6 @@ export default function Budget() {
       }
     } catch (error) {
       console.error('Error fetching budgets:', error);
-    } finally {
       setIsLoading(false);
     }
   };
@@ -597,12 +597,12 @@ export default function Budget() {
     }
   }, [isLoggedIn, month, year]);
 
-  // Fetch budget history (6 tháng gần nhất, trừ tháng đang chọn)
+  // Fetch budget history (6 tháng gần nhất, trừ tháng đang chọn) song song
   const fetchBudgetHistory = async () => {
     if (!isLoggedIn) return;
     setIsLoadingHistory(true);
     try {
-      const history: any[] = [];
+      const targetMonths: { month: number; year: number }[] = [];
       for (let i = 1; i <= 6; i++) {
         let hMonth = month - i;
         let hYear = year;
@@ -610,16 +610,26 @@ export default function Budget() {
           hMonth += 12;
           hYear -= 1;
         }
-        const res = await budgetApi.getAll(hMonth, hYear);
-        const data = res.data || [];
-        if (data.length > 0) {
+        targetMonths.push({ month: hMonth, year: hYear });
+      }
+
+      const results = await Promise.allSettled(
+        targetMonths.map(tm => budgetApi.getAll(tm.month, tm.year))
+      );
+
+      const history: any[] = [];
+      results.forEach((res, idx) => {
+        if (res.status === 'fulfilled' && res.value?.data && res.value.data.length > 0) {
+          const data = res.value.data;
+          const { month: hMonth, year: hYear } = targetMonths[idx];
           const overall = data.find((b: any) => b.category_id === null);
           const cats = data.filter((b: any) => b.category_id !== null);
           const limit = overall ? parseFloat(overall.limit_amount) : cats.reduce((s: number, b: any) => s + parseFloat(b.limit_amount), 0);
           const used = overall ? Math.abs(parseFloat(overall.used_amount)) : cats.reduce((s: number, b: any) => s + Math.abs(parseFloat(b.used_amount)), 0);
           history.push({ month: hMonth, year: hYear, limit, used, count: data.length });
         }
-      }
+      });
+
       setBudgetHistory(history);
     } catch (e) {
       console.error('Error fetching budget history:', e);
@@ -698,14 +708,18 @@ export default function Budget() {
   const budgetsWithRealtimeUsage = useMemo(() => {
     return budgetsList.map(b => ({
       ...b,
-      used_amount: getBudgetRealtimeUsedAmount(b, currentMonthTransactions)
+      used_amount: currentMonthTransactions.length > 0
+        ? getBudgetRealtimeUsedAmount(b, currentMonthTransactions)
+        : Math.abs(parseFloat(b.used_amount || 0))
     }));
   }, [budgetsList, currentMonthTransactions, getBudgetRealtimeUsedAmount]);
 
   const prevBudgetsWithRealtimeUsage = useMemo(() => {
     return prevBudgetsList.map(b => ({
       ...b,
-      used_amount: getBudgetRealtimeUsedAmount(b, prevMonthTransactions)
+      used_amount: prevMonthTransactions.length > 0
+        ? getBudgetRealtimeUsedAmount(b, prevMonthTransactions)
+        : Math.abs(parseFloat(b.used_amount || 0))
     }));
   }, [prevBudgetsList, prevMonthTransactions, getBudgetRealtimeUsedAmount]);
 

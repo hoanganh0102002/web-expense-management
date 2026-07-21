@@ -478,9 +478,9 @@ export default function Reports() {
     }
   }, [balanceRanges]);
 
-  // Fetch transactions for the balance trend overall range
+  // Fetch transactions for the balance trend overall range (lazy load only when balance_trend tab is active)
   useEffect(() => {
-    if (!isLoggedIn) return;
+    if (!isLoggedIn || activeTab !== 'balance_trend') return;
     
     const fetchBalanceData = async () => {
       setIsLoadingBalance(true);
@@ -505,7 +505,7 @@ export default function Reports() {
     };
     
     fetchBalanceData();
-  }, [isLoggedIn, balanceRanges, selectedWallet]);
+  }, [isLoggedIn, balanceRanges, selectedWallet, activeTab]);
 
   // Compute all data points for all ranges (including preceding comparison range)
   const computedRanges = React.useMemo(() => {
@@ -677,7 +677,6 @@ export default function Reports() {
       if (typeof window !== 'undefined') {
         const cached = localStorage.getItem(cacheKey);
         if (cached) {
-          hasCache = true;
           try {
             const parsed = JSON.parse(cached);
             if (parsed.currentSummary) setCurrentSummary(parsed.currentSummary);
@@ -691,11 +690,17 @@ export default function Reports() {
             if (parsed.dailyData) setDailyData(parsed.dailyData);
             if (parsed.maxDailyAmt) setMaxDailyAmt(parsed.maxDailyAmt);
             if (parsed.abnormalDays) setAbnormalDays(parsed.abnormalDays);
+            hasCache = true;
           } catch (e) {}
         }
       }
 
       if (!hasCache) {
+        setTransactions([]);
+        setCurrentSummary({ income: 0, expense: 0 });
+        setPrevSummary({ income: 0, expense: 0 });
+        setTopCategories([]);
+        setTopWallets([]);
         setIsLoadingTopCategories(true);
         setIsLoadingTopWallets(true);
         setIsLoadingTrends6M(true);
@@ -956,6 +961,21 @@ export default function Reports() {
         abnormal.sort((a, b) => b.amount - a.amount);
         setAbnormalDays(abnormal.map(d => ({ ...d, avg: dailyExpenseAvg })));
 
+        // Save to cache
+        if (typeof window !== 'undefined') {
+          const cachePayload = JSON.stringify({
+            currentSummary: currentSummaryData,
+            prevSummary: prevSummaryData,
+            trends6M: trends6MData,
+            budgetMap: bMap,
+            transactions: txs,
+            insights: generatedInsights,
+            dailyData: dailyArr,
+            maxDailyAmt: Math.max(...dailyArr.map(d => Math.max(d.income, d.expense))),
+            abnormalDays: abnormal.map(d => ({ ...d, avg: dailyExpenseAvg }))
+          });
+          localStorage.setItem(cacheKey, cachePayload);
+        }
       } catch (err) {
         console.error("Error fetching data:", err);
       } finally {
@@ -967,8 +987,7 @@ export default function Reports() {
       }
     };
 
-    const timer = setTimeout(() => { fetchData(); }, 300);
-    return () => clearTimeout(timer);
+    fetchData();
   }, [isLoggedIn, startDate, endDate, selectedWallet, t, wallets, categoriesMap]);
 
   useEffect(() => {
