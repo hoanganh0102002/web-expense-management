@@ -8,7 +8,6 @@ import { useLanguage } from '../lib/translations';
 import { useToast } from '../context/ToastContext';
 import { reportApi, transactionApi, budgetApi } from '../lib/api';
 import './reports.css';
-import FinancialWeather from '../components/FinancialWeather';
 import StoryCardGenerator from '../components/StoryCardGenerator';
 
 
@@ -2598,7 +2597,6 @@ export default function Reports() {
                 </div>
               ) : (
                 <>
-                  <FinancialWeather currentSummary={currentSummary} budgetMap={budgetMap} />
                   <div className="momo-stats-card">
                 <div className="momo-stats-header">
                   <h2 className="momo-stats-title">Tình hình thu chi</h2>
